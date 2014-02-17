@@ -5,8 +5,6 @@
 #include <time.h>
 #include <pthread.h>
 #include <immintrin.h>
-#include "blake2/blake2.h"
-#include "pbkdf2.h"
 #include "tigerkdf.h"
 
 struct TigerKDFCommonDataStruct {
@@ -27,6 +25,7 @@ struct TigerKDFContextStruct {
     uint32_t p;
 };
 
+/*
 // Print the state.
 static void printState(uint32_t state[8]) {
     uint32_t i;
@@ -34,6 +33,7 @@ static void printState(uint32_t state[8]) {
         printf("%u\n", state[i]);
     }
 }
+*/
 
 // Convert a uint32_t[8] to two __m128i values.
 static void convStateFromUint32ToM128i(uint32_t state[8], __m128i *v1, __m128i *v2) {
@@ -144,8 +144,8 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
             m[toAddr/4+i] = s2;
             i++;
-//convStateFromM128iToUint32(&s1, &s2, state);
-//printState(state);
+            //convStateFromM128iToUint32(&s1, &s2, state);
+            //printState(state);
         }
     }
     convStateFromM128iToUint32(&s1, &s2, state);

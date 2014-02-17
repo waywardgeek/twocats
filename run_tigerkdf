@@ -10,5 +10,6 @@
 #     -r repetitions  -- A multiplier on the total number of times we hash
 #     -t parallelism  -- Parallelism parameter, typically the number of threads
 #     -b blockSize    -- Memory hashed in the inner loop at once, in bytes
+#     -B subBlockSize -- Length of short reads from within a block in the inner loop
 
 time ./tigerkdf -g 0 -m $((2048*1024)) -r 1 -t 2 -b 16384

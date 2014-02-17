@@ -33,16 +33,16 @@
 typedef struct HMAC_BLAKE2Context {
     blake2s_state ictx;
     blake2s_state octx;
-} HMAC_BLAKE2_CTX;
+} HMAC_BLAKE2S_CTX;
 
 /* Initialize an HMAC-BLAKE2 operation with the given key. */
-void HMAC_BLAKE2_Init(HMAC_BLAKE2_CTX * ctx, const void * _K, size_t Klen) {
+void HMAC_BLAKE2S_Init(HMAC_BLAKE2S_CTX * ctx, const void * _K, size_t Klen) {
     unsigned char pad[64];
     unsigned char khash[32];
     const unsigned char * K = _K;
     size_t i;
 
-    /* If Klen > 64, the key is really BLAKE2(K). */
+    /* If Klen > 64, the key is really BLAKE2S(K). */
     if (Klen > 64) {
         blake2s_init(&ctx->ictx, 32);
         blake2s_update(&ctx->ictx, K, Klen);
@@ -51,14 +51,14 @@ void HMAC_BLAKE2_Init(HMAC_BLAKE2_CTX * ctx, const void * _K, size_t Klen) {
         Klen = 32;
     }
 
-    /* Inner BLAKE2 operation is BLAKE2(K xor [block of 0x36] || data). */
+    /* Inner BLAKE2 operation is BLAKE2S(K xor [block of 0x36] || data). */
     blake2s_init(&ctx->ictx, 32);
     memset(pad, 0x36, 64);
     for (i = 0; i < Klen; i++)
         pad[i] ^= K[i];
     blake2s_update(&ctx->ictx, pad, 32);
 
-    /* Outer BLAKE2 operation is BLAKE2(K xor [block of 0x5c] || hash). */
+    /* Outer BLAKE2 operation is BLAKE2S(K xor [block of 0x5c] || hash). */
     blake2s_init(&ctx->octx, 32);
     memset(pad, 0x5c, 64);
     for (i = 0; i < Klen; i++)
@@ -71,7 +71,7 @@ void HMAC_BLAKE2_Init(HMAC_BLAKE2_CTX * ctx, const void * _K, size_t Klen) {
 
 /* Add bytes to the HMAC-BLAKE2 operation. */
 void
-HMAC_BLAKE2_Update(HMAC_BLAKE2_CTX * ctx, const void *in, size_t len)
+HMAC_BLAKE2S_Update(HMAC_BLAKE2S_CTX * ctx, const void *in, size_t len)
 {
 
     /* Feed data to the inner BLAKE2 operation. */
@@ -80,7 +80,7 @@ HMAC_BLAKE2_Update(HMAC_BLAKE2_CTX * ctx, const void *in, size_t len)
 
 /* Finish an HMAC-BLAKE2 operation. */
 void
-HMAC_BLAKE2_Final(unsigned char digest[32], HMAC_BLAKE2_CTX * ctx)
+HMAC_BLAKE2S_Final(unsigned char digest[32], HMAC_BLAKE2S_CTX * ctx)
 {
     unsigned char ihash[32];
 
@@ -98,13 +98,13 @@ HMAC_BLAKE2_Final(unsigned char digest[32], HMAC_BLAKE2_CTX * ctx)
 }
 
 /**
- * PBKDF2_BLAKE2(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
- * Compute PBKDF2(passwd, salt, c, dkLen) using HMAC-BLAKE2 as the PRF, and
+ * PBKDF2_BLAKE2S(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
+ * Compute PBKDF2S(passwd, salt, c, dkLen) using HMAC-BLAKE2 as the PRF, and
  * write the output to buf.  The value dkLen must be at most 32 * (2^32 - 1).
  */
-void PBKDF2_BLAKE2(const uint8_t *passwd, size_t passwdlen, const uint8_t * salt,
-        size_t saltlen, uint64_t c, uint8_t* buf, size_t dkLen) {
-    HMAC_BLAKE2_CTX PShctx, hctx;
+void PBKDF2_BLAKE2S(const uint8_t *passwd, size_t passwdlen, const uint8_t *salt,
+        size_t saltlen, uint64_t c, uint8_t *buf, size_t dkLen) {
+    HMAC_BLAKE2S_CTX PShctx, hctx;
     size_t i;
     uint8_t ivec[4];
     uint8_t U[32];
@@ -114,8 +114,8 @@ void PBKDF2_BLAKE2(const uint8_t *passwd, size_t passwdlen, const uint8_t * salt
     size_t clen;
 
     /* Compute HMAC state after processing P and S. */
-    HMAC_BLAKE2_Init(&PShctx, passwd, passwdlen);
-    HMAC_BLAKE2_Update(&PShctx, salt, saltlen);
+    HMAC_BLAKE2S_Init(&PShctx, passwd, passwdlen);
+    HMAC_BLAKE2S_Update(&PShctx, salt, saltlen);
 
     /* Iterate through the blocks. */
     for (i = 0; i * 32 < dkLen; i++) {
@@ -123,18 +123,18 @@ void PBKDF2_BLAKE2(const uint8_t *passwd, size_t passwdlen, const uint8_t * salt
         be32enc(ivec, (uint32_t)(i + 1));
 
         /* Compute U_1 = PRF(P, S || INT(i)). */
-        memcpy(&hctx, &PShctx, sizeof(HMAC_BLAKE2_CTX));
-        HMAC_BLAKE2_Update(&hctx, ivec, 4);
-        HMAC_BLAKE2_Final(U, &hctx);
+        memcpy(&hctx, &PShctx, sizeof(HMAC_BLAKE2S_CTX));
+        HMAC_BLAKE2S_Update(&hctx, ivec, 4);
+        HMAC_BLAKE2S_Final(U, &hctx);
 
         /* T_i = U_1 ... */
         memcpy(T, U, 32);
 
         for (j = 2; j <= c; j++) {
             /* Compute U_j. */
-            HMAC_BLAKE2_Init(&hctx, passwd, passwdlen);
-            HMAC_BLAKE2_Update(&hctx, U, 32);
-            HMAC_BLAKE2_Final(U, &hctx);
+            HMAC_BLAKE2S_Init(&hctx, passwd, passwdlen);
+            HMAC_BLAKE2S_Update(&hctx, U, 32);
+            HMAC_BLAKE2S_Final(U, &hctx);
 
             /* ... xor U_j ... */
             for (k = 0; k < 32; k++)
@@ -149,5 +149,5 @@ void PBKDF2_BLAKE2(const uint8_t *passwd, size_t passwdlen, const uint8_t * salt
     }
 
     /* Clean PShctx, since we never called _Final on it. */
-    memset(&PShctx, 0, sizeof(HMAC_BLAKE2_CTX));
+    memset(&PShctx, 0, sizeof(HMAC_BLAKE2S_CTX));
 }

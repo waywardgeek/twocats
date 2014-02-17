@@ -38,7 +38,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint8_t startG
         xorIntoHash(hash, hashSize, mem, blocklen, numblocks, parallelism);
         numblocks *= 2;
         if(i < stopGarlic || !skipLastHash) {
-            H(hash, hashSize, hash, hashSize, &i, 1);
+            H(hash, hashSize, hash, hashSize, NULL, 0);
         }
     }
     free(mem);
@@ -49,10 +49,11 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint8_t startG
 static void hashWithoutPassword(uint32_t p, uint8_t *hash, uint32_t hashSize, uint32_t *mem,
         uint32_t blocklen, uint32_t numblocks, uint32_t repetitions) {
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    uint8_t threadKey[blocklen*sizeof(uint32_t)];
+    uint32_t keySize = blocklen*sizeof(uint32_t);
+    uint8_t threadKey[keySize];
     uint8_t s[sizeof(uint32_t)];
     be32enc(s, p);
-    H(threadKey, blocklen*sizeof(uint32_t), hash, hashSize, s, sizeof(uint32_t));
+    H(threadKey, keySize, hash, hashSize, s, sizeof(uint32_t));
     be32dec_vect(mem + start, threadKey, blocklen*sizeof(uint32_t));
     uint32_t value = 1;
     uint32_t mask = 1;

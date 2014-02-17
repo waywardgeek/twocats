@@ -20,7 +20,8 @@ static void usage(char *format, ...) {
         "    -M multipliesPerBlock -- The number of sequential multiplies to execute per block\n"
         "    -r repetitions  -- A multiplier on the total number of times we hash\n"
         "    -t parallelism  -- Parallelism parameter, typically the number of threads\n"
-        "    -b blockSize    -- Memory hashed in the inner loop at once, in bytes\n");
+        "    -b blockSize    -- Memory hashed in the inner loop at once, in bytes\n"
+        "    -B subBlockSize -- Length of short reads from within a block in the inner loop\n");
     exit(1);
 }
 
@@ -98,13 +99,13 @@ static void printHex(
 
 int main(int argc, char **argv) {
     uint32_t memorySize = 2048*1024, derivedKeySize = 32;
-    uint32_t repetitions = 1, parallelism = 2, blockSize = 16384;
+    uint32_t repetitions = 1, parallelism = 2, blockSize = 16384, subBlockSize = 0;
     uint8_t garlic = 0;
     uint8_t *salt = (uint8_t *)"salt";
     uint32_t saltSize = 4;
     uint8_t *password = (uint8_t *)"password";
     uint32_t passwordSize = 8;
-    uint32_t multipliesPerBlock = 4096;
+    uint32_t multipliesPerBlock = 3000;
 
     char c;
     while((c = getopt(argc, argv, "h:p:s:g:m:M:r:t:b:d")) != -1) {
@@ -145,11 +146,12 @@ int main(int argc, char **argv) {
         usage("Extra parameters not recognised\n");
     }
 
-    printf("garlic:%u memorySize:%u multipliesPerBlock:%u repetitions:%u numThreads:%u blockSize:%u\n", 
-        garlic, memorySize, multipliesPerBlock, repetitions, parallelism, blockSize);
+    printf("garlic:%u memorySize:%u multipliesPerBlock:%u repetitions:%u numThreads:%u blockSize:%u subBlockSize:%u\n", 
+        garlic, memorySize, multipliesPerBlock, repetitions, parallelism, blockSize, subBlockSize);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
     if(!TigerKDF_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
-            memorySize, multipliesPerBlock, garlic, NULL, 0, blockSize, parallelism, repetitions)) {
+            memorySize, multipliesPerBlock, garlic, NULL, 0, blockSize, subBlockSize, parallelism,
+            repetitions, false)) {
         fprintf(stderr, "Key stretching failed.\n");
         return 1;
     }

@@ -2,6 +2,8 @@
  * Copyright 2005,2007,2009 Colin Percival
  * All rights reserved.
  *
+ * Modifications for TigerKDF by Bill Cox, 2013
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -23,7 +25,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libmd/sha256.h,v 1.2 2006/01/17 15:35:56 phk Exp $
  */
 
 #ifndef _PBKDF2_H_
@@ -34,11 +35,11 @@
 #include <stdint.h>
 
 /**
- * PBKDF2_BLAKE2(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
- * Compute PBKDF2(passwd, salt, c, dkLen) using HMAC-BLAKE2 as the PRF, and
+ * PBKDF2_BLAKE2S(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
+ * Compute PBKDF2(passwd, salt, c, dkLen) using HMAC-BLAKE2S as the PRF, and
  * write the output to buf.  The value dkLen must be at most 32 * (2^32 - 1).
  */
-void PBKDF2_BLAKE2(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t, uint8_t *, size_t);
+void PBKDF2_BLAKE2S(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t, uint8_t *, size_t);
 
 static inline void
 be32enc(void *pp, uint32_t x)
