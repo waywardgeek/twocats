@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# This should result in 808DB300D0388C6EA5B5B73901FE85273E663C0424974D96056D2B7E68803DA3
+# You may need the to install the pbkdf2 and Crypto.Hash packages for the Python to run.
+
+noelkdf -m 3 -r 4 -b 64 -t 2
+noelkdf-ref -m 3 -r 4 -b 64 -t 2
+python2 noelkdf.py
