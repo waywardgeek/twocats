@@ -255,22 +255,22 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
-    uint32_t *mem = (uint32_t *)aligned_alloc(32, memlen*sizeof(uint32_t));
-    if(mem == NULL) {
+    uint32_t *mem;
+    if(posix_memalign((void *)&mem,  32, memlen*sizeof(uint32_t))) {
         return false;
     }
     pthread_t multThread;
-    pthread_t *memThreads = (pthread_t *)aligned_alloc(32, parallelism*sizeof(pthread_t));
+    pthread_t *memThreads = (pthread_t *)malloc(parallelism*sizeof(pthread_t));
     if(memThreads == NULL) {
         return false;
     }
-    struct TigerKDFContextStruct *c = (struct TigerKDFContextStruct *)aligned_alloc(32,
+    struct TigerKDFContextStruct *c = (struct TigerKDFContextStruct *)malloc(
             parallelism*sizeof(struct TigerKDFContextStruct));
     if(c == NULL) {
         return false;
     }
     struct TigerKDFCommonDataStruct common;
-    uint32_t *multHashes = (uint32_t *)aligned_alloc(32, 8*sizeof(uint32_t)*memlen/blocklen);
+    uint32_t *multHashes = (uint32_t *)malloc(8*sizeof(uint32_t)*memlen/blocklen);
     if(multHashes == NULL) {
         return false;
     }
