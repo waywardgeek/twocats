@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
     uint32_t multipliesPerBlock = 3000;
 
     char c;
-    while((c = getopt(argc, argv, "h:p:s:g:m:M:r:t:b:d")) != -1) {
+    while((c = getopt(argc, argv, "h:p:s:g:m:M:r:t:b:B:")) != -1) {
         switch (c) {
         case 'h':
             derivedKeySize = readuint32_t(c, optarg);
@@ -137,6 +137,9 @@ int main(int argc, char **argv) {
             break;
         case 'b':
             blockSize = readuint32_t(c, optarg);
+            break;
+        case 'B':
+            subBlockSize = readuint32_t(c, optarg);
             break;
         default:
             usage("Invalid argumet");

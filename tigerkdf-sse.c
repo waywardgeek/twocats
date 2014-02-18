@@ -71,7 +71,7 @@ static void *multHash(void *commonPtr) {
     uint32_t state[8];
     H(threadKey, 32, hash, hashSize, s, sizeof(uint32_t));
     be32dec_vect(state, threadKey, 32);
-uint32_t numMults = 0;
+    uint32_t numMults = 0;
     uint32_t i;
     for(i = 1; i < numblocks*2; i++) {
         uint32_t j;
@@ -130,18 +130,25 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     convStateFromUint32ToM128i(state, &s1, &s2);
     uint64_t prevAddr = toAddr - blocklen;
     __m128i *m = (__m128i *)mem;
-    uint32_t mask = subBlocklen - 1;
+    uint32_t numSubBlocks = blocklen/subBlocklen;
+    uint32_t mask = numSubBlocks - 1;
     __m128i shiftRightVal = _mm_set_epi32(25, 25, 25, 25);
     __m128i shiftLeftVal = _mm_set_epi32(7, 7, 7, 7);
+    //printf("blocklen:%u subBlocklen:%u\n", blocklen, subBlocklen);
     uint32_t r;
     for(r = 0; r < repetitions; r++) {
         __m128i *f = m + fromAddr/4;
-        __m128i *t = m + prevAddr/4;
+        __m128i *t = m + toAddr/4;
         uint32_t i;
-        for(i = 0; i < blocklen/subBlocklen; i++) {
-            __m128i *p = m + prevAddr/4 + ((*(uint32_t *)f & mask)/4);
+        for(i = 0; i < numSubBlocks; i++) {
+            __m128i *p = m + prevAddr/4 + (subBlocklen/4)*(*(uint32_t *)f & mask);
             uint32_t j;
             for(j = 0; j < subBlocklen/8; j++) {
+                /*
+                if(subBlocklen != blocklen) {
+                    printf("f:%lu p:%lu t:%lu\n", f - m, p - m, t - m);
+                }
+                */
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
                 // Rotate right 7
@@ -280,6 +287,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     if(c == NULL) {
         return false;
     }
+    printf("subBlockSize:%u\n", subBlockSize);
     struct TigerKDFCommonDataStruct common;
     uint32_t *multHashes = (uint32_t *)malloc(8*sizeof(uint32_t)*memlen/blocklen);
     if(multHashes == NULL) {
