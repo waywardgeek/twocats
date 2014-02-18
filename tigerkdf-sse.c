@@ -281,6 +281,10 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
+    multipliesPerBlock = 8*(multipliesPerBlock/8);
+    if(multipliesPerBlock == 0) {
+        multipliesPerBlock = 8;
+    }
     uint32_t *mem;
     if(posix_memalign((void *)&mem,  32, memlen*sizeof(uint32_t))) {
         return false;

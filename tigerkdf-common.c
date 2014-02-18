@@ -18,10 +18,9 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     if(hashSize > 1024 || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
             passwordSize == 0 || saltSize > 1024  || saltSize == 0 || memSize == 0 ||
             memSize > 1 << 30 || multipliesPerBlock > 1 << 30 || multipliesPerBlock == 0 ||
-            (multipliesPerBlock & 0x7) != 0 || startGarlic > stopGarlic || stopGarlic > 30 ||
-            dataSize > 1024 || blockSize > 1 << 30 || blockSize < hashSize ||
-            blockSize & 0x1f || subBlockSize > blockSize || subBlockSize & 0x1f ||
-            subBlockSize*(blockSize/subBlockSize) != blockSize ||
+            startGarlic > stopGarlic || stopGarlic > 30 || dataSize > 1024 || blockSize > 1 << 30 ||
+            blockSize < hashSize || blockSize & 0x1f || subBlockSize > blockSize ||
+            subBlockSize & 0x1f || subBlockSize*(blockSize/subBlockSize) != blockSize ||
             ((uint64_t)memSize << 10) < 4*(uint64_t)blockSize*parallelism || parallelism == 0 ||
             parallelism > 1 << 20 || repetitions == 0 || repetitions > 1 << 30) {
         return false;
@@ -30,13 +29,13 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     if(totalSize >> (10 + stopGarlic) != memSize || totalSize > 1LL << 50 || totalSize/blockSize > 1 << 30) {
         return false;
     }
-    if(subBlockSize != blockSize) {
-        while((subBlockSize & 1) == 0) {
-            subBlockSize >>= 1;
-        }
-        if(subBlockSize != 1) {
-            return false;
-        }
+    // numSubBlocks has to be a power of 2 so we can use a simple mask to select a random-ish one
+    uint32_t numSubBlocks = blockSize/subBlockSize;
+    while((numSubBlocks & 1) == 0) {
+        numSubBlocks >>= 1;
+    }
+    if(numSubBlocks != 1) {
+        return false;
     }
     return true;
 }
