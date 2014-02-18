@@ -71,6 +71,7 @@ static void *multHash(void *commonPtr) {
     uint32_t state[8];
     H(threadKey, 32, hash, hashSize, s, sizeof(uint32_t));
     be32dec_vect(state, threadKey, 32);
+uint32_t numMults = 0;
     uint32_t i;
     for(i = 1; i < numblocks*2; i++) {
         uint32_t j;
@@ -88,9 +89,11 @@ static void *multHash(void *commonPtr) {
             state[5] = (state[5]*(state[6] | 1)) ^ (state[7] >> 1);
             state[6] = (state[6]*(state[7] | 1)) ^ (state[0] >> 1);
             state[7] = (state[7]*(state[0] | 1)) ^ (state[1] >> 1);
+            numMults += 8;
             //printState(state);
         }
     }
+    printf("mults:%u\n", numMults);
     pthread_exit(NULL);
 }
 
@@ -163,7 +166,7 @@ static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct
     while(iteration >= c->completedMultiplies) {
         struct timespec ts;
         ts.tv_sec = 0;
-        ts.tv_nsec = 1000000; // 1ms
+        ts.tv_nsec = 100000; // 0.1ms
         nanosleep(&ts, NULL);
     }
     uint32_t i;
