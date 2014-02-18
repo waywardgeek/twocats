@@ -190,10 +190,10 @@ static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct
     for(i = 0; i < 8; i++) {
         state[i] ^= c->multHashes[iteration*8 + i];
     }
-    // Perform blake2s hash on the state
+    // Perform one crypt-strength hash on the state
     uint8_t buf[32];
     be32enc_vect(buf, state, 32);
-    blake2s(buf, buf, NULL, 32, 32, 0);
+    H(buf, 32, buf, 32, NULL, 0);
     be32dec_vect(state, buf, 32);
 }
 
