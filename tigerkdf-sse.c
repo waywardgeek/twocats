@@ -285,9 +285,6 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     if(multHashes == NULL) {
         return false;
     }
-    if(c == NULL) {
-        return false;
-    }
     uint8_t i;
     for(i = startGarlic; i <= stopGarlic; i++) {
         common.multHashes = multHashes;
