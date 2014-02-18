@@ -13,7 +13,25 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
 // This is the crytographically strong password hashing function based on Blake2s.
 static inline void H(uint8_t *out, uint32_t outlen, const uint8_t *in, uint32_t inlen, const uint8_t *key,
         uint32_t keylen) {
-    blake2s(out, in, key, outlen, inlen, keylen);
+    if(outlen < BLAKE2S_OUTBYTES) {
+        if(blake2s(out, in, key, outlen, inlen, keylen)) {
+            printf("Error in blake2s\n");
+            exit(1);
+        }
+    } else {
+        if(blake2s(out, in, key, BLAKE2S_OUTBYTES, inlen, keylen)) {
+            printf("Error in blake2s\n");
+            exit(1);
+        }
+        uint32_t i;
+        for(i = BLAKE2S_OUTBYTES; i < outlen; i += BLAKE2S_OUTBYTES) {
+            uint8_t length = i + BLAKE2S_OUTBYTES <= outlen? BLAKE2S_OUTBYTES : outlen - i;
+            if(blake2s(out + i, out + i - BLAKE2S_OUTBYTES, NULL, length, BLAKE2S_OUTBYTES, 0)) {
+                printf("Error in blake2s\n");
+                exit(1);
+            }
+        }
+    }
 }
 
 // This is a PBKDF2 password hashing function based currently on Blake2s

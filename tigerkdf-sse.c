@@ -4,8 +4,21 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
-#include <immintrin.h>
 #include "tigerkdf.h"
+
+#include <emmintrin.h>
+#if defined(HAVE_SSSE3)
+#include <tmmintrin.h>
+#endif
+#if defined(HAVE_SSE41)
+#include <smmintrin.h>
+#endif
+#if defined(HAVE_AVX)
+#include <immintrin.h>
+#endif
+#if defined(HAVE_XOP)
+#include <x86intrin.h>
+#endif
 
 struct TigerKDFCommonDataStruct {
     uint32_t *mem;
@@ -18,7 +31,7 @@ struct TigerKDFCommonDataStruct {
     uint32_t numblocks;
     uint32_t repetitions;
     uint32_t multipliesPerBlock;
-    uint32_t completedMultiplies;
+    volatile uint32_t completedMultiplies;
 };
 
 struct TigerKDFContextStruct {
@@ -31,8 +44,9 @@ struct TigerKDFContextStruct {
 static void printState(uint32_t state[8]) {
     uint32_t i;
     for(i = 0; i < 8; i++) {
-        printf("%u\n", state[i]);
+        printf("%u ", state[i]);
     }
+    printf("\n");
 }
 */
 
@@ -44,14 +58,15 @@ static void convStateFromUint32ToM128i(uint32_t state[8], __m128i *v1, __m128i *
 
 // Convert two __m128i to uint32_t[8].
 static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[8]) {
-    state[0] = _mm_extract_epi32(*v1, 0);
-    state[1] = _mm_extract_epi32(*v1, 1);
-    state[2] = _mm_extract_epi32(*v1, 2);
-    state[3] = _mm_extract_epi32(*v1, 3);
-    state[4] = _mm_extract_epi32(*v2, 0);
-    state[5] = _mm_extract_epi32(*v2, 1);
-    state[6] = _mm_extract_epi32(*v2, 2);
-    state[7] = _mm_extract_epi32(*v2, 3);
+    uint32_t *p = (uint32_t *)v1;
+    uint32_t i;
+    for(i = 0; i < 4; i++) {
+        state[i] = p[i];
+    }
+    p = (uint32_t *)v2;
+    for(i = 0; i < 4; i++) {
+        state[i+4] = p[i];
+    }
 }
 
 // Do low-bandwidth multplication hashing.
@@ -126,7 +141,8 @@ static uint32_t bitReverse(uint32_t value, uint32_t mask) {
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint64_t fromAddr, uint64_t toAddr, uint32_t repetitions) {
-    __m128i s1, s2;
+    __m128i s1;
+    __m128i s2;
     convStateFromUint32ToM128i(state, &s1, &s2);
     uint64_t prevAddr = toAddr - blocklen;
     __m128i *m = (__m128i *)mem;
@@ -134,7 +150,6 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     uint32_t mask = numSubBlocks - 1;
     __m128i shiftRightVal = _mm_set_epi32(25, 25, 25, 25);
     __m128i shiftLeftVal = _mm_set_epi32(7, 7, 7, 7);
-    //printf("blocklen:%u subBlocklen:%u\n", blocklen, subBlocklen);
     uint32_t r;
     for(r = 0; r < repetitions; r++) {
         __m128i *f = m + fromAddr/4;
@@ -144,11 +159,6 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             __m128i *p = m + prevAddr/4 + (subBlocklen/4)*(*(uint32_t *)f & mask);
             uint32_t j;
             for(j = 0; j < subBlocklen/8; j++) {
-                /*
-                if(subBlocklen != blocklen) {
-                    printf("f:%lu p:%lu t:%lu\n", f - m, p - m, t - m);
-                }
-                */
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
                 // Rotate right 7
@@ -159,7 +169,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
                 // Rotate right 7
                 s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
                 *t++ = s2;
-                //convStateFromM128iToUint32(&s1, &s2, state);
+                //convStateFromM128iToUint32(s1, s2, state);
                 //printState(state);
             }
         }
@@ -219,7 +229,6 @@ static void *hashWithoutPassword(void *contextPtr) {
             reversePos += mask;
         }
         uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
-        //printf("hashing block %u without password\n", i);
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions);
         hashMultItoState(i, c, state);
         toAddr += blocklen;
@@ -257,7 +266,6 @@ static void *hashWithPassword(void *contextPtr) {
             uint32_t b = numblocks - 1 - (distance - i);
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
-        //printf("hashing block %u with password\n", i);
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions);
         hashMultItoState(i, c, state);
         toAddr += blocklen;
@@ -287,7 +295,6 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     if(c == NULL) {
         return false;
     }
-    printf("subBlockSize:%u\n", subBlockSize);
     struct TigerKDFCommonDataStruct common;
     uint32_t *multHashes = (uint32_t *)malloc(8*sizeof(uint32_t)*memlen/blocklen);
     if(multHashes == NULL) {
@@ -326,7 +333,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         for(p = 0; p < parallelism; p++) {
             (void)pthread_join(memThreads[p], NULL);
         }
-        (void)pthread_join(multThread, NULL);
+        //printf("Joined initial threads\n");
         for(p = 0; p < parallelism; p++) {
             int rc = pthread_create(&memThreads[p], NULL, hashWithPassword, (void *)(c + p));
             if(rc) {
@@ -337,6 +344,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         for(p = 0; p < parallelism; p++) {
             (void)pthread_join(memThreads[p], NULL);
         }
+        (void)pthread_join(multThread, NULL);
         xorIntoHash(hash, hashSize, mem, blocklen, numblocks, parallelism);
         numblocks *= 2;
         if(i < stopGarlic || !skipLastHash) {
