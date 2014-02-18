@@ -8,6 +8,12 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
         bool skipLastHash);
 
+// Prevents compiler optimizing out memset() -- from blake2-impl.h
+static inline void secure_zero_memory(void *v, size_t n) {
+    volatile uint8_t *p = ( volatile uint8_t * )v;
+    while( n-- ) *p++ = 0;
+}
+
 // Verify that parameters are valid for password hashing.
 static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t saltSize, uint32_t memSize,
         uint32_t multipliesPerBlock, uint8_t startGarlic, uint8_t stopGarlic, uint32_t dataSize, uint32_t blockSize,
@@ -40,14 +46,14 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     return true;
 }
 
-// A simple password hashing interface.  MemSize is in KiB.  The password is cleared with memset.
+// A simple password hashing interface.  MemSize is in KiB.  The password is cleared with secure_zero_memory.
 bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint32_t memSize) {
     if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, 4096, 0, 0, 0, 16384, 0, 1, 1)) {
         return false;
     }
     PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
-    memset(password, '\0', passwordSize);
+    secure_zero_memory(password, passwordSize);
     return TigerKDF(hash, hashSize, memSize, 3000, 0, 0, 16384, 0, 2, 1, false);
 }
 
@@ -68,9 +74,9 @@ bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, 
         PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
     }
     if(clearPassword) {
-        memset(password, '\0', passwordSize);
+        secure_zero_memory(password, passwordSize);
         if(data != NULL && dataSize != 0) {
-            memset(data, '\0', dataSize);
+            secure_zero_memory(data, dataSize);
         }
     }
     return TigerKDF(hash, hashSize, memSize, multipliesPerBlock, 0, garlic, blockSize, subBlockSize, parallelism,
@@ -106,9 +112,9 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
         PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
     }
     if(clearPassword) {
-        memset(password, '\0', passwordSize);
+        secure_zero_memory(password, passwordSize);
         if(data != NULL && dataSize != 0) {
-            memset(data, '\0', dataSize);
+            secure_zero_memory(data, dataSize);
         }
     }
     return TigerKDF(hash, hashSize, memSize, multipliesPerBlock, 0, garlic, blockSize, subBlockSize ,
