@@ -14,6 +14,7 @@ struct TigerKDFCommonDataStruct {
     uint32_t hashSize;
     uint32_t parallelism;
     uint32_t blocklen;
+    uint32_t subBlocklen;
     uint32_t numblocks;
     uint32_t repetitions;
     uint32_t multipliesPerBlock;
@@ -120,32 +121,37 @@ static uint32_t bitReverse(uint32_t value, uint32_t mask) {
 }
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
-static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint64_t fromAddr,
-        uint64_t toAddr, uint32_t repetitions) {
+static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
+        uint64_t fromAddr, uint64_t toAddr, uint32_t repetitions) {
     __m128i s1, s2;
     convStateFromUint32ToM128i(state, &s1, &s2);
     uint64_t prevAddr = toAddr - blocklen;
     __m128i *m = (__m128i *)mem;
+    uint32_t mask = subBlocklen - 1;
     __m128i shiftRightVal = _mm_set_epi32(25, 25, 25, 25);
     __m128i shiftLeftVal = _mm_set_epi32(7, 7, 7, 7);
-    uint32_t i;
     uint32_t r;
     for(r = 0; r < repetitions; r++) {
-        for(i = 0; i < blocklen/4;) {
-            s1 = _mm_add_epi32(s1, m[prevAddr/4+i]);
-            s1 = _mm_xor_si128(s1, m[fromAddr/4+i]);
-            // Rotate right 7
-            s1 = _mm_or_si128(_mm_srl_epi32(s1, shiftRightVal), _mm_sll_epi32(s1, shiftLeftVal));
-            m[toAddr/4+i] = s1;
-            i++;
-            s2 = _mm_add_epi32(s2, m[prevAddr/4+i]);
-            s2 = _mm_xor_si128(s2, m[fromAddr/4+i]);
-            // Rotate right 7
-            s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
-            m[toAddr/4+i] = s2;
-            i++;
-            //convStateFromM128iToUint32(&s1, &s2, state);
-            //printState(state);
+        __m128i *f = m + fromAddr/4;
+        __m128i *t = m + prevAddr/4;
+        uint32_t i;
+        for(i = 0; i < blocklen/subBlocklen; i++) {
+            __m128i *p = m + prevAddr/4 + ((*(uint32_t *)f & mask)/4);
+            uint32_t j;
+            for(j = 0; j < subBlocklen/8; j++) {
+                s1 = _mm_add_epi32(s1, *p++);
+                s1 = _mm_xor_si128(s1, *f++);
+                // Rotate right 7
+                s1 = _mm_or_si128(_mm_srl_epi32(s1, shiftRightVal), _mm_sll_epi32(s1, shiftLeftVal));
+                *t++ = s1;
+                s2 = _mm_add_epi32(s2, *p++);
+                s2 = _mm_xor_si128(s2, *f++);
+                // Rotate right 7
+                s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
+                *t++ = s2;
+                //convStateFromM128iToUint32(&s1, &s2, state);
+                //printState(state);
+            }
         }
     }
     convStateFromM128iToUint32(&s1, &s2, state);
@@ -203,8 +209,8 @@ static void *hashWithoutPassword(void *contextPtr) {
             reversePos += mask;
         }
         uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
-//printf("hashing block %u without password\n", i);
-        hashBlocks(state, mem, blocklen, fromAddr, toAddr, repetitions);
+        //printf("hashing block %u without password\n", i);
+        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions);
         hashMultItoState(i, c, state);
         toAddr += blocklen;
     }
@@ -220,6 +226,7 @@ static void *hashWithPassword(void *contextPtr) {
     uint32_t parallelism = c->parallelism;
     uint32_t p = ctx->p;
     uint32_t blocklen = c->blocklen;
+    uint32_t subBlocklen = c->subBlocklen;
     uint32_t numblocks = c->numblocks;
     uint32_t repetitions = c->repetitions;
 
@@ -240,8 +247,8 @@ static void *hashWithPassword(void *contextPtr) {
             uint32_t b = numblocks - 1 - (distance - i);
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
-//printf("hashing block %u with password\n", i);
-        hashBlocks(state, mem, blocklen, fromAddr, toAddr, repetitions);
+        //printf("hashing block %u with password\n", i);
+        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions);
         hashMultItoState(i, c, state);
         toAddr += blocklen;
     }
@@ -250,7 +257,8 @@ static void *hashWithPassword(void *contextPtr) {
 
 // The TigerKDF password hashing function.  MemSize is in KiB.
 bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerBlock, uint8_t startGarlic,
-        uint8_t stopGarlic, uint32_t blockSize, uint32_t parallelism, uint32_t repetitions, bool skipLastHash) {
+        uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
+        bool skipLastHash) {
     uint64_t memlen = (1 << 10)*(uint64_t)memSize/sizeof(uint32_t);
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
@@ -286,6 +294,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         common.mem = mem;
         common.numblocks = numblocks;
         common.blocklen = blocklen;
+        common.subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
         common.parallelism = parallelism;
         common.repetitions = repetitions;
         common.multHashes = multHashes;
