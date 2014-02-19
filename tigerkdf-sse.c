@@ -373,6 +373,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
             H(hash, hashSize, hash, hashSize, &i, 1);
         }
     }
+    // The light is green, the trap is clean
     free(multHashes);
     free(c);
     free(memThreads);
