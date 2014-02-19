@@ -141,6 +141,11 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 }
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
+// Basically, it does for every 8 words:
+//     for(i = 0; i < 8; i++) {
+//         state[i] = ROTATE_RIGHT((state[i] + *p++) ^ *f++, 7);
+//         *t++ = state[i];
+//     }
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint64_t fromAddr, uint64_t toAddr, uint32_t repetitions) {
     __m128i s1;
@@ -174,8 +179,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     convStateFromM128iToUint32(&s1, &s2, state);
 }
 
-// Hash the multiply context into our state.  If the multiplies are falling behind, sleep
-// for a while.
+// Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
 static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct *c, uint32_t *state) {
     while(iteration >= c->completedMultiplies) {
         struct timespec ts;
@@ -189,9 +193,12 @@ static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct
     hashState(state);
 }
 
-// Reverse function modified from Catena's version
-uint32_t reverse(uint64_t x, const uint8_t n)
+// Bit-reversal function derived from Catena's version.
+uint32_t reverse(uint32_t x, const uint8_t n)
 {
+    if(n == 0) {
+        return 0;
+    }
     x = bswap_32(x);
     x = ((x & 0x0f0f0f0f) << 4) | ((x & 0xf0f0f0f0) >> 4);
     x = ((x & 0x33333333) << 2) | ((x & 0xcccccccc) >> 2);
@@ -200,6 +207,7 @@ uint32_t reverse(uint64_t x, const uint8_t n)
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
+// Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
 static void *hashWithoutPassword(void *contextPtr) {
     struct TigerKDFContextStruct *ctx = (struct TigerKDFContextStruct *)contextPtr;
     struct TigerKDFCommonDataStruct *c = ctx->common;

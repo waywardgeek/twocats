@@ -1,6 +1,6 @@
 CC=gcc
 #CFLAGS=-std=c99 -Wall -pedantic -g -march=native
-CFLAGS=-std=c99 -Wall -pedantic -g -O3 -march=native
+CFLAGS=-std=c99 -Wall -pedantic -O3 -march=native
 #CFLAGS=-O3 -std=c99 -W -Wall -funroll-loops
 #CFLAGS=-O3 -std=c99 -W -Wall -msse4.2
 #CFLAGS=-g -std=c99 -W -Wall
