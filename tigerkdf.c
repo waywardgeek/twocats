@@ -69,7 +69,6 @@ static void *multHash(void *commonPtr) {
     uint32_t state[8];
     H(threadKey, 32, hash, hashSize, s, sizeof(uint32_t));
     be32dec_vect(state, threadKey, 32);
-    uint32_t numMults = 0;
     for(uint32_t i = 0; i < numblocks*2; i++) {
         uint32_t j;
         for(j = 0; j < multipliesPerBlock * repetitions; j += 8) {
@@ -82,7 +81,6 @@ static void *multHash(void *commonPtr) {
             state[5] = (state[5]*(state[6] | 1)) ^ (state[7] >> 1);
             state[6] = (state[6]*(state[7] | 1)) ^ (state[0] >> 1);
             state[7] = (state[7]*(state[0] | 1)) ^ (state[1] >> 1);
-            numMults += 8;
         }
         // Apply a crypt-strength hash to the state and broadcast the result
         hashState(state);
@@ -282,7 +280,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
-    uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blocklen/(8*1024));
+    uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blockSize/(8*1024));
     if(multipliesPerBlock == 0) {
         multipliesPerBlock = 8;
     }
@@ -316,8 +314,6 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     common.subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
     common.parallelism = parallelism;
     common.repetitions = repetitions;
-    common.multHashes = multHashes;
-    common.multipliesPerBlock = multipliesPerBlock;
     // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
         common.numblocks = numblocks;
