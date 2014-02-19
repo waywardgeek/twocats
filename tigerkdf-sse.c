@@ -4,9 +4,10 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+#include <byteswap.h>
 #include "tigerkdf.h"
 
-// Include code copied from blake2s.c
+// This include code copied from blake2s.c
 #include <emmintrin.h>
 #if defined(HAVE_SSSE3)
 #include <tmmintrin.h>
@@ -52,25 +53,6 @@ static void printState(uint32_t state[8]) {
 }
 */
 
-// Convert a uint32_t[8] to two __m128i values.
-static void convStateFromUint32ToM128i(uint32_t state[8], __m128i *v1, __m128i *v2) {
-    *v1 = _mm_set_epi32(state[3], state[2], state[1], state[0]);
-    *v2 = _mm_set_epi32(state[7], state[6], state[5], state[4]);
-}
-
-// Convert two __m128i to uint32_t[8].
-static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[8]) {
-    uint32_t *p = (uint32_t *)v1;
-    uint32_t i;
-    for(i = 0; i < 4; i++) {
-        state[i] = p[i];
-    }
-    p = (uint32_t *)v2;
-    for(i = 0; i < 4; i++) {
-        state[i+4] = p[i];
-    }
-}
-
 // Perform one crypt-strength hash on a 32-byte state.
 static inline void hashState(uint32_t state[32]) {
     uint8_t buf[32];
@@ -100,7 +82,7 @@ static void *multHash(void *commonPtr) {
     for(uint32_t i = 0; i < numblocks*2; i++) {
         uint32_t j;
         for(j = 0; j < multipliesPerBlock * repetitions; j += 8) {
-            // This is reversible, and should not lose entropy
+            // This is reversible, and will not lose entropy
             state[0] = (state[0]*(state[1] | 1)) ^ (state[2] >> 1);
             state[1] = (state[1]*(state[2] | 1)) ^ (state[3] >> 1);
             state[2] = (state[2]*(state[3] | 1)) ^ (state[4] >> 1);
@@ -118,12 +100,12 @@ static void *multHash(void *commonPtr) {
         }
         (c->completedMultiplies)++;
     }
-    printf("mults:%u\n", numMults);
+    printf("total multiplies:%u\n", numMults);
     pthread_exit(NULL);
 }
 
-// Add the last hashed data from each parallel process into the result and apply a
-// crypt-strength hash to it.
+// Add the last hashed data from each memory thread into the result and apply a
+// crypto-strength hash to it.
 static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocklen,
         uint32_t numblocks, uint32_t parallelism) {
     uint8_t data[hashSize];
@@ -139,15 +121,23 @@ static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint3
     H(hash, hashSize, hash, hashSize, NULL, 0);
 }
 
-// Compute the bit reversal of value.
-static uint32_t bitReverse(uint32_t value, uint32_t mask) {
-    uint32_t result = 0;
-    while(mask != 1) {
-        result = (result << 1) | (value & 1);
-        value >>= 1;
-        mask >>= 1;
+// Convert a uint32_t[8] to two __m128i values.
+static void convStateFromUint32ToM128i(uint32_t state[8], __m128i *v1, __m128i *v2) {
+    *v1 = _mm_set_epi32(state[3], state[2], state[1], state[0]);
+    *v2 = _mm_set_epi32(state[7], state[6], state[5], state[4]);
+}
+
+// Convert two __m128i to uint32_t[8].
+static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[8]) {
+    uint32_t *p = (uint32_t *)v1;
+    uint32_t i;
+    for(i = 0; i < 4; i++) {
+        state[i] = p[i];
     }
-    return result;
+    p = (uint32_t *)v2;
+    for(i = 0; i < 4; i++) {
+        state[i+4] = p[i];
+    }
 }
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
@@ -178,8 +168,6 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
                 // Rotate right 7
                 s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
                 *t++ = s2;
-                //convStateFromM128iToUint32(s1, s2, state);
-                //printState(state);
             }
         }
     }
@@ -199,6 +187,16 @@ static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct
         state[i] ^= c->multHashes[iteration*8 + i];
     }
     hashState(state);
+}
+
+// Reverse function modified from Catena's version
+uint32_t reverse(uint64_t x, const uint8_t n)
+{
+    x = bswap_32(x);
+    x = ((x & 0x0f0f0f0f) << 4) | ((x & 0xf0f0f0f0) >> 4);
+    x = ((x & 0x33333333) << 2) | ((x & 0xcccccccc) >> 2);
+    x = ((x & 0x55555555) << 1) | ((x & 0xaaaaaaaa) >> 1);
+    return x >> (32 - n);
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
@@ -222,12 +220,14 @@ static void *hashWithoutPassword(void *contextPtr) {
     be32dec_vect(mem + start, threadKey, blocklen*sizeof(uint32_t));
     uint32_t state[8] = {1, 1, 1, 1, 1, 1, 1, 1};
     uint32_t mask = 1;
+    uint32_t numBits = 0;
     uint64_t toAddr = start + blocklen;
     for(uint32_t i = 1; i < numblocks; i++) {
         if(mask << 1 <= i) {
-            mask = mask << 1;
+            mask <<= 1;
+            numBits++;
         }
-        uint32_t reversePos = bitReverse(i, mask);
+        uint32_t reversePos = reverse(i, numBits);
         if(reversePos + mask < i) {
             reversePos += mask;
         }
