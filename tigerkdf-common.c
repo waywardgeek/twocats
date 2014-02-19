@@ -147,6 +147,6 @@ void TigerKDF_ServerHashPassword(uint8_t *hash, uint32_t hashSize) {
 // t_cost is a multiplier on CPU work.  m_cost is the number of KiB of memory to hash.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
         unsigned int t_cost, unsigned int m_cost) {
-    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost, 3000, 0,
+    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost, 250, 0,
         NULL, 0, 16384, 0, 2, t_cost, false);
 }
