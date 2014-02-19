@@ -26,8 +26,10 @@ void test_output(uint8_t hashlen,
     printHex("Password: ",pwd, pwdlen);
     printHex("Salt: ",salt, saltlen);
     printHex("Associated data:", data, datalen);
-    printf("garlic:%u memorySize:%u multipliesPerKB:%u repetitions:%u numThreads:%u blockSize:%u subBlockSize:%u\n", 
-        garlic, memlen, multipliesPerKB, repetitions, parallelism, blocklen, subBlocklen);
+    printf("garlic:%u memorySize:%u multipliesPerKB:%u repetitions:%u\n",
+        garlic, memlen, multipliesPerKB, repetitions);
+    printf("numThreads:%u blockSize:%u subBlockSize:%u\n",
+        parallelism, blocklen, subBlocklen);
 
     if(!TigerKDF_HashPassword(hash, hashlen, pwd, pwdlen, salt, saltlen, memlen,
             multipliesPerKB, garlic, data, datalen, blocklen, subBlocklen, parallelism,

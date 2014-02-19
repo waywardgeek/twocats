@@ -130,8 +130,10 @@ int main(int argc, char **argv) {
         usage("Extra parameters not recognised\n");
     }
 
-    printf("garlic:%u memorySize:%u multipliesPerKB:%u repetitions:%u numThreads:%u blockSize:%u subBlockSize:%u\n", 
-        garlic, memorySize, multipliesPerKB, repetitions, parallelism, blockSize, subBlockSize);
+    printf("garlic:%u memorySize:%u multipliesPerKB:%u repetitions:%u\n",
+        garlic, memorySize, multipliesPerKB, repetitions);
+    printf("numThreads:%u blockSize:%u subBlockSize:%u\n",
+        parallelism, blockSize, subBlockSize);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
     if(!TigerKDF_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
             memorySize, multipliesPerKB, garlic, NULL, 0, blockSize, subBlockSize, parallelism,
