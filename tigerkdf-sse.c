@@ -287,6 +287,7 @@ static void *hashWithPassword(void *contextPtr) {
 bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerBlock, uint8_t startGarlic,
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
         bool skipLastHash) {
+    // Compute sizes
     uint64_t memlen = (1 << 10)*(uint64_t)memSize/sizeof(uint32_t);
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
@@ -295,6 +296,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     if(multipliesPerBlock == 0) {
         multipliesPerBlock = 8;
     }
+    // Allocate memory
     uint32_t *mem;
     if(posix_memalign((void *)&mem,  32, memlen*sizeof(uint32_t))) {
         return false;
@@ -314,25 +316,29 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     if(multHashes == NULL) {
         return false;
     }
+    // Fill out the common constant data used in all threads
+    common.multHashes = multHashes;
+    common.multipliesPerBlock = multipliesPerBlock;
+    common.hash = hash;
+    common.hashSize = hashSize;
+    common.mem = mem;
+    common.blocklen = blocklen;
+    common.subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
+    common.parallelism = parallelism;
+    common.repetitions = repetitions;
+    common.multHashes = multHashes;
+    common.multipliesPerBlock = multipliesPerBlock;
+    // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
-        common.multHashes = multHashes;
-        common.multipliesPerBlock = multipliesPerBlock;
-        common.hash = hash;
-        common.hashSize = hashSize;
-        common.mem = mem;
         common.numblocks = numblocks;
-        common.blocklen = blocklen;
-        common.subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
-        common.parallelism = parallelism;
-        common.repetitions = repetitions;
-        common.multHashes = multHashes;
-        common.multipliesPerBlock = multipliesPerBlock;
         common.completedMultiplies = 0;
+        // Start the multiplication chain hashing thread
         int rc = pthread_create(&multThread, NULL, multHash, (void *)&common);
         if(rc) {
             fprintf(stderr, "Unable to start threads\n");
             return false;
         }
+        // Start the memory threads for the first "pure" loop
         uint32_t p;
         for(p = 0; p < parallelism; p++) {
             c[p].common = &common;
@@ -346,7 +352,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         for(p = 0; p < parallelism; p++) {
             (void)pthread_join(memThreads[p], NULL);
         }
-        //printf("Joined initial threads\n");
+        // Start the memory threads for the second "dirty" loop
         for(p = 0; p < parallelism; p++) {
             int rc = pthread_create(&memThreads[p], NULL, hashWithPassword, (void *)(c + p));
             if(rc) {
@@ -358,9 +364,12 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
             (void)pthread_join(memThreads[p], NULL);
         }
         (void)pthread_join(multThread, NULL);
+        // Combine all the memory thread hashes with a crypto-strength hash
         combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
+        // Double the memory for the next round of garlic
         numblocks *= 2;
         if(i < stopGarlic || !skipLastHash) {
+            // For server relief mode, skip doing this last hash
             H(hash, hashSize, hash, hashSize, &i, 1);
         }
     }
