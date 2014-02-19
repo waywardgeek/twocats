@@ -1,7 +1,7 @@
 #include "blake2/blake2.h"
 #include "pbkdf2.h"
 
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerBlock, uint8_t startGarlic,
+bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerKB, uint8_t startGarlic,
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
         bool skipLastHash);
 
@@ -39,3 +39,4 @@ static inline void PBKDF2(uint8_t *hash, uint32_t hashSize, const uint8_t *passw
     PBKDF2_BLAKE2S(password, passwordSize, salt, saltSize, 1, hash, hashSize);
 }
 
+void printHex(char *message, uint8_t *x, int len);

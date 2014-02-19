@@ -8,18 +8,7 @@
 #include <string.h>
 
 #include "tigerkdf.h"
-
-void print_hex(char *message, uint8_t *x, int len) {
-    int i;
-    puts(message);
-    for(i=0; i< len; i++) {
-        if((i!=0) && (i%8 == 0)) {
-            puts("");
-        }
-        printf("%02x ",x[i]);
-    }
-    printf("     %d (octets)\n\n", len);
-}
+#include "tigerkdf-impl.h"
 
 /*******************************************************************/
 
@@ -27,31 +16,27 @@ void test_output(uint8_t hashlen,
                  uint8_t *pwd,   uint32_t pwdlen,
                  uint8_t *salt,  uint8_t saltlen,
                  uint8_t *data,  uint32_t datalen,
-                 uint32_t memlen, uint32_t multipliesPerBlock,
+                 uint32_t memlen, uint32_t multipliesPerKB,
                  uint8_t garlic, uint32_t blocklen,
                  uint32_t subBlocklen,
                  uint32_t parallelism, uint32_t repetitions)
 {
     uint8_t hash[hashlen];
 
-    print_hex("Password: ",pwd, pwdlen);
-    print_hex("Salt: ",salt, saltlen);
-    print_hex("Associated data:", data, datalen);
-    printf("Memlen: %u\n", memlen);
-    printf("MultipliesPerBlock: %u\n", multipliesPerBlock);
-    printf("Garlic: %u\n", garlic);
-    printf("Blocklen: %u\n", blocklen);
-    printf("Parallelism: %u\n", parallelism);
-    printf("Repetitions: %u\n", repetitions);
+    printHex("Password: ",pwd, pwdlen);
+    printHex("Salt: ",salt, saltlen);
+    printHex("Associated data:", data, datalen);
+    printf("garlic:%u memorySize:%u multipliesPerKB:%u repetitions:%u numThreads:%u blockSize:%u subBlockSize:%u\n", 
+        garlic, memlen, multipliesPerKB, repetitions, parallelism, blocklen, subBlocklen);
 
     if(!TigerKDF_HashPassword(hash, hashlen, pwd, pwdlen, salt, saltlen, memlen,
-            multipliesPerBlock, garlic, data, datalen, blocklen, subBlocklen, parallelism,
+            multipliesPerKB, garlic, data, datalen, blocklen, subBlocklen, parallelism,
             repetitions, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
 
-    print_hex("\nOutput: ", hash, hashlen);
+    printHex("\nOutput: ", hash, hashlen);
     puts("\n\n");
 }
 
@@ -96,7 +81,7 @@ void PHC_test(void)
         test_output(32, &j, 1, &j, 1, NULL, 0, 1*1024, 3000, 0, 16384, 0, 1, i);
     }
     printf("****************************************** Test blocklen\n");
-    for(i=12; i < 256; i += 4) {
+    for(i=32; i < 1024; i += 32) {
         test_output(12, &j, 1, &j, 1, NULL, 0, 1*1024, i, 0, i, 0, 1, 1);
     }
     printf("****************************************** Test memlen\n");
@@ -157,14 +142,13 @@ int main()
 {
     printf("****************************************** Basic tests\n");
 
-    verifyGarlic();
     verifyClientServer();
+    verifyGarlic();
 
-    simpletest("password", "salt", "", 1);
-    simpletest("password", "salt", "", 1024);
-    simpletest("password", "salt", "data", 1024);
-    simpletest("passwordPASSWORDpassword",
-                         "saltSALTsaltSALTsaltSALTsaltSALTsalt","", 1);
+    simpletest("password", "salt", "", 1*1024);
+    simpletest("password", "salt", "", 1024*1024);
+    simpletest("password", "salt", "data", 1024*1024);
+    simpletest("passwordPASSWORDpassword", "saltSALTsaltSALTsaltSALTsaltSALTsalt","", 1*1024);
 
     PHC_test();
 
@@ -172,7 +156,7 @@ int main()
     test_output(128, (uint8_t *)"password", strlen("password"), (uint8_t *)"salt",
         strlen("salt"), NULL, 0, 1024*1024, 3000, 0, 16384, 0, 2, 1);
     test_output(64, (uint8_t *)"password", strlen("password"), (uint8_t *)"salt",
-        strlen("salt"), NULL, 0, 10*1024, 3000, 0, 64, 0, 1, 64);
+        strlen("salt"), NULL, 0, 10*1024, 3000, 0, 1024, 32, 1, 64);
     test_output(64, (uint8_t *)"password", strlen("password"), (uint8_t *)"salt",
         strlen("salt"), NULL, 0, 10*1024, 3000, 4, 128, 0, 1, 1);
 

@@ -45,7 +45,6 @@ static void multHash(uint8_t *hash, uint32_t hashSize, uint32_t numblocks, uint3
         }
         completedMultiplies++;
     }
-    printf("total multiplies:%u\n", numMults);
 }
 
 // Add the last hashed data from each memory thread into the result and apply a
@@ -163,7 +162,7 @@ static void hashWithPassword(uint32_t *mem, uint32_t parallelism, uint32_t p, ui
 }
 
 // The TigerKDF password hashing function.  MemSize is in KiB.
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerBlock, uint8_t startGarlic,
+bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerKB, uint8_t startGarlic,
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
         bool skipLastHash) {
     // Compute sizes
@@ -172,7 +171,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     uint32_t subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
-    multipliesPerBlock = 8*(multipliesPerBlock/8);
+    uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blocklen/(8*1024));
     if(multipliesPerBlock == 0) {
         multipliesPerBlock = 8;
     }
@@ -204,7 +203,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         numblocks *= 2;
         if(i < stopGarlic || !skipLastHash) {
             // For server relief mode, skip doing this last hash
-            H(hash, hashSize, hash, hashSize, &i, 1);
+            H(hash, hashSize, hash, hashSize, NULL, 0);
         }
     }
     // The light is green, the trap is clean

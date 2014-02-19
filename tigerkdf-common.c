@@ -13,6 +13,18 @@ void printState(uint32_t state[8]) {
     printf("\n");
 }
 
+// Print a value out in hex - from Catena.
+void printHex(char *message, uint8_t *x, int len) {
+    puts(message);
+    for(uint32_t i = 0; i < len; i++) {
+        if(i != 0 && i % 8 == 0) {
+            puts("");
+        }
+        printf("%02x ", x[i]);
+    }
+    printf("     %d (octets)\n\n", len);
+}
+
 // Prevents compiler optimizing out memset() -- from blake2-impl.h
 static inline void secure_zero_memory(void *v, size_t n) {
     volatile uint8_t *p = ( volatile uint8_t * )v;
@@ -21,14 +33,14 @@ static inline void secure_zero_memory(void *v, size_t n) {
 
 // Verify that parameters are valid for password hashing.
 static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t saltSize, uint32_t memSize,
-        uint32_t multipliesPerBlock, uint8_t startGarlic, uint8_t stopGarlic, uint32_t dataSize, uint32_t blockSize,
+        uint32_t multipliesPerKB, uint8_t startGarlic, uint8_t stopGarlic, uint32_t dataSize, uint32_t blockSize,
         uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions) {
     if(subBlockSize == 0) {
         subBlockSize = blockSize;
     }
     if(hashSize > 1024 || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
             passwordSize == 0 || saltSize > 1024  || saltSize == 0 || memSize == 0 ||
-            memSize > 1 << 30 || multipliesPerBlock > 1 << 30 || multipliesPerBlock == 0 ||
+            memSize > 1 << 30 || multipliesPerKB*(uint64_t)blockSize/1024 > 1 << 30 ||
             startGarlic > stopGarlic || stopGarlic > 30 || dataSize > 1024 || blockSize > 1 << 30 ||
             blockSize < hashSize || blockSize & 0x1f || subBlockSize > blockSize ||
             subBlockSize & 0x1f || subBlockSize*(blockSize/subBlockSize) != blockSize ||
@@ -64,10 +76,10 @@ bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
 
 // The full password hashing interface.  MemSize is in KiB.
 bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint8_t passwordSize,
-        const uint8_t *salt, uint32_t saltSize, uint32_t memSize, uint32_t multipliesPerBlock, uint8_t garlic,
+        const uint8_t *salt, uint32_t saltSize, uint32_t memSize, uint32_t multipliesPerKB, uint8_t garlic,
         uint8_t *data, uint32_t dataSize, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism,
         uint32_t repetitions, bool clearPassword) {
-    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, multipliesPerBlock, 0, garlic, dataSize,
+    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, multipliesPerKB, 0, garlic, dataSize,
             blockSize, subBlockSize, parallelism, repetitions)) {
         return false;
     }
@@ -84,28 +96,28 @@ bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, 
             secure_zero_memory(data, dataSize);
         }
     }
-    return TigerKDF(hash, hashSize, memSize, multipliesPerBlock, 0, garlic, blockSize, subBlockSize, parallelism,
+    return TigerKDF(hash, hashSize, memSize, multipliesPerKB, 0, garlic, blockSize, subBlockSize, parallelism,
         repetitions, false);
 }
 
 // Update an existing password hash to a more difficult level of garlic.
-bool TigerKDF_UpdatePasswordHash(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerBlock,
+bool TigerKDF_UpdatePasswordHash(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerKB,
         uint8_t oldGarlic, uint8_t newGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism,
         uint32_t repetitions) {
-    if(!verifyParameters(hashSize, 16, 16, memSize, multipliesPerBlock, oldGarlic, newGarlic, 0,
+    if(!verifyParameters(hashSize, 16, 16, memSize, multipliesPerKB, oldGarlic, newGarlic, 0,
             blockSize, subBlockSize, parallelism, repetitions)) {
         return false;
     }
-    return TigerKDF(hash, hashSize, memSize, multipliesPerBlock, oldGarlic, newGarlic,
+    return TigerKDF(hash, hashSize, memSize, multipliesPerKB, oldGarlic, newGarlic,
         blockSize, subBlockSize, parallelism, repetitions, false);
 }
 
 // Client-side portion of work for server-relief mode.
 bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint8_t passwordSize,
-        const uint8_t *salt, uint32_t saltSize, uint32_t memSize, uint32_t multipliesPerBlock, uint8_t garlic,
+        const uint8_t *salt, uint32_t saltSize, uint32_t memSize, uint32_t multipliesPerKB, uint8_t garlic,
         uint8_t *data, uint32_t dataSize, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism,
         uint32_t repetitions, bool clearPassword) {
-    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, multipliesPerBlock, 0, garlic, dataSize,
+    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, multipliesPerKB, 0, garlic, dataSize,
             blockSize, subBlockSize, parallelism, repetitions)) {
         return false;
     }
@@ -122,7 +134,7 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
             secure_zero_memory(data, dataSize);
         }
     }
-    return TigerKDF(hash, hashSize, memSize, multipliesPerBlock, 0, garlic, blockSize, subBlockSize ,
+    return TigerKDF(hash, hashSize, memSize, multipliesPerKB, 0, garlic, blockSize, subBlockSize,
         parallelism, repetitions, true);
 }
 
