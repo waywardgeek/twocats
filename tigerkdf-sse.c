@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <byteswap.h>
 #include "tigerkdf.h"
+#include "tigerkdf-impl.h"
 
 // This include code copied from blake2s.c
 #include <emmintrin.h>
@@ -42,16 +43,6 @@ struct TigerKDFContextStruct {
     struct TigerKDFCommonDataStruct *common;
     uint32_t p; // This is the memory-thread number
 };
-
-/*
-// Print the state.
-static void printState(uint32_t state[8]) {
-    for(uint32_t i = 0; i < 8; i++) {
-        printf("%u ", state[i]);
-    }
-    printf("\n");
-}
-*/
 
 // Perform one crypt-strength hash on a 32-byte state.
 static inline void hashState(uint32_t state[32]) {
@@ -145,7 +136,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 //     for(i = 0; i < 8; i++) {
 //         state[i] = ROTATE_RIGHT((state[i] + *p++) ^ *f++, 7);
 //         *t++ = state[i];
-//     }
+//     
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint64_t fromAddr, uint64_t toAddr, uint32_t repetitions) {
     __m128i s1;
@@ -165,12 +156,12 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
-                // Rotate right 7
+                // Rotate left 7
                 s1 = _mm_or_si128(_mm_srl_epi32(s1, shiftRightVal), _mm_sll_epi32(s1, shiftLeftVal));
                 *t++ = s1;
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
-                // Rotate right 7
+                // Rotate left 7
                 s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
                 *t++ = s2;
             }

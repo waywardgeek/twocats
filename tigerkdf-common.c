@@ -3,10 +3,15 @@
 #include <string.h>
 #include "pbkdf2.h"
 #include "tigerkdf.h"
+#include "tigerkdf-impl.h"
 
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerBlock, uint8_t startGarlic,
-        uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
-        bool skipLastHash);
+// Print the state.
+void printState(uint32_t state[8]) {
+    for(uint32_t i = 0; i < 8; i++) {
+        printf("%u ", state[i]);
+    }
+    printf("\n");
+}
 
 // Prevents compiler optimizing out memset() -- from blake2-impl.h
 static inline void secure_zero_memory(void *v, size_t n) {
@@ -127,9 +132,9 @@ void TigerKDF_ServerHashPassword(uint8_t *hash, uint32_t hashSize) {
 }
 
 // This is the prototype required for the password hashing competition.
-// t_cost is an integer multiplier on CPU work.  m_cost is an integer number of KiB of memory to hash.
+// t_cost is a multiplier on CPU work.  m_cost is the number of KiB of memory to hash.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
         unsigned int t_cost, unsigned int m_cost) {
-    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, (void *)salt, saltlen, m_cost, 3000, 0,
+    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost, 3000, 0,
         NULL, 0, 16384, 0, 2, t_cost, false);
 }
