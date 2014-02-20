@@ -147,6 +147,7 @@ int main(int argc, char **argv) {
         garlic, memorySize, multipliesPerKB, repetitions);
     printf("numThreads:%u blockSize:%u subBlockSize:%u\n",
         parallelism, blockSize, subBlockSize);
+    printf("Password:%s Salt:%s\n", password, salt);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
     if(!TigerKDF_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
             memorySize, multipliesPerKB, garlic, NULL, 0, blockSize, subBlockSize, parallelism,

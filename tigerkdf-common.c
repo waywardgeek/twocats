@@ -52,7 +52,7 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     if(subBlockSize == 0) {
         subBlockSize = blockSize;
     }
-    if(hashSize > (1 << 30) || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
+    if(hashSize > blockSize || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
             passwordSize == 0 || saltSize > 1024  || saltSize == 0 || memSize == 0 ||
             memSize > 1 << 30 || multipliesPerKB*(uint64_t)blockSize/1024 > 1 << 30 ||
             startGarlic > stopGarlic || stopGarlic > 30 || dataSize > 1024 || blockSize > 1 << 30 ||
@@ -154,7 +154,7 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
 
 // Server portion of work for server-relief mode.
 void TigerKDF_ServerHashPassword(uint8_t *hash, uint32_t hashSize) {
-    H(hash, hashSize, hash, hashSize, NULL, 0);
+    PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
 }
 
 // This is the prototype required for the password hashing competition.

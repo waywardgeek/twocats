@@ -22,7 +22,6 @@ static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
         uint32_t *multHashes, uint32_t multipliesPerBlock, uint32_t parallelism) {
     uint32_t state[8];
     hashWithSalt(state, hash, parallelism);
-    uint32_t completedMultiplies = 0;
     for(uint32_t i = 0; i < numblocks*2; i++) {
         uint32_t j;
         for(j = 0; j < multipliesPerBlock * repetitions; j++) {
@@ -31,21 +30,41 @@ static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
         }
         // Apply a crypt-strength hash to the state and broadcast the result
         hashState(state);
-        memcpy(multHashes + 8*completedMultiplies, state, 32);
-        completedMultiplies++;
+        memcpy(multHashes + 8*i, state, 32);
     }
 }
 
-// Add the last hashed data from each memory thread into the result and apply a
-// crypto-strength hash to it.
-static void combineHashes(uint32_t hash[8], uint32_t *mem, uint32_t blocklen, uint32_t numblocks, uint32_t parallelism) {
+// Add the last hashed data from each memory thread into the result.
+static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocklen, uint32_t numblocks,
+        uint32_t parallelism) {
+    uint32_t hashlen = hashSize/4;
+    uint32_t s[hashlen];
+    memset(s, '\0', hashSize);
     for(uint32_t p = 0; p < parallelism; p++) {
-        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - 8;
-        for(uint32_t i = 0; i < 8; i++) {
-            hash[i] += mem[pos + i];
+        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashlen;
+        for(uint32_t i = 0; i < hashlen; i++) {
+            s[i] += mem[pos + i];
         }
     }
-    hashState(hash);
+    be32enc_vect(hash, s, hashSize);
+}
+
+// Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
+static void hashMultItoState(uint32_t iteration, uint32_t *multHashes, uint32_t *state) {
+    for(uint32_t i = 0; i < 8; i++) {
+        state[i] += multHashes[iteration*8 + i];
+    }
+    hashState(state);
+}
+
+// Compute the bit reversal of value.
+static uint32_t reverse(uint32_t value, uint32_t numBits) {
+    uint32_t result = 0;
+    while(numBits-- != 0) {
+        result = (result << 1) | (value & 1);
+        value >>= 1;
+    }
+    return result;
 }
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
@@ -68,24 +87,6 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             }
         }
     }
-}
-
-// Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
-static void hashMultItoState(uint32_t iteration, uint32_t *multHashes, uint32_t *state) {
-    for(uint32_t i = 0; i < 8; i++) {
-        state[i] ^= multHashes[iteration*8 + i];
-    }
-    hashState(state);
-}
-
-// Compute the bit reversal of value.
-static uint32_t reverse(uint32_t value, uint32_t numBits) {
-    uint32_t result = 0;
-    while(numBits-- != 0) {
-        result = (result << 1) | (value & 1);
-        value >>= 1;
-    }
-    return result;
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
@@ -153,11 +154,11 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         multipliesPerBlock = 8;
     }
     // Allocate memory
-    uint32_t *mem = malloc( memlen*sizeof(uint32_t));
+    uint32_t *mem = malloc(memlen*sizeof(uint32_t));
     if(mem == NULL) {
         return false;
     }
-    uint32_t *multHashes = (uint32_t *)malloc(8*sizeof(uint32_t)*memlen/blocklen);
+    uint32_t *multHashes = malloc(8*sizeof(uint32_t)*memlen/blocklen);
     if(multHashes == NULL) {
         return false;
     }
@@ -178,13 +179,12 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
             hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repetitions, multHashes);
         }
         // Combine all the memory thread hashes with a crypto-strength hash
-        combineHashes(hash256, mem, blocklen, numblocks, parallelism);
+        combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
         // Double the memory for the next round of garlic
         numblocks *= 2;
-        hashFrom256(hash, hashSize, hash256);
         if(i < stopGarlic || !skipLastHash) {
             // For server relief mode, skip doing this last hash
-            H(hash, hashSize, hash, hashSize, NULL, 0);
+            PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
         }
     }
     // The light is green, the trap is clean

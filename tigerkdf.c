@@ -113,17 +113,19 @@ static void *multHash(void *commonPtr) {
     pthread_exit(NULL);
 }
 
-// Add the last hashed data from each memory thread into the result and apply a
-// crypto-strength hash to it.
-static void combineHashes(uint32_t hash[8], uint32_t *mem, uint32_t blocklen,
-        uint32_t numblocks, uint32_t parallelism) {
+// Add the last hashed data from each memory thread into the result.
+static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocklen, uint32_t numblocks,
+        uint32_t parallelism) {
+    uint32_t hashlen = hashSize/4;
+    uint32_t s[hashlen];
+    memset(s, '\0', hashSize);
     for(uint32_t p = 0; p < parallelism; p++) {
-        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - 8;
-        for(uint32_t i = 0; i < 8; i++) {
-            hash[i] += mem[pos + i];
+        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashlen;
+        for(uint32_t i = 0; i < hashlen; i++) {
+            s[i] += mem[pos + i];
         }
     }
-    hashState(hash);
+    be32enc_vect(hash, s, hashSize);
 }
 
 // Convert a uint32_t[8] to two __m128i values.
@@ -192,7 +194,7 @@ static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct
         nanosleep(&ts, NULL);
     }
     for(uint32_t i = 0; i < 8; i++) {
-        state[i] ^= c->multHashes[iteration*8 + i];
+        state[i] += c->multHashes[iteration*8 + i];
     }
     hashState(state);
 }
@@ -363,13 +365,12 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         }
         (void)pthread_join(multThread, NULL);
         // Combine all the memory thread hashes with a crypto-strength hash
-        combineHashes(hash256, mem, blocklen, numblocks, parallelism);
+        combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
         // Double the memory for the next round of garlic
         numblocks *= 2;
-        hashFrom256(hash, hashSize, hash256);
         if(i < stopGarlic || !skipLastHash) {
             // For server relief mode, skip doing this last hash
-            H(hash, hashSize, hash, hashSize, NULL, 0);
+            PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
         }
     }
     // The light is green, the trap is clean
