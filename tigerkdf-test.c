@@ -1,6 +1,6 @@
-// I copied this file from Catena's src/catena_test_vectors.c and modified it to call
-// TigerKDF.  It was written by the Catena team and slightly changed by me.
-// It therefore falls under Catena's MIT license.
+// I, Bill Cox, initially copied this file from Catena's src/catena_test_vectors.c in
+// 2014, and modified it to call TigerKDF.  It was written by the Catena team and slightly
+// changed by me.  It therefore falls under Catena's MIT license.
 
 #include <stdint.h>
 #include <stdio.h>
