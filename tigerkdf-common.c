@@ -6,7 +6,8 @@
 #include "tigerkdf-impl.h"
 
 // Print the state.
-void printState(uint32_t state[8]) {
+void printState(char *message, uint32_t state[8]) {
+    printf(message);
     for(uint32_t i = 0; i < 8; i++) {
         printf("%u ", state[i]);
     }
@@ -38,12 +39,12 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     if(subBlockSize == 0) {
         subBlockSize = blockSize;
     }
-    if(hashSize > 1024 || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
+    if(hashSize > (1 << 30) || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
             passwordSize == 0 || saltSize > 1024  || saltSize == 0 || memSize == 0 ||
             memSize > 1 << 30 || multipliesPerKB*(uint64_t)blockSize/1024 > 1 << 30 ||
             startGarlic > stopGarlic || stopGarlic > 30 || dataSize > 1024 || blockSize > 1 << 30 ||
-            blockSize < hashSize || blockSize & 0x1f || subBlockSize > blockSize ||
-            subBlockSize & 0x1f || subBlockSize*(blockSize/subBlockSize) != blockSize ||
+            blockSize & 0x1f || subBlockSize > blockSize || subBlockSize & 0x1f ||
+            subBlockSize*(blockSize/subBlockSize) != blockSize ||
             ((uint64_t)memSize << 10) < 4*(uint64_t)blockSize*parallelism || parallelism == 0 ||
             parallelism > 1 << 20 || repetitions == 0 || repetitions > 1 << 30) {
         return false;
@@ -66,12 +67,12 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
 // A simple password hashing interface.  MemSize is in KiB.  The password is cleared with secure_zero_memory.
 bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint32_t memSize) {
-    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, 4096, 0, 0, 0, 16384, 0, 1, 1)) {
+    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, 250, 0, 0, 0, 16384, 0, 1, 1)) {
         return false;
     }
     PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
     secure_zero_memory(password, passwordSize);
-    return TigerKDF(hash, hashSize, memSize, 3000, 0, 0, 16384, 0, 2, 1, false);
+    return TigerKDF(hash, hashSize, memSize, 250, 0, 0, 16384, 0, 2, 1, false);
 }
 
 // The full password hashing interface.  MemSize is in KiB.

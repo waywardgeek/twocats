@@ -47,8 +47,7 @@
 struct TigerKDFCommonDataStruct {
     uint32_t *mem;
     uint32_t *multHashes;
-    uint8_t *hash;
-    uint32_t hashSize;
+    uint32_t *hash;
     uint32_t parallelism;
     uint32_t blocklen;
     uint32_t subBlocklen;
@@ -64,31 +63,20 @@ struct TigerKDFContextStruct {
     uint32_t p; // This is the memory-thread number
 };
 
-// Perform one crypt-strength hash on a 32-byte state.
-static inline void hashState(uint32_t state[32]) {
-    uint8_t buf[32];
-    be32enc_vect(buf, state, 32);
-    H(buf, 32, buf, 32, NULL, 0);
-    be32dec_vect(state, buf, 32);
-}
 
-// Do low-bandwidth multplication hashing.
+// Do low memory-bandwidth multplication hashing.
 static void *multHash(void *commonPtr) {
     struct TigerKDFCommonDataStruct *c = (struct TigerKDFCommonDataStruct *)commonPtr;
 
-    uint8_t *hash = c->hash;
-    uint32_t hashSize = c->hashSize;
+    uint32_t *hash = c->hash;
     uint32_t numblocks = c->numblocks;
     uint32_t repetitions = c->repetitions;
     uint32_t *multHashes = c->multHashes;
     uint32_t multipliesPerBlock = c->multipliesPerBlock;
+    uint32_t parallelism = c->parallelism;
 
-    uint8_t s[sizeof(uint32_t)];
-    be32enc(s, c->parallelism);
-    uint8_t threadKey[32];
     uint32_t state[8];
-    H(threadKey, 32, hash, hashSize, s, sizeof(uint32_t));
-    be32dec_vect(state, threadKey, 32);
+    hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
         uint32_t j;
         for(j = 0; j < multipliesPerBlock * repetitions; j += 8) {
@@ -114,19 +102,15 @@ static void *multHash(void *commonPtr) {
 
 // Add the last hashed data from each memory thread into the result and apply a
 // crypto-strength hash to it.
-static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocklen,
+static void combineHashes(uint32_t hash[8], uint32_t *mem, uint32_t blocklen,
         uint32_t numblocks, uint32_t parallelism) {
-    uint8_t data[hashSize];
-    
     for(uint32_t p = 0; p < parallelism; p++) {
-        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashSize/sizeof(uint32_t);
-        be32enc_vect(data, mem + pos, hashSize);
-        uint32_t i;
-        for(i = 0; i < hashSize; i++) {
-            hash[i] += data[i];
+        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - 8;
+        for(uint32_t i = 0; i < 8; i++) {
+            hash[i] += mem[pos + i];
         }
     }
-    H(hash, hashSize, hash, hashSize, NULL, 0);
+    hashState(hash);
 }
 
 // Convert a uint32_t[8] to two __m128i values.
@@ -220,20 +204,15 @@ static void *hashWithoutPassword(void *contextPtr) {
     struct TigerKDFCommonDataStruct *c = ctx->common;
 
     uint32_t *mem = c->mem;
-    uint8_t *hash = c->hash;
-    uint32_t hashSize = c->hashSize;
+    uint32_t *hash = c->hash;
     uint32_t p = ctx->p;
     uint32_t blocklen = c->blocklen;
     uint32_t numblocks = c->numblocks;
     uint32_t repetitions = c->repetitions;
 
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    uint8_t threadKey[blocklen*sizeof(uint32_t)];
-    uint8_t s[sizeof(uint32_t)];
-    be32enc(s, p);
-    H(threadKey, blocklen*sizeof(uint32_t), hash, hashSize, s, sizeof(uint32_t));
-    be32dec_vect(mem + start, threadKey, blocklen*sizeof(uint32_t));
     uint32_t state[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+    hashWithSalt(state, hash, p);
     uint32_t mask = 1;
     uint32_t numBits = 0;
     uint64_t toAddr = start + blocklen;
@@ -324,10 +303,10 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         return false;
     }
     // Fill out the common constant data used in all threads
+    uint32_t hash256[8];
     common.multHashes = multHashes;
     common.multipliesPerBlock = multipliesPerBlock;
-    common.hash = hash;
-    common.hashSize = hashSize;
+    common.hash = hash256;
     common.mem = mem;
     common.blocklen = blocklen;
     common.subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
@@ -335,6 +314,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     common.repetitions = repetitions;
     // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
+        hashTo256(hash256, hash, hashSize);
         common.numblocks = numblocks;
         common.completedMultiplies = 0;
         // Start the multiplication chain hashing thread
@@ -370,9 +350,10 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         }
         (void)pthread_join(multThread, NULL);
         // Combine all the memory thread hashes with a crypto-strength hash
-        combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
+        combineHashes(hash256, mem, blocklen, numblocks, parallelism);
         // Double the memory for the next round of garlic
         numblocks *= 2;
+        hashFrom256(hash, hashSize, hash256);
         if(i < stopGarlic || !skipLastHash) {
             // For server relief mode, skip doing this last hash
             H(hash, hashSize, hash, hashSize, NULL, 0);
