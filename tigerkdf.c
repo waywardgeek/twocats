@@ -9,6 +9,8 @@
 #include "tigerkdf-impl.h"
 
 // This include code copied from blake2s.c
+#include "blake2/blake2-config.h"
+
 #include <emmintrin.h>
 #if defined(HAVE_SSSE3)
 #include <tmmintrin.h>
@@ -22,6 +24,24 @@
 #if defined(HAVE_XOP)
 #include <x86intrin.h>
 #endif
+
+// This rotate code is motivated from blake2s-round.h
+#ifndef HAVE_XOP
+#ifdef HAVE_SSSE3
+#define DECLARE_ROTATE_CONSTS \
+    __m128i shuffleVal = _mm_set_epi8(14, 13, 12, 15, 10, 9, 8, 11, 6, 5, 4, 7, 2, 1, 0, 3);
+#define ROTATE(s) _mm_shuffle_epi8(s, shuffleVal)
+#else
+#define DECLARE_ROTATE_CONSTS \
+    __m128i shiftRightVal = _mm_set_epi32(24, 24, 24, 24); \
+    __m128i shiftLeftVal = _mm_set_epi32(8, 8, 8, 8);
+#define ROTATE(s) _mm_or_si128(_mm_srl_epi32(s, shiftRightVal), _mm_sll_epi32(s, shiftLeftVal))
+#endif
+#else
+#define DECLARE_ROTATE_CONSTS
+#define ROTATE(s) _mm_roti_epi32(r, 8)
+#endif
+
 
 // This structure is shared among all threads.
 struct TigerKDFCommonDataStruct {
@@ -131,7 +151,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 // Basically, it does for every 8 words:
 //     for(i = 0; i < 8; i++) {
-//         state[i] = ROTATE_RIGHT((state[i] + *p++) ^ *f++, 7);
+//         state[i] = ROTATE_LEFT((state[i] + *p++) ^ *f++, 8);
 //         *t++ = state[i];
 //     
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
@@ -143,8 +163,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     __m128i *m = (__m128i *)mem;
     uint32_t numSubBlocks = blocklen/subBlocklen;
     uint32_t mask = numSubBlocks - 1;
-    __m128i shiftRightVal = _mm_set_epi32(24, 24, 24, 24);
-    __m128i shiftLeftVal = _mm_set_epi32(8, 8, 8, 8);
+    DECLARE_ROTATE_CONSTS
     for(uint32_t r = 0; r < repetitions; r++) {
         __m128i *f = m + fromAddr/4;
         __m128i *t = m + toAddr/4;
@@ -153,13 +172,13 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
-                // Rotate left 7
-                s1 = _mm_or_si128(_mm_srl_epi32(s1, shiftRightVal), _mm_sll_epi32(s1, shiftLeftVal));
+                // Rotate left 8
+                s1 = ROTATE(s1);
                 *t++ = s1;
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
                 // Rotate left 8
-                s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
+                s2 = ROTATE(s2);
                 *t++ = s2;
             }
         }

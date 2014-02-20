@@ -91,17 +91,14 @@ static void hashMultItoState(uint32_t iteration, uint32_t *multHashes, uint32_t 
     hashState(state);
 }
 
-// Bit-reversal function derived from Catena's version.
-uint32_t reverse(uint32_t x, const uint8_t n)
-{
-    if(n == 0) {
-        return 0;
+// Compute the bit reversal of value.
+static uint32_t reverse(uint32_t value, uint32_t numBits) {
+    uint32_t result = 0;
+    while(numBits-- != 0) {
+        result = (result << 1) | (value & 1);
+        value >>= 1;
     }
-    x = bswap_32(x);
-    x = ((x & 0x0f0f0f0f) << 4) | ((x & 0xf0f0f0f0) >> 4);
-    x = ((x & 0x33333333) << 2) | ((x & 0xcccccccc) >> 2);
-    x = ((x & 0x55555555) << 1) | ((x & 0xaaaaaaaa) >> 1);
-    return x >> (32 - n);
+    return result;
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
