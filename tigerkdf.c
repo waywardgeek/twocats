@@ -143,8 +143,8 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     __m128i *m = (__m128i *)mem;
     uint32_t numSubBlocks = blocklen/subBlocklen;
     uint32_t mask = numSubBlocks - 1;
-    __m128i shiftRightVal = _mm_set_epi32(25, 25, 25, 25);
-    __m128i shiftLeftVal = _mm_set_epi32(7, 7, 7, 7);
+    __m128i shiftRightVal = _mm_set_epi32(24, 24, 24, 24);
+    __m128i shiftLeftVal = _mm_set_epi32(8, 8, 8, 8);
     for(uint32_t r = 0; r < repetitions; r++) {
         __m128i *f = m + fromAddr/4;
         __m128i *t = m + toAddr/4;
@@ -158,7 +158,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
                 *t++ = s1;
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
-                // Rotate left 7
+                // Rotate left 8
                 s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
                 *t++ = s2;
             }

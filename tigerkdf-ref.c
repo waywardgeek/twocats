@@ -75,7 +75,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 for(uint32_t k = 0; k < 8; k++) {
                     state[k] = (state[k] + *p++) ^ *f++;
-                    state[k] = (state[k] >> 25) | (state[k] << 7);
+                    state[k] = (state[k] >> 24) | (state[k] << 8);
                     *t++ = state[k];
                 }
             }
