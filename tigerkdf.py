@@ -302,6 +302,5 @@ def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize,
 
 #import pdb; pdb.set_trace()
 #hash = TigerKDF_SimpleHashPassword(32, "password", "salt", 64)
-#hash = TigerKDF_HashPassword(32, "password", "salt", 64, 20, 0, None, 1024, 0, 1, 1)
-hash = TigerKDF_HashPassword(32, "password", "salt", 64, 20, 0, None, 1024, 0, 2, 1)
+hash = TigerKDF_HashPassword(32, "password", "salt", 64, 20, 0, None, 1024, 0, 2, 4)
 print toHex(str(hash))
