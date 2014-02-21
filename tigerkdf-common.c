@@ -103,7 +103,6 @@ bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, 
         PBKDF2(hash, hashSize, password, passwordSize, derivedSalt, hashSize);
     } else {
         PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
-printHex("After PBKDF2", hash, hashSize);
     }
     if(clearPassword) {
         secure_zero_memory(password, passwordSize);

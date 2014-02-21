@@ -228,7 +228,7 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
     memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
     uint32_t state[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    hashWithSalt(mem, hash, p);
+    hashWithSalt(mem + start, hash, p);
     hashMultIntoState(0, c, state);
     uint32_t mask = 1;
     uint32_t numBits = 0;

@@ -106,7 +106,6 @@ def H_PBKDF2(hashSize, password, salt):
 
 def TigerKDF_SimpleHashPassword(hashSize, password, salt, memSize):
     hash = H_PBKDF2(hashSize, password, salt)
-    print toHex(str(hash))
     return TigerKDF(hash, memSize, 250, 0, 0, 16384, 0, 2, 1, False)
 
 def TigerKDF_HashPassword(hashSize, password, salt, memSize, multipliesPerKB, garlic, data, blockSize,
@@ -117,7 +116,6 @@ def TigerKDF_HashPassword(hashSize, password, salt, memSize, multipliesPerKB, ga
         hash = H_PBKDF2(hashSize, password, derivedSalt)
     else:
         hash = H_PBKDF2(hashSize, password, salt)
-        print toHex(hash)
     return TigerKDF(hash, memSize, multipliesPerKB, 0, garlic, blockSize, subblockSize, parallelism, repetitions, False)
 
 def TigerKDF_UpdatePasswordHash(hash, memSize, multipliesPerKB, oldGarlic, newGarlic,
@@ -225,10 +223,9 @@ def hashWithoutPassword(mem, hash, p, blocklen, numblocks, repetitions, multHash
     start = 2*p*numblocks*blocklen
     for i in range(blocklen):
         mem[start + i] = 0x5c5c5c5c
-    import pdb; pdb.set_trace()
     buf = hashWithSalt(hash, p)
     for i in range(8):
-        mem[i] = buf[i]
+        mem[start + i] = buf[i]
     state = [0, 0, 0, 0, 0, 0, 0, 0]
     hashMultIntoState(0, multHashes, state)
     numBits = 0
@@ -305,5 +302,6 @@ def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize,
 
 #import pdb; pdb.set_trace()
 #hash = TigerKDF_SimpleHashPassword(32, "password", "salt", 64)
-hash = TigerKDF_HashPassword(32, "password", "salt", 64, 20, 0, None, 1024, 0, 1, 1)
+#hash = TigerKDF_HashPassword(32, "password", "salt", 64, 20, 0, None, 1024, 0, 1, 1)
+hash = TigerKDF_HashPassword(32, "password", "salt", 64, 20, 0, None, 1024, 0, 2, 1)
 print toHex(str(hash))
