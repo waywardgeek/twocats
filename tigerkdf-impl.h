@@ -37,15 +37,7 @@ static inline void PBKDF2(uint8_t *hash, uint32_t hashSize, const uint8_t *passw
     PBKDF2_BLAKE2S(password, passwordSize, salt, saltSize, 1, hash, hashSize);
 }
 
-// Perform one crypt-strength hash on a 32-byte state.
-static inline void hashState(uint32_t state[8]) {
-    uint8_t buf[32];
-    be32enc_vect(buf, state, 32);
-    H(buf, 32, buf, 32, NULL, 0);
-    be32dec_vect(state, buf, 32);
-}
-
-// Perform one crypt-strength hash on a 32-byte state, with a 32-bit salt.
+// Perform one crypto-strength hash on a 32-byte state, with a 32-bit salt.
 static inline void hashWithSalt(uint32_t out[8], uint32_t in[8], uint32_t salt) {
     uint8_t s[4];
     uint8_t buf[32];

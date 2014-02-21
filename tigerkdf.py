@@ -139,20 +139,14 @@ def TigerKDF_ServerHashPassword(hash):
     """Server portion of work for server-relief mode."""
     H_PBKDF2(len(hash), hash, "");
 
-def hashState(state):
-    """Perform one crypt-strength hash on a 32-byte state."""
+def hashWithSalt(state, salt):
+    """Perform one crypto-strength hash on a 32-byte state, with a 32-bit salt."""
     buf = toUint8Array(state)
-    buf = H(32, buf)
+    s = toUint8Array([salt])
+    buf = H(32, buf, s)
     buf = toUint32Array(buf)
     for i in range(8):
         state[i] = buf[i]
-
-def hashWithSalt(data, salt):
-    """Perform one crypt-strength hash on a 32-byte state, with a 32-bit salt."""
-    buf = toUint8Array(data)
-    s = toUint8Array([salt])
-    buf = H(32, buf, s)
-    return toUint32Array(buf)
 
 def hashTo256(hash):
     """Hash a variable length hash to a 256-bit hash."""
@@ -160,15 +154,16 @@ def hashTo256(hash):
     return toUint32Array(buf)
 
 def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
-    """Do low memory-bandwidth multplication hashing."""
+    """Do low memory-bandwidth multiplication hashing."""
     multHashes = []
-    state = hashWithSalt(hash, parallelism)
+    state = list(hash)
+    hashWithSalt(state, parallelism)
     for i in range(numblocks*2):
         for j in range(multipliesPerBlock * repetitions):
             # This is reversible, and will not lose entropy
             state[j&7] = (0xffffffff & (state[j&7]*(state[(j+1)&7] | 1))) ^ (state[(j+2)&7] >> 1)
-        # Apply a crypt-strength hash to the state and broadcast the result
-        hashState(state)
+        # Apply a crypto-strength hash to the state and broadcast the result
+        hashWithSalt(state, i);
         multHashes.append(list(state))
     return multHashes
 
@@ -179,15 +174,15 @@ def combineHashes(hashSize, mem, blocklen, numblocks, parallelism):
     for p in range(parallelism):
         pos = 2*(p+1)*numblocks*blocklen - hashlen
         for i in range(hashlen):
-            s[i] += mem[pos + i]
+            s[i] = 0xffffffff & (s[i] + mem[pos + i])
     return toUint8Array(s)
 
 def hashMultIntoState(iteration, multHashes, state):
     """Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while."""
     hash = multHashes[iteration]
     for i in range(8):
-        state[i] += hash[i]
-    hashState(state)
+        state[i] = 0xffffffff & (state[i] + hash[i])
+    hashWithSalt(state, iteration)
 
 def reverse(value, numBits):
     """Compute the bit reversal of value."""
@@ -223,7 +218,8 @@ def hashWithoutPassword(mem, hash, p, blocklen, numblocks, repetitions, multHash
     start = 2*p*numblocks*blocklen
     for i in range(blocklen):
         mem[start + i] = 0x5c5c5c5c
-    buf = hashWithSalt(hash, p)
+    buf = list(hash)
+    hashWithSalt(buf, p)
     for i in range(8):
         mem[start + i] = buf[i]
     state = [0, 0, 0, 0, 0, 0, 0, 0]

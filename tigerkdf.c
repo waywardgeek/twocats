@@ -77,7 +77,7 @@ struct TigerKDFContextStruct {
 };
 
 
-// Do low memory-bandwidth multplication hashing.
+// Do low memory-bandwidth multiplication hashing.
 static void *multHash(void *commonPtr) {
     struct TigerKDFCommonDataStruct *c = (struct TigerKDFCommonDataStruct *)commonPtr;
 
@@ -103,8 +103,8 @@ static void *multHash(void *commonPtr) {
             state[6] = (state[6]*(state[7] | 1)) ^ (state[0] >> 1);
             state[7] = (state[7]*(state[0] | 1)) ^ (state[1] >> 1);
         }
-        // Apply a crypt-strength hash to the state and broadcast the result
-        hashState(state);
+        // Apply a crypto-strength hash to the state and broadcast the result
+        hashWithSalt(state, state, i);
         for(j = 0; j < 8; j++) {
             multHashes[8*c->completedMultiplies + j] = state[j];
         }
@@ -196,7 +196,7 @@ static void hashMultIntoState(uint32_t iteration, struct TigerKDFCommonDataStruc
     for(uint32_t i = 0; i < 8; i++) {
         state[i] += c->multHashes[iteration*8 + i];
     }
-    hashState(state);
+    hashWithSalt(state, state, iteration);
 }
 
 // Bit-reversal function derived from Catena's version.

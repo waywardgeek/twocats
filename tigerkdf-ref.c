@@ -17,19 +17,18 @@
 #include "tigerkdf.h"
 #include "tigerkdf-impl.h"
 
-// Do low memory-bandwidth multplication hashing.
+// Do low memory-bandwidth multiplication hashing.
 static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
         uint32_t *multHashes, uint32_t multipliesPerBlock, uint32_t parallelism) {
     uint32_t state[8];
     hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
-        uint32_t j;
-        for(j = 0; j < multipliesPerBlock * repetitions; j++) {
+        for(uint32_t j = 0; j < multipliesPerBlock * repetitions; j++) {
             // This is reversible, and will not lose entropy
             state[j&7] = (state[j&7]*(state[(j+1)&7] | 1)) ^ (state[(j+2)&7] >> 1);
         }
-        // Apply a crypt-strength hash to the state and broadcast the result
-        hashState(state);
+        // Apply a crypto-strength hash to the state and broadcast the result
+        hashWithSalt(state, state, i);
         memcpy(multHashes + 8*i, state, 32);
     }
 }
@@ -54,7 +53,7 @@ static void hashMultIntoState(uint32_t iteration, uint32_t *multHashes, uint32_t
     for(uint32_t i = 0; i < 8; i++) {
         state[i] += multHashes[iteration*8 + i];
     }
-    hashState(state);
+    hashWithSalt(state, state, iteration);
 }
 
 // Compute the bit reversal of value.
