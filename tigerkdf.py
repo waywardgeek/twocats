@@ -93,45 +93,49 @@ def toUint8Array(words):
         b.append(b3)
     return b
 
-def H(outlen, in, key=""):
-    return blake2.blake2s(in, outlen, key, rawOutput=False)
+def H(outlen, data, key=""):
+    data = str(data)
+    key = str(key)
+    return blake2.blake2s(data, outlen, key, rawOutput=False)
 
 def H_PBKDF2(hashSize, password, salt):
     """This is a PBKDF2 password hashing function based currently on Blake2s."""
-    return PBKDF2(password, salt, iterations=1, digestmodule=Blake2Hash).read(hasSize)
+    salt = str(salt)
+    password = str(password)
+    return PBKDF2(password, salt, iterations=1, digestmodule=Blake2Hash).read(hashSize)
 
+def TigerKDF_SimpleHashPassword(hashSize, password, salt, memSize):
+    hash = H_PBKDF2(hashSize, password, salt)
+    print toHex(str(hash))
+    return TigerKDF(hash, memSize, 250, 0, 0, 16384, 0, 2, 1, False)
 
-def TigerKDF_SimpleHashPassword(hashsize, password, salt, memSize):
-    hash = H_PBKDF2(hashsize, password, salt)
-    return TigerKDF(hash, memSize, 250, 0, 0, 16384, 0, 2, 1, false)
-
-def TigerKDF_HashPassword(hashsize, password, salt, memSize, multipliesPerKB, garlic, data, blockSize,
+def TigerKDF_HashPassword(hashSize, password, salt, memSize, multipliesPerKB, garlic, data, blockSize,
         subblockSize, parallelism, repetitions):
     """The full password hashing interface.  memSize is in KiB."""
     if data != None:
-        derivedSalt = H_PBKDF2(hashsize, data, salt)
-        hash = H_PBKDF2(hashsize, password, derivedSalt)
+        derivedSalt = H_PBKDF2(hashSize, data, salt)
+        hash = H_PBKDF2(hashSize, password, derivedSalt)
     else:
-        hash = H_PBKDF2(hashsize, password, salt)
-    return TigerKDF(hash, memSize, multipliesPerKB, 0, garlic, blockSize, subblockSize, parallelism, repetitions, false)
+        hash = H_PBKDF2(hashSize, password, salt)
+        print toHex(hash)
+    return TigerKDF(hash, memSize, multipliesPerKB, 0, garlic, blockSize, subblockSize, parallelism, repetitions, False)
 
 def TigerKDF_UpdatePasswordHash(hash, memSize, multipliesPerKB, oldGarlic, newGarlic,
         blockSize, subblockSize, parallelism, repetitions):
     """Update an existing password hash to a more difficult level of garlic."""
     return TigerKDF(hash, memSize, multipliesPerKB, oldGarlic, newGarlic, blockSize, subblockSize, parallelism,
-            repetitions, false)
+            repetitions, False)
 
 def TigerKDF_ClientHashPassword(hash, password, salt, memSize, multipliesPerKB, garlic, data, blockSize, subblockSize,
         parallelism, repetitions):
     """Client-side portion of work for server-relief mode."""
     if data != None:
-        derivedSalt = H_PBKDF2(hashsize, data, salt)
-        hash = H_PBKDF2(hashsize, password, derivedSalt)
+        derivedSalt = H_PBKDF2(hashSize, data, salt)
+        hash = H_PBKDF2(hashSize, password, derivedSalt)
     else:
-        hash = H_PBKDF2(hashsize, password, salt)
+        hash = H_PBKDF2(hashSize, password, salt)
     return TigerKDF(hash, memSize, multipliesPerKB, 0, garlic, blockSize, subblockSize,
-            parallelism, repetitions, true)
-}
+            parallelism, repetitions, True)
 
 def TigerKDF_ServerHashPassword(hash):
     """Server portion of work for server-relief mode."""
@@ -141,12 +145,14 @@ def hashState(state):
     """Perform one crypt-strength hash on a 32-byte state."""
     buf = toUint8Array(state)
     buf = H(32, buf)
-    return toUint32Array(buf)
+    buf = toUint32Array(buf)
+    for i in range(8):
+        state[i] = buf[i]
 
-def hashWithSalt(in, salt):
+def hashWithSalt(data, salt):
     """Perform one crypt-strength hash on a 32-byte state, with a 32-bit salt."""
-    buf = toUint8Array(in)
-    s = toUint8Array(salt)
+    buf = toUint8Array(data)
+    s = toUint8Array([salt])
     buf = H(32, buf, s)
     return toUint32Array(buf)
 
@@ -164,31 +170,32 @@ def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
             # This is reversible, and will not lose entropy
             state[j&7] = (0xffffffff & (state[j&7]*(state[(j+1)&7] | 1))) ^ (state[(j+2)&7] >> 1)
         # Apply a crypt-strength hash to the state and broadcast the result
-        state = hashState(state)
-        multHashes.append(state)
+        hashState(state)
+        multHashes.append(list(state))
     return multHashes
 
 def combineHashes(hashSize, mem, blocklen, numblocks, parallelism):
     """Add the last hashed data from each memory thread into the result."""
     hashlen = hashSize/4
-    s = [0 for _ in range(hashlen]
+    s = [0 for _ in range(hashlen)]
     for p in range(parallelism):
         pos = 2*(p+1)*numblocks*blocklen - hashlen
         for i in range(hashlen):
             s[i] += mem[pos + i]
     return toUint8Array(s)
 
-def hashMultItoState(iteration, multHashes, state):
+def hashMultIntoState(iteration, multHashes, state):
     """Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while."""
     hash = multHashes[iteration]
     for i in range(8):
         state[i] += hash[i]
-    return state
+    hashState(state)
 
 def reverse(value, numBits):
     """Compute the bit reversal of value."""
     result = 0
-    while numBits-- != 0:
+    while numBits != 0:
+        numBits -= 1
         result = (result << 1) | (value & 1)
         value >>= 1
     return result
@@ -206,7 +213,7 @@ def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions)
             for j in range(subBlocklen/8):
                 for k in range(8):
                     state[k] = (0xffffffff & (state[k] + mem[p])) ^ mem[f]
-                    state[k] = (state[k] >> 24) | (state[k] << 8)
+                    state[k] = (state[k] >> 24) | (0xffffffff & (state[k] << 8))
                     mem[t] = state[k]
                     p += 1
                     f += 1
@@ -217,11 +224,16 @@ def hashWithoutPassword(mem, hash, p, blocklen, numblocks, repetitions, multHash
        Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal."""
     start = 2*p*numblocks*blocklen
     for i in range(blocklen):
-        mem[start + i] = 0
-    state = hashWithSalt(hash, p)
+        mem[start + i] = 0x5c5c5c5c
+    import pdb; pdb.set_trace()
+    buf = hashWithSalt(hash, p)
+    for i in range(8):
+        mem[i] = buf[i]
+    state = [0, 0, 0, 0, 0, 0, 0, 0]
+    hashMultIntoState(0, multHashes, state)
     numBits = 0
     toAddr = start + blocklen
-    for i in range(numblocks):
+    for i in range(1, numblocks):
         if 1 << (numBits + 1) <= i:
             numBits += 1
         reversePos = reverse(i, numBits)
@@ -229,7 +241,7 @@ def hashWithoutPassword(mem, hash, p, blocklen, numblocks, repetitions, multHash
             reversePos += 1 << numBits
         fromAddr = start + blocklen*reversePos
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions)
-        hashMultItoState(i, multHashes, state)
+        hashMultIntoState(i, multHashes, state)
         toAddr += blocklen
 
 def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repetitions, multHashes):
@@ -248,9 +260,8 @@ def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repe
             q = (p + i) % parallelism
             b = numblocks - 1 - (distance - i)
             fromAddr = (2*numblocks*q + b)*blocklen
-        }
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions)
-        hashMultItoState(i, multHashes, state)
+        hashMultIntoState(i + numblocks, multHashes, state)
         toAddr += blocklen
 
 def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize, subBlockSize, parallelism,
@@ -283,16 +294,16 @@ def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize,
         for p in range(parallelism):
             hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repetitions, multHashes)
         # Combine all the memory thread hashes with a crypto-strength hash
-        hash = combineHashes(hashSize, mem, blocklen, numblocks, parallelism)
+        hash = combineHashes(len(hash), mem, blocklen, numblocks, parallelism)
         # Double the memory for the next round of garlic
         numblocks *= 2
-        if i < stopGarlic || !skipLastHash:
+        if i < stopGarlic or not skipLastHash:
             # For server relief mode, skip doing this last hash
-            H_PBKDF2(hashSize, hash, "")
+            hash = H_PBKDF2(len(hash), hash, "")
     # The light is green, the trap is clean
     return hash
 
 #import pdb; pdb.set_trace()
-hash = TigerKDF_SimpleHashPassword(32, "password", "salt", 64)
-#hash = TigerKDF_HashPassword(32, "password", "salt", 3, 0, None, 64, 2, 4)
+#hash = TigerKDF_SimpleHashPassword(32, "password", "salt", 64)
+hash = TigerKDF_HashPassword(32, "password", "salt", 64, 20, 0, None, 1024, 0, 1, 1)
 print toHex(str(hash))

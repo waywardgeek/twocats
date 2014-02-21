@@ -186,7 +186,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 }
 
 // Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
-static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct *c, uint32_t *state) {
+static void hashMultIntoState(uint32_t iteration, struct TigerKDFCommonDataStruct *c, uint32_t *state) {
     while(iteration >= c->completedMultiplies) {
         struct timespec ts;
         ts.tv_sec = 0;
@@ -226,8 +226,10 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t repetitions = c->repetitions;
 
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    uint32_t state[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-    hashWithSalt(state, hash, p);
+    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
+    uint32_t state[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    hashWithSalt(mem, hash, p);
+    hashMultIntoState(0, c, state);
     uint32_t mask = 1;
     uint32_t numBits = 0;
     uint64_t toAddr = start + blocklen;
@@ -242,7 +244,7 @@ static void *hashWithoutPassword(void *contextPtr) {
         }
         uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions);
-        hashMultItoState(i, c, state);
+        hashMultIntoState(i, c, state);
         toAddr += blocklen;
     }
     pthread_exit(NULL);
@@ -278,7 +280,7 @@ static void *hashWithPassword(void *contextPtr) {
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions);
-        hashMultItoState(i, c, state);
+        hashMultIntoState(i + numblocks, c, state);
         toAddr += blocklen;
     }
     pthread_exit(NULL);

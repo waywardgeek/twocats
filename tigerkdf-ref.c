@@ -50,7 +50,7 @@ static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint3
 }
 
 // Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
-static void hashMultItoState(uint32_t iteration, uint32_t *multHashes, uint32_t *state) {
+static void hashMultIntoState(uint32_t iteration, uint32_t *multHashes, uint32_t *state) {
     for(uint32_t i = 0; i < 8; i++) {
         state[i] += multHashes[iteration*8 + i];
     }
@@ -94,9 +94,10 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
         uint32_t blocklen, uint32_t numblocks, uint32_t repetitions, uint32_t *multHashes) {
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    memset(mem + start, '\0', blocklen*sizeof(uint32_t));
-    uint32_t state[8];
-    hashWithSalt(state, hash, p);
+    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
+    uint32_t state[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    hashWithSalt(mem, hash, p);
+    hashMultIntoState(0, multHashes, state);
     uint32_t numBits = 0;
     uint64_t toAddr = start + blocklen;
     for(uint32_t i = 1; i < numblocks; i++) {
@@ -109,7 +110,7 @@ static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
         }
         uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions);
-        hashMultItoState(i, multHashes, state);
+        hashMultIntoState(i, multHashes, state);
         toAddr += blocklen;
     }
 }
@@ -134,7 +135,7 @@ static void hashWithPassword(uint32_t *mem, uint32_t parallelism, uint32_t p, ui
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions);
-        hashMultItoState(i, multHashes, state);
+        hashMultIntoState(i + numblocks, multHashes, state);
         toAddr += blocklen;
     }
 }
