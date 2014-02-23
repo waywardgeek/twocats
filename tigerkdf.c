@@ -201,18 +201,31 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     uint32_t numSubBlocks = blocklen/subBlocklen;
     uint32_t mask = numSubBlocks - 1;
     DECLARE_ROTATE_CONSTS
-    for(uint32_t r = 0; r < repetitions; r++) {
-        __m256i *f = m + fromAddr/8;
-        __m256i *t = m + toAddr/8;
+    __m256i *f;
+    __m256i *t;
+    __m256i *p;
+    for(uint32_t r = 0; r < repetitions-1; r++) {
+        f = m + fromAddr/8;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
-            __m256i *p = m + prevAddr/8 + (subBlocklen/8)*(*(uint32_t *)f & mask);
+            p = m + prevAddr/8 + (subBlocklen/8)*(*(uint32_t *)f & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 s = _mm256_add_epi32(s, *p++);
                 s = _mm256_xor_si256(s, *f++);
                 // Rotate left 8
                 s = ROTATE(s);
-                *t++ = s;
             }
+        }
+    }
+    f = m + fromAddr/8;
+    t = m + toAddr/8;
+    for(uint32_t i = 0; i < numSubBlocks; i++) {
+        p = m + prevAddr/8 + (subBlocklen/8)*(*(uint32_t *)f & mask);
+        for(uint32_t j = 0; j < subBlocklen/8; j++) {
+            s = _mm256_add_epi32(s, *p++);
+            s = _mm256_xor_si256(s, *f++);
+            // Rotate left 8
+            s = ROTATE(s);
+            *t++ = s;
         }
     }
     convStateFromM256iToUint32(&s, state);
@@ -225,23 +238,40 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     uint32_t numSubBlocks = blocklen/subBlocklen;
     uint32_t mask = numSubBlocks - 1;
     DECLARE_ROTATE_CONSTS
-    for(uint32_t r = 0; r < repetitions; r++) {
-        __m128i *f = m + fromAddr/4;
-        __m128i *t = m + toAddr/4;
+    __m128i *f;
+    __m128i *t;
+    __m128i *p;
+    for(uint32_t r = 0; r < repetitions-1; r++) {
+        f = m + fromAddr/4;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
-            __m128i *p = m + prevAddr/4 + (subBlocklen/4)*(*(uint32_t *)f & mask);
+            p = m + prevAddr/4 + (subBlocklen/4)*(*(uint32_t *)f & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
                 // Rotate left 8
                 s1 = ROTATE(s1);
-                *t++ = s1;
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
                 // Rotate left 8
                 s2 = ROTATE(s2);
-                *t++ = s2;
             }
+        }
+    }
+    f = m + fromAddr/4;
+    t = m + toAddr/4;
+    for(uint32_t i = 0; i < numSubBlocks; i++) {
+        p = m + prevAddr/4 + (subBlocklen/4)*(*(uint32_t *)f & mask);
+        for(uint32_t j = 0; j < subBlocklen/8; j++) {
+            s1 = _mm_add_epi32(s1, *p++);
+            s1 = _mm_xor_si128(s1, *f++);
+            // Rotate left 8
+            s1 = ROTATE(s1);
+            *t++ = s1;
+            s2 = _mm_add_epi32(s2, *p++);
+            s2 = _mm_xor_si128(s2, *f++);
+            // Rotate left 8
+            s2 = ROTATE(s2);
+            *t++ = s2;
         }
     }
     convStateFromM128iToUint32(&s1, &s2, state);
