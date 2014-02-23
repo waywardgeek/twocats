@@ -93,7 +93,7 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 
 int main(int argc, char **argv) {
     uint32_t memorySize = 2048*1024, derivedKeySize = 32;
-    uint32_t repetitions = 1, parallelism = 2, blockSize = 16384, subBlockSize = 0;
+    uint32_t repetitions = 1, parallelism = 2, blockSize = 16384, subBlockSize = 32;
     uint8_t garlic = 0;
     uint8_t *salt = (uint8_t *)"salt";
     uint32_t saltSize = 4;
