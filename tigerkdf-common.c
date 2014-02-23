@@ -1,3 +1,16 @@
+/*
+   TigerKDF common functions between reference and optimized C versions.
+
+   Written in 2014 by Bill Cox <waywardgeek@gmail.com>
+
+   To the extent possible under law, the author(s) have dedicated all copyright
+   and related and neighboring rights to this software to the public domain
+   worldwide. This software is distributed without any warranty.
+
+   You should have received a copy of the CC0 Public Domain Dedication along with
+   this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,7 +19,8 @@
 #include "tigerkdf-impl.h"
 
 // Print the state.
-void printState(uint32_t state[8]) {
+void printState(char *message, uint32_t state[8]) {
+    puts(message);
     for(uint32_t i = 0; i < 8; i++) {
         printf("%u ", state[i]);
     }
@@ -38,12 +52,12 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     if(subBlockSize == 0) {
         subBlockSize = blockSize;
     }
-    if(hashSize > 1024 || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
+    if(hashSize > blockSize || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
             passwordSize == 0 || saltSize > 1024  || saltSize == 0 || memSize == 0 ||
             memSize > 1 << 30 || multipliesPerKB*(uint64_t)blockSize/1024 > 1 << 30 ||
             startGarlic > stopGarlic || stopGarlic > 30 || dataSize > 1024 || blockSize > 1 << 30 ||
-            blockSize < hashSize || blockSize & 0x1f || subBlockSize > blockSize ||
-            subBlockSize & 0x1f || subBlockSize*(blockSize/subBlockSize) != blockSize ||
+            blockSize & 0x1f || subBlockSize > blockSize || subBlockSize & 0x1f ||
+            subBlockSize*(blockSize/subBlockSize) != blockSize ||
             ((uint64_t)memSize << 10) < 4*(uint64_t)blockSize*parallelism || parallelism == 0 ||
             parallelism > 1 << 20 || repetitions == 0 || repetitions > 1 << 30) {
         return false;
@@ -66,12 +80,12 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
 // A simple password hashing interface.  MemSize is in KiB.  The password is cleared with secure_zero_memory.
 bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint32_t memSize) {
-    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, 4096, 0, 0, 0, 16384, 0, 1, 1)) {
+    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, 200, 0, 0, 0, 16384, 32, 1, 1)) {
         return false;
     }
     PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
     secure_zero_memory(password, passwordSize);
-    return TigerKDF(hash, hashSize, memSize, 3000, 0, 0, 16384, 0, 2, 1, false);
+    return TigerKDF(hash, hashSize, memSize, 200, 0, 0, 16384, 32, 2, 1, false);
 }
 
 // The full password hashing interface.  MemSize is in KiB.
@@ -140,13 +154,13 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
 
 // Server portion of work for server-relief mode.
 void TigerKDF_ServerHashPassword(uint8_t *hash, uint32_t hashSize) {
-    H(hash, hashSize, hash, hashSize, NULL, 0);
+    PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
 }
 
 // This is the prototype required for the password hashing competition.
 // t_cost is a multiplier on CPU work.  m_cost is the number of KiB of memory to hash.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
         unsigned int t_cost, unsigned int m_cost) {
-    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost, 3000, 0,
-        NULL, 0, 16384, 0, 2, t_cost, false);
+    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost, 200, 0,
+        NULL, 0, 16384, 32, 2, t_cost, false);
 }

@@ -1,3 +1,16 @@
+/*
+   TigerKDF optimized C version
+
+   Written in 2014 by Bill Cox <waywardgeek@gmail.com>
+
+   To the extent possible under law, the author(s) have dedicated all copyright
+   and related and neighboring rights to this software to the public domain
+   worldwide. This software is distributed without any warranty.
+
+   You should have received a copy of the CC0 Public Domain Dedication along with
+   this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+*/
+
 #define _POSIX_C_SOURCE 199309L // Otherwise nanosleep is not included
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +22,8 @@
 #include "tigerkdf-impl.h"
 
 // This include code copied from blake2s.c
+#include "blake2/blake2-config.h"
+
 #include <emmintrin.h>
 #if defined(HAVE_SSSE3)
 #include <tmmintrin.h>
@@ -23,12 +38,36 @@
 #include <x86intrin.h>
 #endif
 
+// This rotate code is motivated from blake2s-round.h
+#ifdef __AVX2__
+#define DECLARE_ROTATE_CONSTS \
+    __m256i shuffleVal = _mm256_set_epi8(30, 29, 28, 31, 26, 25, 24, 27, 22, 21, 20, 23, 18, 17, 16, 19, \
+        14, 13, 12, 15, 10, 9, 8, 11, 6, 5, 4, 7, 2, 1, 0, 3);
+#define ROTATE(s) _mm256_shuffle_epi8(s, shuffleVal)
+#else
+#ifndef HAVE_XOP
+#ifdef HAVE_SSSE3
+#define DECLARE_ROTATE_CONSTS \
+    __m128i shuffleVal = _mm_set_epi8(14, 13, 12, 15, 10, 9, 8, 11, 6, 5, 4, 7, 2, 1, 0, 3);
+#define ROTATE(s) _mm_shuffle_epi8(s, shuffleVal)
+#else
+#define DECLARE_ROTATE_CONSTS \
+    __m128i shiftRightVal = _mm_set_epi32(24, 24, 24, 24); \
+    __m128i shiftLeftVal = _mm_set_epi32(8, 8, 8, 8);
+#define ROTATE(s) _mm_or_si128(_mm_srl_epi32(s, shiftRightVal), _mm_sll_epi32(s, shiftLeftVal))
+#endif
+#else
+#define DECLARE_ROTATE_CONSTS
+#define ROTATE(s) _mm_roti_epi32(r, 8)
+#endif
+#endif
+
+
 // This structure is shared among all threads.
 struct TigerKDFCommonDataStruct {
     uint32_t *mem;
     uint32_t *multHashes;
-    uint8_t *hash;
-    uint32_t hashSize;
+    uint32_t *hash;
     uint32_t parallelism;
     uint32_t blocklen;
     uint32_t subBlocklen;
@@ -44,49 +83,51 @@ struct TigerKDFContextStruct {
     uint32_t p; // This is the memory-thread number
 };
 
-// Perform one crypt-strength hash on a 32-byte state.
-static inline void hashState(uint32_t state[32]) {
-    uint8_t buf[32];
-    be32enc_vect(buf, state, 32);
-    H(buf, 32, buf, 32, NULL, 0);
-    be32dec_vect(state, buf, 32);
-}
 
-// Do low-bandwidth multplication hashing.
+// Do low memory-bandwidth multiplication hashing.
 static void *multHash(void *commonPtr) {
     struct TigerKDFCommonDataStruct *c = (struct TigerKDFCommonDataStruct *)commonPtr;
 
-    uint8_t *hash = c->hash;
-    uint32_t hashSize = c->hashSize;
+    uint32_t *hash = c->hash;
     uint32_t numblocks = c->numblocks;
     uint32_t repetitions = c->repetitions;
     uint32_t *multHashes = c->multHashes;
     uint32_t multipliesPerBlock = c->multipliesPerBlock;
+    uint32_t parallelism = c->parallelism;
 
-    uint8_t s[sizeof(uint32_t)];
-    be32enc(s, c->parallelism);
-    uint8_t threadKey[32];
     uint32_t state[8];
-    H(threadKey, 32, hash, hashSize, s, sizeof(uint32_t));
-    be32dec_vect(state, threadKey, 32);
-    uint32_t numMults = 0;
+    uint32_t value = 1;
+    hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
-        uint32_t j;
-        for(j = 0; j < multipliesPerBlock * repetitions; j += 8) {
-            // This is reversible, and will not lose entropy
-            state[0] = (state[0]*(state[1] | 1)) ^ (state[2] >> 1);
-            state[1] = (state[1]*(state[2] | 1)) ^ (state[3] >> 1);
-            state[2] = (state[2]*(state[3] | 1)) ^ (state[4] >> 1);
-            state[3] = (state[3]*(state[4] | 1)) ^ (state[5] >> 1);
-            state[4] = (state[4]*(state[5] | 1)) ^ (state[6] >> 1);
-            state[5] = (state[5]*(state[6] | 1)) ^ (state[7] >> 1);
-            state[6] = (state[6]*(state[7] | 1)) ^ (state[0] >> 1);
-            state[7] = (state[7]*(state[0] | 1)) ^ (state[1] >> 1);
-            numMults += 8;
+        for(uint32_t j = 0; j < multipliesPerBlock * repetitions; j += 8) {
+            value *= state[0] | 1;
+            value += state[1];
+            state[0] ^= value;
+            value *= state[1] | 1;
+            value += state[2];
+            state[1] ^= value;
+            value *= state[2] | 1;
+            value += state[3];
+            state[2] ^= value;
+            value *= state[3] | 1;
+            value += state[4];
+            state[3] ^= value;
+            value *= state[4] | 1;
+            value += state[5];
+            state[4] ^= value;
+            value *= state[5] | 1;
+            value += state[6];
+            state[5] ^= value;
+            value *= state[6] | 1;
+            value += state[7];
+            state[6] ^= value;
+            value *= state[7] | 1;
+            value += state[0];
+            state[7] ^= value;
         }
-        // Apply a crypt-strength hash to the state and broadcast the result
-        hashState(state);
-        for(j = 0; j < 8; j++) {
+        // Apply a crypto-strength hash to the state and broadcast the result
+        hashWithSalt(state, state, i);
+        for(uint32_t j = 0; j < 8; j++) {
             multHashes[8*c->completedMultiplies + j] = state[j];
         }
         (c->completedMultiplies)++;
@@ -94,23 +135,35 @@ static void *multHash(void *commonPtr) {
     pthread_exit(NULL);
 }
 
-// Add the last hashed data from each memory thread into the result and apply a
-// crypto-strength hash to it.
-static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocklen,
-        uint32_t numblocks, uint32_t parallelism) {
-    uint8_t data[hashSize];
-    
+// Add the last hashed data from each memory thread into the result.
+static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocklen, uint32_t numblocks,
+        uint32_t parallelism) {
+    uint32_t hashlen = hashSize/4;
+    uint32_t s[hashlen];
+    memset(s, '\0', hashSize);
     for(uint32_t p = 0; p < parallelism; p++) {
-        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashSize/sizeof(uint32_t);
-        be32enc_vect(data, mem + pos, hashSize);
-        uint32_t i;
-        for(i = 0; i < hashSize; i++) {
-            hash[i] += data[i];
+        int64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashlen;
+        for(uint32_t i = 0; i < hashlen; i++) {
+            s[i] += mem[pos + i];
         }
     }
-    H(hash, hashSize, hash, hashSize, NULL, 0);
+    be32enc_vect(hash, s, hashSize);
 }
 
+#ifdef __AVX2__
+static void convStateFromUint32ToM256i(uint32_t state[8], __m256i *v) {
+    *v = _mm256_set_epi32(state[7], state[6], state[5], state[4], state[3], state[2], state[1], state[0]);
+}
+
+// Convert two __m256i to uint32_t[8].
+static void convStateFromM256iToUint32(__m256i *v, uint32_t state[8]) {
+    uint32_t *p = (uint32_t *)v;
+    uint32_t i;
+    for(i = 0; i < 8; i++) {
+        state[i] = p[i];
+    }
+}
+#else
 // Convert a uint32_t[8] to two __m128i values.
 static void convStateFromUint32ToM128i(uint32_t state[8], __m128i *v1, __m128i *v2) {
     *v1 = _mm_set_epi32(state[3], state[2], state[1], state[0]);
@@ -129,15 +182,41 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
         state[i+4] = p[i];
     }
 }
+#endif
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 // Basically, it does for every 8 words:
 //     for(i = 0; i < 8; i++) {
-//         state[i] = ROTATE_RIGHT((state[i] + *p++) ^ *f++, 7);
+//         state[i] = ROTATE_LEFT((state[i] + *p++) ^ *f++, 8);
 //         *t++ = state[i];
 //     
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint64_t fromAddr, uint64_t toAddr, uint32_t repetitions) {
+
+#ifdef __AVX2__
+    __m256i s;
+    convStateFromUint32ToM256i(state, &s);
+    uint64_t prevAddr = toAddr - blocklen;
+    __m256i *m = (__m256i *)mem;
+    uint32_t numSubBlocks = blocklen/subBlocklen;
+    uint32_t mask = numSubBlocks - 1;
+    DECLARE_ROTATE_CONSTS
+    for(uint32_t r = 0; r < repetitions; r++) {
+        __m256i *f = m + fromAddr/8;
+        __m256i *t = m + toAddr/8;
+        for(uint32_t i = 0; i < numSubBlocks; i++) {
+            __m256i *p = m + prevAddr/8 + (subBlocklen/8)*(*(uint32_t *)f & mask);
+            for(uint32_t j = 0; j < subBlocklen/8; j++) {
+                s = _mm256_add_epi32(s, *p++);
+                s = _mm256_xor_si256(s, *f++);
+                // Rotate left 8
+                s = ROTATE(s);
+                *t++ = s;
+            }
+        }
+    }
+    convStateFromM256iToUint32(&s, state);
+#else
     __m128i s1;
     __m128i s2;
     convStateFromUint32ToM128i(state, &s1, &s2);
@@ -145,8 +224,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     __m128i *m = (__m128i *)mem;
     uint32_t numSubBlocks = blocklen/subBlocklen;
     uint32_t mask = numSubBlocks - 1;
-    __m128i shiftRightVal = _mm_set_epi32(25, 25, 25, 25);
-    __m128i shiftLeftVal = _mm_set_epi32(7, 7, 7, 7);
+    DECLARE_ROTATE_CONSTS
     for(uint32_t r = 0; r < repetitions; r++) {
         __m128i *f = m + fromAddr/4;
         __m128i *t = m + toAddr/4;
@@ -155,22 +233,23 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
-                // Rotate left 7
-                s1 = _mm_or_si128(_mm_srl_epi32(s1, shiftRightVal), _mm_sll_epi32(s1, shiftLeftVal));
+                // Rotate left 8
+                s1 = ROTATE(s1);
                 *t++ = s1;
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
-                // Rotate left 7
-                s2 = _mm_or_si128(_mm_srl_epi32(s2, shiftRightVal), _mm_sll_epi32(s2, shiftLeftVal));
+                // Rotate left 8
+                s2 = ROTATE(s2);
                 *t++ = s2;
             }
         }
     }
     convStateFromM128iToUint32(&s1, &s2, state);
+#endif
 }
 
 // Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
-static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct *c, uint32_t *state) {
+static void hashMultIntoState(uint32_t iteration, struct TigerKDFCommonDataStruct *c, uint32_t *state) {
     while(iteration >= c->completedMultiplies) {
         struct timespec ts;
         ts.tv_sec = 0;
@@ -178,9 +257,9 @@ static void hashMultItoState(uint32_t iteration, struct TigerKDFCommonDataStruct
         nanosleep(&ts, NULL);
     }
     for(uint32_t i = 0; i < 8; i++) {
-        state[i] ^= c->multHashes[iteration*8 + i];
+        state[i] += c->multHashes[iteration*8 + i];
     }
-    hashState(state);
+    hashWithSalt(state, state, iteration);
 }
 
 // Bit-reversal function derived from Catena's version.
@@ -203,20 +282,17 @@ static void *hashWithoutPassword(void *contextPtr) {
     struct TigerKDFCommonDataStruct *c = ctx->common;
 
     uint32_t *mem = c->mem;
-    uint8_t *hash = c->hash;
-    uint32_t hashSize = c->hashSize;
+    uint32_t *hash = c->hash;
     uint32_t p = ctx->p;
     uint32_t blocklen = c->blocklen;
     uint32_t numblocks = c->numblocks;
     uint32_t repetitions = c->repetitions;
 
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    uint8_t threadKey[blocklen*sizeof(uint32_t)];
-    uint8_t s[sizeof(uint32_t)];
-    be32enc(s, p);
-    H(threadKey, blocklen*sizeof(uint32_t), hash, hashSize, s, sizeof(uint32_t));
-    be32dec_vect(mem + start, threadKey, blocklen*sizeof(uint32_t));
-    uint32_t state[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
+    uint32_t state[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    hashWithSalt(mem + start, hash, p);
+    hashMultIntoState(0, c, state);
     uint32_t mask = 1;
     uint32_t numBits = 0;
     uint64_t toAddr = start + blocklen;
@@ -231,7 +307,7 @@ static void *hashWithoutPassword(void *contextPtr) {
         }
         uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions);
-        hashMultItoState(i, c, state);
+        hashMultIntoState(i, c, state);
         toAddr += blocklen;
     }
     pthread_exit(NULL);
@@ -267,7 +343,7 @@ static void *hashWithPassword(void *contextPtr) {
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions);
-        hashMultItoState(i, c, state);
+        hashMultIntoState(i + numblocks, c, state);
         toAddr += blocklen;
     }
     pthread_exit(NULL);
@@ -282,10 +358,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
-    uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blocklen/(8*1024));
-    if(multipliesPerBlock == 0) {
-        multipliesPerBlock = 8;
-    }
+    uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blockSize/(8*1024));
     // Allocate memory
     uint32_t *mem;
     if(posix_memalign((void *)&mem,  32, memlen*sizeof(uint32_t))) {
@@ -302,27 +375,26 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         return false;
     }
     struct TigerKDFCommonDataStruct common;
-    uint32_t *multHashes = (uint32_t *)malloc(8*sizeof(uint32_t)*memlen/blocklen);
+    uint32_t *multHashes = (uint32_t *)calloc(8*memlen/blocklen, sizeof(uint32_t));
     if(multHashes == NULL) {
         return false;
     }
     // Fill out the common constant data used in all threads
+    uint32_t hash256[8];
     common.multHashes = multHashes;
     common.multipliesPerBlock = multipliesPerBlock;
-    common.hash = hash;
-    common.hashSize = hashSize;
+    common.hash = hash256;
     common.mem = mem;
     common.blocklen = blocklen;
     common.subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
     common.parallelism = parallelism;
     common.repetitions = repetitions;
-    common.multHashes = multHashes;
-    common.multipliesPerBlock = multipliesPerBlock;
     // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
+        hashTo256(hash256, hash, hashSize);
         common.numblocks = numblocks;
-        common.completedMultiplies = 0;
         // Start the multiplication chain hashing thread
+        common.completedMultiplies = 0;
         int rc = pthread_create(&multThread, NULL, multHash, (void *)&common);
         if(rc) {
             fprintf(stderr, "Unable to start threads\n");
@@ -333,7 +405,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         for(p = 0; p < parallelism; p++) {
             c[p].common = &common;
             c[p].p = p;
-            rc = pthread_create(&memThreads[p], NULL, hashWithoutPassword, (void *)(c + p));
+            int rc = pthread_create(&memThreads[p], NULL, hashWithoutPassword, (void *)(c + p));
             if(rc) {
                 fprintf(stderr, "Unable to start threads\n");
                 return false;
@@ -353,14 +425,13 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         for(p = 0; p < parallelism; p++) {
             (void)pthread_join(memThreads[p], NULL);
         }
-        (void)pthread_join(multThread, NULL);
         // Combine all the memory thread hashes with a crypto-strength hash
         combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
         // Double the memory for the next round of garlic
         numblocks *= 2;
         if(i < stopGarlic || !skipLastHash) {
             // For server relief mode, skip doing this last hash
-            H(hash, hashSize, hash, hashSize, NULL, 0);
+            PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
         }
     }
     // The light is green, the trap is clean

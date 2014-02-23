@@ -28,6 +28,8 @@
 #include <stdint.h>
 #include <string.h>
 #include "pbkdf2.h"
+#include "tigerkdf.h"
+#include "tigerkdf-impl.h"
 #include "blake2/blake2.h"
 
 typedef struct HMAC_BLAKE2Context {
@@ -56,7 +58,7 @@ void HMAC_BLAKE2S_Init(HMAC_BLAKE2S_CTX * ctx, const void * _K, size_t Klen) {
     memset(pad, 0x36, 64);
     for (i = 0; i < Klen; i++)
         pad[i] ^= K[i];
-    blake2s_update(&ctx->ictx, pad, 32);
+    blake2s_update(&ctx->ictx, pad, 64);
 
     /* Outer BLAKE2 operation is BLAKE2S(K xor [block of 0x5c] || hash). */
     blake2s_init(&ctx->octx, 32);

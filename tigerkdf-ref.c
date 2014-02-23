@@ -1,66 +1,74 @@
+/*
+   TigerKDF reference C implementation
+
+   Written in 2014 by Bill Cox <waywardgeek@gmail.com>
+
+   To the extent possible under law, the author(s) have dedicated all copyright
+   and related and neighboring rights to this software to the public domain
+   worldwide. This software is distributed without any warranty.
+
+   You should have received a copy of the CC0 Public Domain Dedication along with
+   this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <byteswap.h>
 #include "tigerkdf.h"
 #include "tigerkdf-impl.h"
 
-// Perform one crypt-strength hash on a 32-byte state.
-static inline void hashState(uint32_t state[32]) {
-    uint8_t buf[32];
-    be32enc_vect(buf, state, 32);
-    H(buf, 32, buf, 32, NULL, 0);
-    be32dec_vect(state, buf, 32);
-}
-
-// Do low-bandwidth multplication hashing.
-static void multHash(uint8_t *hash, uint32_t hashSize, uint32_t numblocks, uint32_t repetitions,
+// Do low memory-bandwidth multiplication hashing.
+static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
         uint32_t *multHashes, uint32_t multipliesPerBlock, uint32_t parallelism) {
-    uint8_t s[sizeof(uint32_t)];
-    be32enc(s, parallelism);
-    uint8_t threadKey[32];
     uint32_t state[8];
-    H(threadKey, 32, hash, hashSize, s, sizeof(uint32_t));
-    be32dec_vect(state, threadKey, 32);
-    uint32_t numMults = 0;
-    uint32_t completedMultiplies = 0;
+    uint32_t value = 1;
+    hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
-        uint32_t j;
-        for(j = 0; j < multipliesPerBlock * repetitions; j += 8) {
+        for(uint32_t j = 0; j < multipliesPerBlock * repetitions; j += 8) {
             // This is reversible, and will not lose entropy
-            state[0] = (state[0]*(state[1] | 1)) ^ (state[2] >> 1);
-            state[1] = (state[1]*(state[2] | 1)) ^ (state[3] >> 1);
-            state[2] = (state[2]*(state[3] | 1)) ^ (state[4] >> 1);
-            state[3] = (state[3]*(state[4] | 1)) ^ (state[5] >> 1);
-            state[4] = (state[4]*(state[5] | 1)) ^ (state[6] >> 1);
-            state[5] = (state[5]*(state[6] | 1)) ^ (state[7] >> 1);
-            state[6] = (state[6]*(state[7] | 1)) ^ (state[0] >> 1);
-            state[7] = (state[7]*(state[0] | 1)) ^ (state[1] >> 1);
-            numMults += 8;
+            for(uint32_t k = 0; k < 8; k++) {
+                value *= state[k] | 1;
+                value += state[(k+1)&7];
+                state[k] ^= value;
+            }
         }
-        // Apply a crypt-strength hash to the state and broadcast the result
-        hashState(state);
-        for(j = 0; j < 8; j++) {
-            multHashes[8*completedMultiplies + j] = state[j];
-        }
-        completedMultiplies++;
+        // Apply a crypto-strength hash to the state and broadcast the result
+        hashWithSalt(state, state, i);
+        memcpy(multHashes + 8*i, state, 32);
     }
 }
 
-// Add the last hashed data from each memory thread into the result and apply a
-// crypto-strength hash to it.
-static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocklen,
-        uint32_t numblocks, uint32_t parallelism) {
-    uint8_t data[hashSize];
+// Add the last hashed data from each memory thread into the result.
+static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocklen, uint32_t numblocks,
+        uint32_t parallelism) {
+    uint32_t hashlen = hashSize/4;
+    uint32_t s[hashlen];
+    memset(s, '\0', hashSize);
     for(uint32_t p = 0; p < parallelism; p++) {
-        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashSize/sizeof(uint32_t);
-        be32enc_vect(data, mem + pos, hashSize);
-        uint32_t i;
-        for(i = 0; i < hashSize; i++) {
-            hash[i] += data[i];
+        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashlen;
+        for(uint32_t i = 0; i < hashlen; i++) {
+            s[i] += mem[pos + i];
         }
     }
-    H(hash, hashSize, hash, hashSize, NULL, 0);
+    be32enc_vect(hash, s, hashSize);
+}
+
+// Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
+static void hashMultIntoState(uint32_t iteration, uint32_t *multHashes, uint32_t *state) {
+    for(uint32_t i = 0; i < 8; i++) {
+        state[i] += multHashes[iteration*8 + i];
+    }
+    hashWithSalt(state, state, iteration);
+}
+
+// Compute the bit reversal of value.
+static uint32_t reverse(uint32_t value, uint32_t numBits) {
+    uint32_t result = 0;
+    while(numBits-- != 0) {
+        result = (result << 1) | (value & 1);
+        value >>= 1;
+    }
+    return result;
 }
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
@@ -77,7 +85,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 for(uint32_t k = 0; k < 8; k++) {
                     state[k] = (state[k] + *p++) ^ *f++;
-                    state[k] = (state[k] >> 25) | (state[k] << 7);
+                    state[k] = (state[k] >> 24) | (state[k] << 8);
                     *t++ = state[k];
                 }
             }
@@ -85,53 +93,28 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     }
 }
 
-// Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
-static void hashMultItoState(uint32_t iteration, uint32_t *multHashes, uint32_t *state) {
-    for(uint32_t i = 0; i < 8; i++) {
-        state[i] ^= multHashes[iteration*8 + i];
-    }
-    hashState(state);
-}
-
-// Bit-reversal function derived from Catena's version.
-uint32_t reverse(uint32_t x, const uint8_t n)
-{
-    if(n == 0) {
-        return 0;
-    }
-    x = bswap_32(x);
-    x = ((x & 0x0f0f0f0f) << 4) | ((x & 0xf0f0f0f0) >> 4);
-    x = ((x & 0x33333333) << 2) | ((x & 0xcccccccc) >> 2);
-    x = ((x & 0x55555555) << 1) | ((x & 0xaaaaaaaa) >> 1);
-    return x >> (32 - n);
-}
-
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
-static void hashWithoutPassword(uint32_t *mem, uint8_t *hash, uint32_t hashSize, uint32_t p,
+static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
         uint32_t blocklen, uint32_t numblocks, uint32_t repetitions, uint32_t *multHashes) {
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    uint8_t threadKey[blocklen*sizeof(uint32_t)];
-    uint8_t s[sizeof(uint32_t)];
-    be32enc(s, p);
-    H(threadKey, blocklen*sizeof(uint32_t), hash, hashSize, s, sizeof(uint32_t));
-    be32dec_vect(mem + start, threadKey, blocklen*sizeof(uint32_t));
-    uint32_t state[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-    uint32_t mask = 1;
+    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
+    uint32_t state[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    hashWithSalt(mem + start, hash, p);
+    hashMultIntoState(0, multHashes, state);
     uint32_t numBits = 0;
     uint64_t toAddr = start + blocklen;
     for(uint32_t i = 1; i < numblocks; i++) {
-        if(mask << 1 <= i) {
-            mask <<= 1;
+        if(1 << (numBits + 1) <= i) {
             numBits++;
         }
         uint32_t reversePos = reverse(i, numBits);
-        if(reversePos + mask < i) {
-            reversePos += mask;
+        if(reversePos + (1 << numBits) < i) {
+            reversePos += 1 << numBits;
         }
         uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions);
-        hashMultItoState(i, multHashes, state);
+        hashMultIntoState(i, multHashes, state);
         toAddr += blocklen;
     }
 }
@@ -156,7 +139,7 @@ static void hashWithPassword(uint32_t *mem, uint32_t parallelism, uint32_t p, ui
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions);
-        hashMultItoState(i, multHashes, state);
+        hashMultIntoState(i + numblocks, multHashes, state);
         toAddr += blocklen;
     }
 }
@@ -171,27 +154,27 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     uint32_t subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
-    uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blocklen/(8*1024));
-    if(multipliesPerBlock == 0) {
-        multipliesPerBlock = 8;
-    }
+    uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blockSize/(8*1024));
     // Allocate memory
-    uint32_t *mem = malloc( memlen*sizeof(uint32_t));
+    uint32_t *mem = malloc(memlen*sizeof(uint32_t));
     if(mem == NULL) {
         return false;
     }
-    uint32_t *multHashes = (uint32_t *)malloc(8*sizeof(uint32_t)*memlen/blocklen);
+    uint32_t *multHashes = malloc(8*sizeof(uint32_t)*memlen/blocklen);
     if(multHashes == NULL) {
         return false;
     }
     // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
+        // Convert hash to 8 32-bit ints.
+        uint32_t hash256[8];
+        hashTo256(hash256, hash, hashSize);
         // Do the multiplication chains
-        multHash(hash, hashSize, numblocks, repetitions, multHashes, multipliesPerBlock, parallelism);
+        multHash(hash256, numblocks, repetitions, multHashes, multipliesPerBlock, parallelism);
         // Do the the first "pure" loop
         uint32_t p;
         for(p = 0; p < parallelism; p++) {
-            hashWithoutPassword(mem, hash, hashSize, p, blocklen, numblocks, repetitions, multHashes);
+            hashWithoutPassword(mem, hash256, p, blocklen, numblocks, repetitions, multHashes);
         }
         // Do the second "dirty" loop
         for(p = 0; p < parallelism; p++) {
@@ -203,7 +186,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         numblocks *= 2;
         if(i < stopGarlic || !skipLastHash) {
             // For server relief mode, skip doing this last hash
-            H(hash, hashSize, hash, hashSize, NULL, 0);
+            PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
         }
     }
     // The light is green, the trap is clean

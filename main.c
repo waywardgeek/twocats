@@ -1,3 +1,16 @@
+/*
+   TigerKDF main wrapper.
+
+   Written in 2014 by Bill Cox <waywardgeek@gmail.com>
+
+   To the extent possible under law, the author(s) have dedicated all copyright
+   and related and neighboring rights to this software to the public domain
+   worldwide. This software is distributed without any warranty.
+
+   You should have received a copy of the CC0 Public Domain Dedication along with
+   this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -80,13 +93,13 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 
 int main(int argc, char **argv) {
     uint32_t memorySize = 2048*1024, derivedKeySize = 32;
-    uint32_t repetitions = 1, parallelism = 2, blockSize = 16384, subBlockSize = 0;
+    uint32_t repetitions = 1, parallelism = 2, blockSize = 16384, subBlockSize = 32;
     uint8_t garlic = 0;
     uint8_t *salt = (uint8_t *)"salt";
     uint32_t saltSize = 4;
     uint8_t *password = (uint8_t *)"password";
     uint32_t passwordSize = 8;
-    uint32_t multipliesPerKB = 185;
+    uint32_t multipliesPerKB = 200;
 
     char c;
     while((c = getopt(argc, argv, "h:p:s:g:m:M:r:t:b:B:")) != -1) {
@@ -134,6 +147,7 @@ int main(int argc, char **argv) {
         garlic, memorySize, multipliesPerKB, repetitions);
     printf("numThreads:%u blockSize:%u subBlockSize:%u\n",
         parallelism, blockSize, subBlockSize);
+    printf("Password:%s Salt:%s\n", password, salt);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
     if(!TigerKDF_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
             memorySize, multipliesPerKB, garlic, NULL, 0, blockSize, subBlockSize, parallelism,
