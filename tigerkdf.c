@@ -89,23 +89,38 @@ static void *multHash(void *commonPtr) {
     uint32_t parallelism = c->parallelism;
 
     uint32_t state[8];
+    uint32_t value = 1;
     hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
-        uint32_t j;
-        for(j = 0; j < multipliesPerBlock * repetitions; j += 8) {
-            // This is reversible, and will not lose entropy
-            state[0] = (state[0]*(state[1] | 1)) ^ (state[2] >> 1);
-            state[1] = (state[1]*(state[2] | 1)) ^ (state[3] >> 1);
-            state[2] = (state[2]*(state[3] | 1)) ^ (state[4] >> 1);
-            state[3] = (state[3]*(state[4] | 1)) ^ (state[5] >> 1);
-            state[4] = (state[4]*(state[5] | 1)) ^ (state[6] >> 1);
-            state[5] = (state[5]*(state[6] | 1)) ^ (state[7] >> 1);
-            state[6] = (state[6]*(state[7] | 1)) ^ (state[0] >> 1);
-            state[7] = (state[7]*(state[0] | 1)) ^ (state[1] >> 1);
+        for(uint32_t j = 0; j < multipliesPerBlock * repetitions; j += 8) {
+            value *= state[0] | 1;
+            value += state[1];
+            state[0] ^= value;
+            value *= state[1] | 1;
+            value += state[2];
+            state[1] ^= value;
+            value *= state[2] | 1;
+            value += state[3];
+            state[2] ^= value;
+            value *= state[3] | 1;
+            value += state[4];
+            state[3] ^= value;
+            value *= state[4] | 1;
+            value += state[5];
+            state[4] ^= value;
+            value *= state[5] | 1;
+            value += state[6];
+            state[5] ^= value;
+            value *= state[6] | 1;
+            value += state[7];
+            state[6] ^= value;
+            value *= state[7] | 1;
+            value += state[0];
+            state[7] ^= value;
         }
         // Apply a crypto-strength hash to the state and broadcast the result
         hashWithSalt(state, state, i);
-        for(j = 0; j < 8; j++) {
+        for(uint32_t j = 0; j < 8; j++) {
             multHashes[8*c->completedMultiplies + j] = state[j];
         }
         (c->completedMultiplies)++;
@@ -120,7 +135,7 @@ static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint3
     uint32_t s[hashlen];
     memset(s, '\0', hashSize);
     for(uint32_t p = 0; p < parallelism; p++) {
-        uint64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashlen;
+        int64_t pos = 2*(p+1)*numblocks*(uint64_t)blocklen - hashlen;
         for(uint32_t i = 0; i < hashlen; i++) {
             s[i] += mem[pos + i];
         }
@@ -296,9 +311,6 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
     uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blockSize/(8*1024));
-    if(multipliesPerBlock == 0) {
-        multipliesPerBlock = 8;
-    }
     // Allocate memory
     uint32_t *mem;
     if(posix_memalign((void *)&mem,  32, memlen*sizeof(uint32_t))) {
@@ -315,7 +327,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         return false;
     }
     struct TigerKDFCommonDataStruct common;
-    uint32_t *multHashes = (uint32_t *)malloc(8*sizeof(uint32_t)*memlen/blocklen);
+    uint32_t *multHashes = (uint32_t *)calloc(8*memlen/blocklen, sizeof(uint32_t));
     if(multHashes == NULL) {
         return false;
     }
@@ -333,8 +345,8 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
         hashTo256(hash256, hash, hashSize);
         common.numblocks = numblocks;
-        common.completedMultiplies = 0;
         // Start the multiplication chain hashing thread
+        common.completedMultiplies = 0;
         int rc = pthread_create(&multThread, NULL, multHash, (void *)&common);
         if(rc) {
             fprintf(stderr, "Unable to start threads\n");
@@ -345,7 +357,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         for(p = 0; p < parallelism; p++) {
             c[p].common = &common;
             c[p].p = p;
-            rc = pthread_create(&memThreads[p], NULL, hashWithoutPassword, (void *)(c + p));
+            int rc = pthread_create(&memThreads[p], NULL, hashWithoutPassword, (void *)(c + p));
             if(rc) {
                 fprintf(stderr, "Unable to start threads\n");
                 return false;
@@ -365,7 +377,6 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         for(p = 0; p < parallelism; p++) {
             (void)pthread_join(memThreads[p], NULL);
         }
-        (void)pthread_join(multThread, NULL);
         // Combine all the memory thread hashes with a crypto-strength hash
         combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
         // Double the memory for the next round of garlic

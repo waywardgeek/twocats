@@ -21,11 +21,16 @@
 static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
         uint32_t *multHashes, uint32_t multipliesPerBlock, uint32_t parallelism) {
     uint32_t state[8];
+    uint32_t value = 1;
     hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
-        for(uint32_t j = 0; j < multipliesPerBlock * repetitions; j++) {
+        for(uint32_t j = 0; j < multipliesPerBlock * repetitions; j += 8) {
             // This is reversible, and will not lose entropy
-            state[j&7] = (state[j&7]*(state[(j+1)&7] | 1)) ^ (state[(j+2)&7] >> 1);
+            for(uint32_t k = 0; k < 8; k++) {
+                value *= state[k] | 1;
+                value += state[(k+1)&7];
+                state[k] ^= value;
+            }
         }
         // Apply a crypto-strength hash to the state and broadcast the result
         hashWithSalt(state, state, i);
@@ -150,9 +155,6 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
     uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blockSize/(8*1024));
-    if(multipliesPerBlock == 0) {
-        multipliesPerBlock = 8;
-    }
     // Allocate memory
     uint32_t *mem = malloc(memlen*sizeof(uint32_t));
     if(mem == NULL) {

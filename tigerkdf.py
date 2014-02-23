@@ -157,11 +157,16 @@ def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
     """Do low memory-bandwidth multiplication hashing."""
     multHashes = []
     state = list(hash)
+    value = 1;
     hashWithSalt(state, parallelism)
     for i in range(numblocks*2):
-        for j in range(multipliesPerBlock * repetitions):
+        for j in range(multipliesPerBlock*repetitions/8):
             # This is reversible, and will not lose entropy
-            state[j&7] = (0xffffffff & (state[j&7]*(state[(j+1)&7] | 1))) ^ (state[(j+2)&7] >> 1)
+            for k in range(8):
+                value *= state[k] | 1
+                value += state[(k+1)&7]
+                value &= 0xffffffff
+                state[k] ^= value
         # Apply a crypto-strength hash to the state and broadcast the result
         hashWithSalt(state, i);
         multHashes.append(list(state))
@@ -270,8 +275,6 @@ def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize,
         subBlocklen = blocklen
     memlen = (2*parallelism*numblocks*blocklen) << (stopGarlic - startGarlic)
     multipliesPerBlock = 8*(multipliesPerKB*blockSize/(8*1024))
-    if multipliesPerBlock == 0:
-        multipliesPerBlock = 8
     # Allocate memory
     mem = [0 for _ in range(memlen)]
     # Iterate through the levels of garlic

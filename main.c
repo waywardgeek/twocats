@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     uint32_t saltSize = 4;
     uint8_t *password = (uint8_t *)"password";
     uint32_t passwordSize = 8;
-    uint32_t multipliesPerKB = 250;
+    uint32_t multipliesPerKB = 200;
 
     char c;
     while((c = getopt(argc, argv, "h:p:s:g:m:M:r:t:b:B:")) != -1) {
