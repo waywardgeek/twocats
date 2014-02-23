@@ -39,6 +39,12 @@
 #endif
 
 // This rotate code is motivated from blake2s-round.h
+#ifdef __AVX2__
+#define DECLARE_ROTATE_CONSTS \
+    __m256i shuffleVal = _mm256_set_epi8(30, 29, 28, 31, 26, 25, 24, 27, 22, 21, 20, 23, 18, 17, 16, 19, \
+        14, 13, 12, 15, 10, 9, 8, 11, 6, 5, 4, 7, 2, 1, 0, 3);
+#define ROTATE(s) _mm256_shuffle_epi8(s, shuffleVal)
+#else
 #ifndef HAVE_XOP
 #ifdef HAVE_SSSE3
 #define DECLARE_ROTATE_CONSTS \
@@ -53,6 +59,7 @@
 #else
 #define DECLARE_ROTATE_CONSTS
 #define ROTATE(s) _mm_roti_epi32(r, 8)
+#endif
 #endif
 
 
@@ -143,6 +150,20 @@ static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint3
     be32enc_vect(hash, s, hashSize);
 }
 
+#ifdef __AVX2__
+static void convStateFromUint32ToM256i(uint32_t state[8], __m256i *v) {
+    *v = _mm256_set_epi32(state[7], state[6], state[5], state[4], state[3], state[2], state[1], state[0]);
+}
+
+// Convert two __m256i to uint32_t[8].
+static void convStateFromM256iToUint32(__m256i *v, uint32_t state[8]) {
+    uint32_t *p = (uint32_t *)v;
+    uint32_t i;
+    for(i = 0; i < 8; i++) {
+        state[i] = p[i];
+    }
+}
+#else
 // Convert a uint32_t[8] to two __m128i values.
 static void convStateFromUint32ToM128i(uint32_t state[8], __m128i *v1, __m128i *v2) {
     *v1 = _mm_set_epi32(state[3], state[2], state[1], state[0]);
@@ -161,6 +182,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
         state[i+4] = p[i];
     }
 }
+#endif
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 // Basically, it does for every 8 words:
@@ -170,6 +192,31 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 //     
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint64_t fromAddr, uint64_t toAddr, uint32_t repetitions) {
+
+#ifdef __AVX2__
+    __m256i s;
+    convStateFromUint32ToM256i(state, &s);
+    uint64_t prevAddr = toAddr - blocklen;
+    __m256i *m = (__m256i *)mem;
+    uint32_t numSubBlocks = blocklen/subBlocklen;
+    uint32_t mask = numSubBlocks - 1;
+    DECLARE_ROTATE_CONSTS
+    for(uint32_t r = 0; r < repetitions; r++) {
+        __m256i *f = m + fromAddr/8;
+        __m256i *t = m + toAddr/8;
+        for(uint32_t i = 0; i < numSubBlocks; i++) {
+            __m256i *p = m + prevAddr/8 + (subBlocklen/8)*(*(uint32_t *)f & mask);
+            for(uint32_t j = 0; j < subBlocklen/8; j++) {
+                s = _mm256_add_epi32(s, *p++);
+                s = _mm256_xor_si256(s, *f++);
+                // Rotate left 8
+                s = ROTATE(s);
+                *t++ = s;
+            }
+        }
+    }
+    convStateFromM256iToUint32(&s, state);
+#else
     __m128i s1;
     __m128i s2;
     convStateFromUint32ToM128i(state, &s1, &s2);
@@ -198,6 +245,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
         }
     }
     convStateFromM128iToUint32(&s1, &s2, state);
+#endif
 }
 
 // Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while.
