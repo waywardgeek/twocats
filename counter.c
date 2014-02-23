@@ -11,7 +11,7 @@
 
 // Print the state.
 void printState(char *message, uint32_t state[8]) {
-    printf(message);
+    puts(message);
     for(uint32_t i = 0; i < 8; i++) {
         printf("%u ", state[i]);
     }
