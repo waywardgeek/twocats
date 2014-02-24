@@ -160,15 +160,18 @@ def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
     value = 1;
     hashWithSalt(state, parallelism)
     for i in range(numblocks*2):
-        for j in range(multipliesPerBlock*repetitions/8):
-            # This is reversible, and will not lose entropy
-            for k in range(8):
-                value *= state[k] | 1
-                value += state[(k+1)&7]
-                value &= 0xffffffff
-                state[k] ^= value
+        oddState = list(state)
+        for j in range(8):
+            oddState[j] |= 1
+        for r in range(repetitions):
+            for j in range(multipliesPerBlock/8):
+                # This is reversible, and will not lose entropy
+                for k in range(8):
+                    value *= oddState[k]
+                    value &= 0xffffffff
+                    value ^= oddState[(k+4)&7]
         # Apply a crypto-strength hash to the state and broadcast the result
-        hashWithSalt(state, i);
+        hashWithSalt(state, value);
         multHashes.append(list(state))
     return multHashes
 

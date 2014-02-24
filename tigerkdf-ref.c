@@ -24,16 +24,20 @@ static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
     uint32_t value = 1;
     hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
-        for(uint32_t j = 0; j < multipliesPerBlock * repetitions; j += 8) {
-            // This is reversible, and will not lose entropy
-            for(uint32_t k = 0; k < 8; k++) {
-                value *= state[k] | 1;
-                value += state[(k+1)&7];
-                state[k] ^= value;
+        uint32_t oddState[8];
+        for(uint32_t j = 0; j < 8; j++) {
+            oddState[j] = state[j] | 1;
+        }
+        for(uint32_t r = 0; r < repetitions; r++) {
+            for(uint32_t j = 0; j < multipliesPerBlock/8; j++) {
+                for(uint32_t k = 0; k < 8; k++) {
+                    value *= oddState[k];
+                    value ^= oddState[(k+4)&7];
+                }
             }
         }
         // Apply a crypto-strength hash to the state and broadcast the result
-        hashWithSalt(state, state, i);
+        hashWithSalt(state, state, value);
         memcpy(multHashes + 8*i, state, 32);
     }
 }

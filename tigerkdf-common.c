@@ -80,7 +80,8 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
 // A simple password hashing interface.  MemSize is in KiB.  The password is cleared with secure_zero_memory.
 bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint32_t memSize) {
-    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, 200, 0, 0, 0, 16384, 32, 1, 1)) {
+    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, TIGERKDF_MULTIPLIESPERKB, 0, 0, 0,
+            TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE, 1, 1)) {
         return false;
     }
     PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
@@ -161,6 +162,7 @@ void TigerKDF_ServerHashPassword(uint8_t *hash, uint32_t hashSize) {
 // t_cost is a multiplier on CPU work.  m_cost is the number of KiB of memory to hash.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
         unsigned int t_cost, unsigned int m_cost) {
-    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost, 200, 0,
-        NULL, 0, 16384, 32, 2, t_cost, false);
+    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost,
+        TIGERKDF_MULTIPLIESPERKB, 0, NULL, 0, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE,
+        TIGERKDF_PARALLELISM, t_cost, false);
 }

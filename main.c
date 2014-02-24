@@ -92,14 +92,15 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 }
 
 int main(int argc, char **argv) {
-    uint32_t memorySize = 2048*1024, derivedKeySize = 32;
-    uint32_t repetitions = 1, parallelism = 2, blockSize = 16384, subBlockSize = 32;
+    uint32_t memorySize = TIGERKDF_MEMSIZE, derivedKeySize = TIGERKDF_KEYSIZE;
+    uint32_t repetitions = 1, parallelism = TIGERKDF_PARALLELISM, blockSize = TIGERKDF_BLOCKSIZE;
+    uint32_t subBlockSize = TIGERKDF_SUBBLOCKSIZE;
     uint8_t garlic = 0;
     uint8_t *salt = (uint8_t *)"salt";
     uint32_t saltSize = 4;
     uint8_t *password = (uint8_t *)"password";
     uint32_t passwordSize = 8;
-    uint32_t multipliesPerKB = 200;
+    uint32_t multipliesPerKB = TIGERKDF_MULTIPLIESPERKB;
 
     char c;
     while((c = getopt(argc, argv, "h:p:s:g:m:M:r:t:b:B:")) != -1) {
@@ -143,7 +144,7 @@ int main(int argc, char **argv) {
         usage("Extra parameters not recognised\n");
     }
 
-    printf("garlic:%u memorySize:%u multipliesPerKB:%u repetitions:%u\n",
+    printf("garlic:%u memorySize(KB):%u multipliesPerKB:%u repetitions:%u\n",
         garlic, memorySize, multipliesPerKB, repetitions);
     printf("numThreads:%u blockSize:%u subBlockSize:%u\n",
         parallelism, blockSize, subBlockSize);

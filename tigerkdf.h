@@ -14,6 +14,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define TIGERKDF_KEYSIZE 32
+#define TIGERKDF_MEMSIZE (1 << 21) // In KB
+#define TIGERKDF_PARALLELISM 2
+#define TIGERKDF_BLOCKSIZE 16384
+#define TIGERKDF_SUBBLOCKSIZE 64
+#define TIGERKDF_MULTIPLIESPERKB 170
+
 // This is the prototype required for the password hashing competition.
 // t_cost is a multiplier on CPU work.  m_cost is the number of KiB of memory to hash.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,

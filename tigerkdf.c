@@ -99,37 +99,33 @@ static void *multHash(void *commonPtr) {
     uint32_t value = 1;
     hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
-        for(uint32_t j = 0; j < multipliesPerBlock * repetitions; j += 8) {
-            value *= state[0] | 1;
-            value += state[1];
-            state[0] ^= value;
-            value *= state[1] | 1;
-            value += state[2];
-            state[1] ^= value;
-            value *= state[2] | 1;
-            value += state[3];
-            state[2] ^= value;
-            value *= state[3] | 1;
-            value += state[4];
-            state[3] ^= value;
-            value *= state[4] | 1;
-            value += state[5];
-            state[4] ^= value;
-            value *= state[5] | 1;
-            value += state[6];
-            state[5] ^= value;
-            value *= state[6] | 1;
-            value += state[7];
-            state[6] ^= value;
-            value *= state[7] | 1;
-            value += state[0];
-            state[7] ^= value;
+        uint32_t oddState[8];
+        for(uint32_t j = 0; j < 8; j++) {
+            oddState[j] = state[j] | 1;
+        }
+        for(uint32_t r = 0; r < repetitions; r++) {
+            for(uint32_t j = 0; j < multipliesPerBlock/8; j++) {
+                value *= oddState[0];
+                value ^= oddState[4];
+                value *= oddState[1];
+                value ^= oddState[5];
+                value *= oddState[2];
+                value ^= oddState[6];
+                value *= oddState[3];
+                value ^= oddState[7];
+                value *= oddState[4];
+                value ^= oddState[0];
+                value *= oddState[5];
+                value ^= oddState[1];
+                value *= oddState[6];
+                value ^= oddState[2];
+                value *= oddState[7];
+                value ^= oddState[3];
+            }
         }
         // Apply a crypto-strength hash to the state and broadcast the result
-        hashWithSalt(state, state, i);
-        for(uint32_t j = 0; j < 8; j++) {
-            multHashes[8*c->completedMultiplies + j] = state[j];
-        }
+        hashWithSalt(state, state, value);
+        memcpy(multHashes + 8*c->completedMultiplies, state, 32);
         (c->completedMultiplies)++;
     }
     pthread_exit(NULL);
@@ -204,28 +200,18 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     __m256i *f;
     __m256i *t;
     __m256i *p;
-    for(uint32_t r = 0; r < repetitions-1; r++) {
+    for(uint32_t r = 0; r < repetitions; r++) {
         f = m + fromAddr/8;
+        t = m + toAddr/8;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
-            p = m + prevAddr/8 + (subBlocklen/8)*(*(uint32_t *)f & mask);
+            p = m + prevAddr/8 + (subBlocklen/8)*(*(((uint32_t *)t)-1) & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 s = _mm256_add_epi32(s, *p++);
                 s = _mm256_xor_si256(s, *f++);
                 // Rotate left 8
                 s = ROTATE(s);
+                *t++ = s;
             }
-        }
-    }
-    f = m + fromAddr/8;
-    t = m + toAddr/8;
-    for(uint32_t i = 0; i < numSubBlocks; i++) {
-        p = m + prevAddr/8 + (subBlocklen/8)*(*(uint32_t *)f & mask);
-        for(uint32_t j = 0; j < subBlocklen/8; j++) {
-            s = _mm256_add_epi32(s, *p++);
-            s = _mm256_xor_si256(s, *f++);
-            // Rotate left 8
-            s = ROTATE(s);
-            *t++ = s;
         }
     }
     convStateFromM256iToUint32(&s, state);
@@ -241,37 +227,23 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     __m128i *f;
     __m128i *t;
     __m128i *p;
-    for(uint32_t r = 0; r < repetitions-1; r++) {
+    for(uint32_t r = 0; r < repetitions; r++) {
         f = m + fromAddr/4;
+        t = m + toAddr/4;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
-            p = m + prevAddr/4 + (subBlocklen/4)*(*(uint32_t *)f & mask);
+            p = m + prevAddr/4 + (subBlocklen/4)*(*(((uint32_t *)t)-1) & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
                 // Rotate left 8
                 s1 = ROTATE(s1);
+                *t++ = s1;
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
                 // Rotate left 8
                 s2 = ROTATE(s2);
+                *t++ = s2;
             }
-        }
-    }
-    f = m + fromAddr/4;
-    t = m + toAddr/4;
-    for(uint32_t i = 0; i < numSubBlocks; i++) {
-        p = m + prevAddr/4 + (subBlocklen/4)*(*(uint32_t *)f & mask);
-        for(uint32_t j = 0; j < subBlocklen/8; j++) {
-            s1 = _mm_add_epi32(s1, *p++);
-            s1 = _mm_xor_si128(s1, *f++);
-            // Rotate left 8
-            s1 = ROTATE(s1);
-            *t++ = s1;
-            s2 = _mm_add_epi32(s2, *p++);
-            s2 = _mm_xor_si128(s2, *f++);
-            // Rotate left 8
-            s2 = ROTATE(s2);
-            *t++ = s2;
         }
     }
     convStateFromM128iToUint32(&s1, &s2, state);
