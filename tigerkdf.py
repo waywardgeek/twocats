@@ -210,7 +210,7 @@ def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions)
         f = fromAddr
         t = toAddr
         for i in range(numSubBlocks):
-            p = prevAddr + subBlocklen*(mem[f] & mask)
+            p = prevAddr + subBlocklen*(mem[t-1] & mask)
             for j in range(subBlocklen/8):
                 for k in range(8):
                     state[k] = (0xffffffff & (state[k] + mem[p])) ^ mem[f]

@@ -85,7 +85,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
         uint32_t *f = mem + fromAddr;
         uint32_t *t = mem + toAddr;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
-            uint32_t *p = mem + prevAddr + subBlocklen*(*f & mask);
+            uint32_t *p = mem + prevAddr + subBlocklen*(*(t-1) & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 for(uint32_t k = 0; k < 8; k++) {
                     state[k] = (state[k] + *p++) ^ *f++;
