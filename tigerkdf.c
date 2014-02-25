@@ -96,8 +96,9 @@ static void *multHash(void *commonPtr) {
     uint32_t parallelism = c->parallelism;
 
     uint32_t state[8];
-    uint32_t v = 1;
     hashWithSalt(state, hash, parallelism);
+    uint32_t count = 0;
+    uint32_t v = 1;
     for(uint32_t i = 0; i < numblocks*2; i++) {
         uint32_t oddState[8];
         for(uint32_t j = 0; j < 8; j++) {
@@ -121,7 +122,7 @@ static void *multHash(void *commonPtr) {
                 v ^= oddState[2];
                 v *= oddState[7];
                 v ^= oddState[3];
-                oddState[7] += (v >> 8) & ~1;
+                oddState[count++ & 7] *= (v >> 8) | 1;
             }
         }
         // Apply a crypto-strength hash to the state and broadcast the result

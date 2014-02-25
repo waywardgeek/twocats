@@ -157,6 +157,7 @@ def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
     multHashes = []
     state = list(hash)
     v = 1;
+    count = 0;
     hashWithSalt(state, parallelism)
     for i in range(numblocks*2):
         oddState = list(state)
@@ -169,7 +170,9 @@ def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
                     v *= oddState[k]
                     v &= 0xffffffff
                     v ^= oddState[(k+4)&7]
-                oddState[7] += (v >> 8) & 0xfffffffe
+                oddState[count & 7] *= (v >> 8) | 1
+                oddState[count & 7] &= 0xffffffff
+                count += 1
         # Apply a crypto-strength hash to the state and broadcast the result
         hashWithSalt(state, v);
         multHashes.append(list(state))

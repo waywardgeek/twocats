@@ -26,7 +26,7 @@ static void multHash(uint32_t state[8]) {
             v *= oddState[j];
             v ^= oddState[(j+4)&7];
         }
-        oddState[i&7] += (v >> 8) & ~1;
+        oddState[i&7] *= (v >> 8) | 1;
         //printf("v:%u\n", v);
         if(v == target) {
             printf("Found cycle! Loop size:%lu\n", i);

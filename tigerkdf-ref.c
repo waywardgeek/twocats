@@ -21,8 +21,9 @@
 static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
         uint32_t *multHashes, uint32_t multipliesPerBlock, uint32_t parallelism) {
     uint32_t state[8];
-    uint32_t v = 1;
     hashWithSalt(state, hash, parallelism);
+    uint32_t v = 1;
+    uint32_t count = 0;
     for(uint32_t i = 0; i < numblocks*2; i++) {
         uint32_t oddState[8];
         for(uint32_t j = 0; j < 8; j++) {
@@ -34,7 +35,7 @@ static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
                     v *= oddState[k];
                     v ^= oddState[(k+4)&7];
                 }
-                oddState[7] += (v >> 8) & ~1;
+                oddState[count++ & 7] *= (v >> 8) | 1;
             }
         }
         // Apply a crypto-strength hash to the state and broadcast the result
