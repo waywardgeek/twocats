@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This should result in 6ACA5DD94B1765991A6AB8BCAB10C34F25604D9C0014DF51CEB3AA125881C082
+# This should result in 7776D7A1F3B5B7FE8290604E4ED0A0BA84B3E28BA354B78D31F9086B1B5C76F6
 # You may need the to install the pbkdf2 and Crypto.Hash packages for the Python to run.
 # In addition, you may need to build the blake2 python package.  See the top of
 # tigerkdf.py for more details.

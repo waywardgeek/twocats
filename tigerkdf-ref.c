@@ -21,7 +21,7 @@
 static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
         uint32_t *multHashes, uint32_t multipliesPerBlock, uint32_t parallelism) {
     uint32_t state[8];
-    uint32_t value = 1;
+    uint32_t v = 1;
     hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
         uint32_t oddState[8];
@@ -31,13 +31,14 @@ static void multHash(uint32_t hash[8], uint32_t numblocks, uint32_t repetitions,
         for(uint32_t r = 0; r < repetitions; r++) {
             for(uint32_t j = 0; j < multipliesPerBlock/8; j++) {
                 for(uint32_t k = 0; k < 8; k++) {
-                    value *= oddState[k];
-                    value ^= oddState[(k+4)&7];
+                    v *= oddState[k];
+                    v ^= oddState[(k+4)&7];
                 }
+                oddState[7] += (v >> 8) & ~1;
             }
         }
         // Apply a crypto-strength hash to the state and broadcast the result
-        hashWithSalt(state, state, value);
+        hashWithSalt(state, state, v);
         memcpy(multHashes + 8*i, state, 32);
     }
 }
@@ -69,12 +70,12 @@ static void hashMultIntoState(uint32_t iteration, uint32_t *multHashes, uint32_t
     hashWithSalt(state, state, iteration);
 }
 
-// Compute the bit reversal of value.
-static uint32_t reverse(uint32_t value, uint32_t numBits) {
+// Compute the bit reversal of v.
+static uint32_t reverse(uint32_t v, uint32_t numBits) {
     uint32_t result = 0;
     while(numBits-- != 0) {
-        result = (result << 1) | (value & 1);
-        value >>= 1;
+        result = (result << 1) | (v & 1);
+        v >>= 1;
     }
     return result;
 }

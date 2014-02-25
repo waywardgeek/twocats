@@ -68,11 +68,11 @@ def toHex(s):
 def toUint32Array(b):
     words = []
     for i in range(0, len(b), 4):
-        value = b[i]
-        value = (value << 8) | b[i+1]
-        value = (value << 8) | b[i+2]
-        value = (value << 8) | b[i+3]
-        words.append(value)
+        v = b[i]
+        v = (v << 8) | b[i+1]
+        v = (v << 8) | b[i+2]
+        v = (v << 8) | b[i+3]
+        words.append(v)
     return words
 
 def toUint8Array(words):
@@ -156,7 +156,7 @@ def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
     """Do low memory-bandwidth multiplication hashing."""
     multHashes = []
     state = list(hash)
-    value = 1;
+    v = 1;
     hashWithSalt(state, parallelism)
     for i in range(numblocks*2):
         oddState = list(state)
@@ -166,11 +166,12 @@ def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
             for j in range(multipliesPerBlock/8):
                 # This is reversible, and will not lose entropy
                 for k in range(8):
-                    value *= oddState[k]
-                    value &= 0xffffffff
-                    value ^= oddState[(k+4)&7]
+                    v *= oddState[k]
+                    v &= 0xffffffff
+                    v ^= oddState[(k+4)&7]
+                oddState[7] += (v >> 8) & 0xfffffffe
         # Apply a crypto-strength hash to the state and broadcast the result
-        hashWithSalt(state, value);
+        hashWithSalt(state, v);
         multHashes.append(list(state))
     return multHashes
 
@@ -193,13 +194,13 @@ def hashMultIntoState(iteration, multHashes, state):
         state[i] = 0xffffffff & (state[i] + hash[i])
     hashWithSalt(state, iteration)
 
-def reverse(value, numBits):
-    """Compute the bit reversal of value."""
+def reverse(v, numBits):
+    """Compute the bit reversal of v."""
     result = 0
     while numBits != 0:
         numBits -= 1
-        result = (result << 1) | (value & 1)
-        value >>= 1
+        result = (result << 1) | (v & 1)
+        v >>= 1
     return result
 
 def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions):

@@ -96,7 +96,7 @@ static void *multHash(void *commonPtr) {
     uint32_t parallelism = c->parallelism;
 
     uint32_t state[8];
-    uint32_t value = 1;
+    uint32_t v = 1;
     hashWithSalt(state, hash, parallelism);
     for(uint32_t i = 0; i < numblocks*2; i++) {
         uint32_t oddState[8];
@@ -105,26 +105,27 @@ static void *multHash(void *commonPtr) {
         }
         for(uint32_t r = 0; r < repetitions; r++) {
             for(uint32_t j = 0; j < multipliesPerBlock/8; j++) {
-                value *= oddState[0];
-                value ^= oddState[4];
-                value *= oddState[1];
-                value ^= oddState[5];
-                value *= oddState[2];
-                value ^= oddState[6];
-                value *= oddState[3];
-                value ^= oddState[7];
-                value *= oddState[4];
-                value ^= oddState[0];
-                value *= oddState[5];
-                value ^= oddState[1];
-                value *= oddState[6];
-                value ^= oddState[2];
-                value *= oddState[7];
-                value ^= oddState[3];
+                v *= oddState[0];
+                v ^= oddState[4];
+                v *= oddState[1];
+                v ^= oddState[5];
+                v *= oddState[2];
+                v ^= oddState[6];
+                v *= oddState[3];
+                v ^= oddState[7];
+                v *= oddState[4];
+                v ^= oddState[0];
+                v *= oddState[5];
+                v ^= oddState[1];
+                v *= oddState[6];
+                v ^= oddState[2];
+                v *= oddState[7];
+                v ^= oddState[3];
+                oddState[7] += (v >> 8) & ~1;
             }
         }
         // Apply a crypto-strength hash to the state and broadcast the result
-        hashWithSalt(state, state, value);
+        hashWithSalt(state, state, v);
         memcpy(multHashes + 8*c->completedMultiplies, state, 32);
         (c->completedMultiplies)++;
     }
