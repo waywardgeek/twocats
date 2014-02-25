@@ -143,7 +143,11 @@ static void combineHashes(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint3
             s[i] += mem[pos + i];
         }
     }
-    be32enc_vect(hash, s, hashSize);
+    uint8_t buf[hashSize];
+    be32enc_vect(buf, s, hashSize);
+    for(uint32_t i = 0; i < hashSize; i++) {
+        hash[i] ^= buf[i];
+    }
 }
 
 #ifdef __AVX2__

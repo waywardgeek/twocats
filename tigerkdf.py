@@ -65,8 +65,7 @@ class Blake2Hash:
 def toHex(s):
     return "".join("{0:02X}".format(ord(c)) for c in s)
 
-def toUint32Array(bytes):
-    b = bytearray(bytes)
+def toUint32Array(b):
     words = []
     for i in range(0, len(b), 4):
         value = b[i]
@@ -96,13 +95,13 @@ def toUint8Array(words):
 def H(outlen, data, key=""):
     data = str(data)
     key = str(key)
-    return blake2.blake2s(data, outlen, key, rawOutput=False)
+    return bytearray(blake2.blake2s(data, outlen, key, rawOutput=False))
 
 def H_PBKDF2(hashSize, password, salt):
     """This is a PBKDF2 password hashing function based currently on Blake2s."""
     salt = str(salt)
     password = str(password)
-    return PBKDF2(password, salt, iterations=1, digestmodule=Blake2Hash).read(hashSize)
+    return bytearray(PBKDF2(password, salt, iterations=1, digestmodule=Blake2Hash).read(hashSize))
 
 def TigerKDF_SimpleHashPassword(hashSize, password, salt, memSize):
     hash = H_PBKDF2(hashSize, password, salt)
@@ -175,15 +174,17 @@ def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
         multHashes.append(list(state))
     return multHashes
 
-def combineHashes(hashSize, mem, blocklen, numblocks, parallelism):
+def combineHashes(hash, mem, blocklen, numblocks, parallelism):
     """Add the last hashed data from each memory thread into the result."""
-    hashlen = hashSize/4
+    hashlen = len(hash)/4
     s = [0 for _ in range(hashlen)]
     for p in range(parallelism):
         pos = 2*(p+1)*numblocks*blocklen - hashlen
         for i in range(hashlen):
             s[i] = 0xffffffff & (s[i] + mem[pos + i])
-    return toUint8Array(s)
+    buf = toUint8Array(s)
+    for i in range(len(hash)):
+        hash[i] ^= buf[i]
 
 def hashMultIntoState(iteration, multHashes, state):
     """Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while."""
@@ -293,7 +294,7 @@ def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize,
         for p in range(parallelism):
             hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repetitions, multHashes)
         # Combine all the memory thread hashes with a crypto-strength hash
-        hash = combineHashes(len(hash), mem, blocklen, numblocks, parallelism)
+        combineHashes(hash, mem, blocklen, numblocks, parallelism)
         # Double the memory for the next round of garlic
         numblocks *= 2
         if i < stopGarlic or not skipLastHash:
