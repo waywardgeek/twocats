@@ -135,46 +135,13 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 }
 #endif
 
-// Do the required number of multiplies efficiently.
-static inline uint32_t doMultiplies(uint32_t v, uint32_t randVal, uint32_t multiplies) {
-    switch(multiplies) {
-    case 8:
-        v *= randVal | 1;
-        v ^= randVal;
-    case 7:
-        v *= randVal | 1;
-        v ^= randVal;
-    case 6:
-        v *= randVal | 1;
-        v ^= randVal;
-    case 5:
-        v *= randVal | 1;
-        v ^= randVal;
-    case 4:
-        v *= randVal | 1;
-        v ^= randVal;
-    case 3:
-        v *= randVal | 1;
-        v ^= randVal;
-    case 2:
-        v *= randVal | 1;
-        v ^= randVal;
-    case 1:
-        v *= randVal | 1;
-        v ^= randVal;
-    case 0:
-        break;
-    }
-    return v;
-}
-
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 // Basically, it does for every 8 words:
 //     for(i = 0; i < 8; i++) {
 //         state[i] = ROTATE_LEFT((state[i] + *p++) ^ *f++, 8);
 //         *t++ = state[i];
 //     
-static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
+static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint64_t fromAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
 
     uint32_t v = 1;
@@ -195,7 +162,10 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             uint32_t randVal = *(uint32_t *)f;
             p = m + prevAddr/8 + (subBlocklen/8)*(randVal & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
-                v = doMultiplies(v, randVal, multiplies);
+                for(uint32_t k = 0; k < multiplies; k++) {
+                    v *= randVal | 1;
+                    v ^= randVal;
+                }
                 s = _mm256_add_epi32(s, *p++);
                 s = _mm256_xor_si256(s, *f++);
                 // Rotate left 8
@@ -209,7 +179,10 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
         uint32_t randVal = *(uint32_t *)f;
         p = m + prevAddr/8 + (subBlocklen/8)*(randVal & mask);
         for(uint32_t j = 0; j < subBlocklen/8; j++) {
-            v = doMultiplies(v, randVal, multiplies);
+            for(uint32_t k = 0; k < multiplies; k++) {
+                v *= randVal | 1;
+                v ^= randVal;
+            }
             s = _mm256_add_epi32(s, *p++);
             s = _mm256_xor_si256(s, *f++);
             // Rotate left 8
@@ -233,7 +206,10 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             uint32_t randVal = *(uint32_t *)f;
             p = m + prevAddr/4 + (subBlocklen/4)*(randVal & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
-                v = doMultiplies(v, randVal, multiplies);
+                for(uint32_t k = 0; k < multiplies; k++) {
+                    v *= randVal | 1;
+                    v ^= randVal;
+                }
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
                 // Rotate left 8
@@ -251,7 +227,10 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
         uint32_t randVal = *(uint32_t *)f;
         p = m + prevAddr/4 + (subBlocklen/4)*(randVal & mask);
         for(uint32_t j = 0; j < subBlocklen/8; j++) {
-            v = doMultiplies(v, randVal, multiplies);
+            for(uint32_t k = 0; k < multiplies; k++) {
+                v *= randVal | 1;
+                v ^= randVal;
+            }
             s1 = _mm_add_epi32(s1, *p++);
             s1 = _mm_xor_si128(s1, *f++);
             // Rotate left 8
@@ -267,6 +246,39 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     convStateFromM128iToUint32(&s1, &s2, state);
 #endif
     state[0] += v;
+}
+
+static void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
+        uint64_t fromAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
+    switch(multiplies) {
+    case 0:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 0, repetitions);
+        break;
+    case 1:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 1, repetitions);
+        break;
+    case 2:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 2, repetitions);
+        break;
+    case 3:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 3, repetitions);
+        break;
+    case 4:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 4, repetitions);
+        break;
+    case 5:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 5, repetitions);
+        break;
+    case 6:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 6, repetitions);
+        break;
+    case 7:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 7, repetitions);
+        break;
+    case 8:
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, toAddr, 8, repetitions);
+        break;
+    }
 }
 
 // Bit-reversal function derived from Catena's version.
