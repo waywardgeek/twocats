@@ -49,5 +49,6 @@ int main(int argc, char **argv) {
 
     TigerKDF_GuessParameters(maxTime, maxMem, 4, &memSize, &multiplies, &parallelism, &repetitions);
     printf("memSize:%u multiplies:%u parallelism:%u repetitions:%u\n", memSize, multiplies, parallelism, repetitions);
+    printf("command: tigerkdf -m %u -M %u -t %u -r %u\n", memSize, multiplies, parallelism, repetitions);
     return 0;
 }
