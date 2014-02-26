@@ -244,7 +244,7 @@ def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, mult
         toAddr += blocklen
 
 def TigerKDF(hash, memSize, multiplies, startGarlic, stopGarlic, blockSize, subBlockSize, parallelism,
-        repetitions, skipLastHash):
+        repetitions, serverReliefMode):
     """The TigerKDF password hashing function.  MemSize is in KiB."""
     # Compute sizes
     memlen = (1 << 10)*memSize/4
@@ -269,15 +269,16 @@ def TigerKDF(hash, memSize, multiplies, startGarlic, stopGarlic, blockSize, subB
             hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions)
         # Combine all the memory thread hashes with a crypto-strength hash
         combineHashes(hash, mem, blocklen, numblocks, parallelism)
-        # Double the memory for the next round of garlic
-        numblocks *= 2
-        if i < stopGarlic or not skipLastHash:
+        hash = H_PBKDF2(len(hash), hash, "")
+        if i < stopGarlic or not serverReliefMode:
             # For server relief mode, skip doing this last hash
             hash = H_PBKDF2(len(hash), hash, "")
+        # Double the memory for the next round of garlic
+        numblocks *= 2
     # The light is green, the trap is clean
     return hash
 
 #import pdb; pdb.set_trace()
 #hash = TigerKDF_SimpleHashPassword(32, "password", "salt", 64)
-hash = TigerKDF_HashPassword(32, "password", "salt", 64, 2, 0, None, 1024, 0, 2, 4)
+hash = TigerKDF_HashPassword(32, "password", "salt", 64, 3, 0, None, 1024, 0, 2, 4)
 print toHex(str(hash))

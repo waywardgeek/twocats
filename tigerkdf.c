@@ -360,7 +360,7 @@ static void *hashWithPassword(void *contextPtr) {
 // The TigerKDF password hashing function.  MemSize is in KiB.
 bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multiplies, uint8_t startGarlic,
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
-        bool skipLastHash) {
+        bool serverReliefMode) {
     // Compute sizes
     uint64_t memlen = (1 << 10)*(uint64_t)memSize/sizeof(uint32_t);
     uint32_t blocklen = blockSize/sizeof(uint32_t);
@@ -422,12 +422,13 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         }
         // Combine all the memory thread hashes with a crypto-strength hash
         combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
-        // Double the memory for the next round of garlic
-        numblocks *= 2;
-        if(i < stopGarlic || !skipLastHash) {
+        PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
+        if(i < stopGarlic || !serverReliefMode) {
             // For server relief mode, skip doing this last hash
             PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
         }
+        // Double the memory for the next round of garlic
+        numblocks *= 2;
     }
     // The light is green, the trap is clean
     free(c);

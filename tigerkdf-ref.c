@@ -143,14 +143,15 @@ static void hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t
         hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions);
     }
 
-    // Combine all the memory thread hashes with a crypto-strength hash
+    // Combine all the memory thread hashes with a crypto-strength hash.
     combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
+    PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
 }
 
 // The TigerKDF password hashing function.  MemSize is in KiB.
 bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multiplies, uint8_t startGarlic,
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
-        bool skipLastHash) {
+        bool serverReliefMode) {
 
     // Compute sizes
     uint64_t memlen = (1 << 10)*(uint64_t)memSize/sizeof(uint32_t);
@@ -168,11 +169,11 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
         hashMemory(hash, hashSize, mem, numblocks, blocklen, subBlocklen, multiplies, parallelism, repetitions);
-        // Double the memory for the next round of garlic
-        if(i < stopGarlic || !skipLastHash) {
+        if(i < stopGarlic || !serverReliefMode) {
             // For server relief mode, skip doing this last hash
             PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
         }
+        // Double the memory for the next round of garlic
         numblocks *= 2;
     }
 

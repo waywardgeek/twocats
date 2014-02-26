@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# This should result in 31E26F29501DAB0FE2E95B91657652AACF64D3A217C2CCB8C93DC6B8D01198E0
+# This should result in 143A18BCD47473E237B4B2B48116A2378EC448D99D4E2042164E1E7F72C3DEE8
 # You may need the to install the pbkdf2 and Crypto.Hash packages for the Python to run.
 # In addition, you may need to build the blake2 python package.  See the top of
 # tigerkdf.py for more details.
 
-tigerkdf -m64 -M2 -b1024 -B0 -t2 -r4
-tigerkdf-ref -m64 -M2 -b1024 -B0 -t2 -r4
+tigerkdf -m64 -M3 -b1024 -B0 -t2 -r4
+tigerkdf-ref -m64 -M3 -b1024 -B0 -t2 -r4
 python2 tigerkdf.py

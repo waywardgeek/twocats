@@ -18,7 +18,7 @@
 
 bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerKB, uint8_t startGarlic,
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
-        bool skipLastHash);
+        bool serverReliefMode);
 
 // Change these next two functions to use a different cryptographic hash function thank Blake2s.
 
