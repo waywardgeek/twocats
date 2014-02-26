@@ -54,10 +54,9 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     }
     if(hashSize > blockSize || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
             passwordSize == 0 || saltSize > 1024  || saltSize == 0 || memSize == 0 ||
-            memSize > 1 << 30 || multiplies*(uint64_t)blockSize/1024 > 1 << 30 ||
-            startGarlic > stopGarlic || stopGarlic > 30 || dataSize > 1024 || blockSize > 1 << 30 ||
-            blockSize & 0x1f || subBlockSize > blockSize || subBlockSize & 0x1f ||
-            subBlockSize*(blockSize/subBlockSize) != blockSize ||
+            memSize > 1 << 30 || multiplies > 8 || startGarlic > stopGarlic || stopGarlic > 30 ||
+            dataSize > 1024 || blockSize > 1 << 30 || blockSize & 0x1f || subBlockSize > blockSize ||
+            subBlockSize & 0x1f || subBlockSize*(blockSize/subBlockSize) != blockSize ||
             ((uint64_t)memSize << 10) < 4*(uint64_t)blockSize*parallelism || parallelism == 0 ||
             parallelism > 1 << 20 || repetitions == 0 || repetitions > 1 << 30) {
         return false;
