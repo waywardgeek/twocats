@@ -48,7 +48,7 @@ static uint32_t reverse(uint32_t v, uint32_t numBits) {
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
-        uint64_t fromAddr, uint64_t toAddr, uint32_t repetitions) {
+        uint64_t fromAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
     uint64_t prevAddr = toAddr - blocklen;
     uint32_t numSubBlocks = blocklen/subBlocklen;
     uint32_t mask = numSubBlocks - 1;
@@ -60,8 +60,10 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             uint32_t randVal = *f;
             uint32_t *p = mem + prevAddr + subBlocklen*(randVal & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
-                v *= randVal | 1;
-                v ^= randVal;
+                for(uint32_t k = 0; k < multiplies; k++) {
+                    v *= randVal | 1;
+                    v ^= randVal;
+                }
                 for(uint32_t k = 0; k < 8; k++) {
                     state[k] = (state[k] + *p++) ^ *f++;
                     state[k] = (state[k] >> 24) | (state[k] << 8);
@@ -76,7 +78,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
 static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
-        uint32_t blocklen, uint32_t numblocks, uint32_t repetitions) {
+        uint32_t blocklen, uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
     memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
     uint32_t state[8] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -92,7 +94,7 @@ static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
             reversePos += 1 << numBits;
         }
         uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
-        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions);
+        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
         hashWithSalt(state, state, i);
         toAddr += blocklen;
     }
@@ -100,7 +102,7 @@ static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
 
 // Hash memory with dependent memory addressing to thwart TMTO attacks.
 static void hashWithPassword(uint32_t *mem, uint32_t parallelism, uint32_t p, uint32_t blocklen,
-        uint32_t subBlocklen, uint32_t numblocks, uint32_t repetitions) {
+        uint32_t subBlocklen, uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
     uint64_t start = (2*p + 1)*(uint64_t)numblocks*blocklen;
     uint32_t state[8] = {1, 1, 1, 1, 1, 1, 1, 1};
     uint64_t toAddr = start;
@@ -117,51 +119,63 @@ static void hashWithPassword(uint32_t *mem, uint32_t parallelism, uint32_t p, ui
             uint32_t b = numblocks - 1 - (distance - i);
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
-        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions);
+        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions);
         hashWithSalt(state, state, i);
         toAddr += blocklen;
     }
 }
 
+// Compute the TigerKDF hash.
+static void hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t numblocks, uint32_t blocklen,
+        uint32_t subBlocklen, uint32_t multiplies, uint32_t parallelism, uint32_t repetitions) {
+
+    // Convert hash to 8 32-bit ints.
+    uint32_t hash256[8];
+    hashTo256(hash256, hash, hashSize);
+
+    // Do the the first "pure" loop
+    for(uint32_t p = 0; p < parallelism; p++) {
+        hashWithoutPassword(mem, hash256, p, blocklen, numblocks, multiplies, repetitions);
+    }
+
+    // Do the second "dirty" loop
+    for(uint32_t p = 0; p < parallelism; p++) {
+        hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions);
+    }
+
+    // Combine all the memory thread hashes with a crypto-strength hash
+    combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
+}
+
 // The TigerKDF password hashing function.  MemSize is in KiB.
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerKB, uint8_t startGarlic,
+bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multiplies, uint8_t startGarlic,
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
         bool skipLastHash) {
+
     // Compute sizes
     uint64_t memlen = (1 << 10)*(uint64_t)memSize/sizeof(uint32_t);
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     uint32_t subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
-    uint32_t multiplies = 8*(multipliesPerKB*(uint64_t)blockSize/(8*1024));
+
     // Allocate memory
     uint32_t *mem = malloc(memlen*sizeof(uint32_t));
     if(mem == NULL) {
         return false;
     }
+
     // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
-        // Convert hash to 8 32-bit ints.
-        uint32_t hash256[8];
-        hashTo256(hash256, hash, hashSize);
-        // Do the the first "pure" loop
-        uint32_t p;
-        for(p = 0; p < parallelism; p++) {
-            hashWithoutPassword(mem, hash256, p, blocklen, numblocks, repetitions);
-        }
-        // Do the second "dirty" loop
-        for(p = 0; p < parallelism; p++) {
-            hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repetitions);
-        }
-        // Combine all the memory thread hashes with a crypto-strength hash
-        combineHashes(hash, hashSize, mem, blocklen, numblocks, parallelism);
+        hashMemory(hash, hashSize, mem, numblocks, blocklen, subBlocklen, multiplies, parallelism, repetitions);
         // Double the memory for the next round of garlic
-        numblocks *= 2;
         if(i < stopGarlic || !skipLastHash) {
             // For server relief mode, skip doing this last hash
             PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
         }
+        numblocks *= 2;
     }
+
     // The light is green, the trap is clean
     free(mem);
     return true;

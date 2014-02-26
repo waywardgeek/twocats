@@ -152,32 +152,6 @@ def hashTo256(hash):
     buf = H(32, hash)
     return toUint32Array(buf)
 
-def multHash(hash, numblocks, repetitions, multipliesPerBlock, parallelism):
-    """Do low memory-bandwidth multiplication hashing."""
-    multHashes = []
-    state = list(hash)
-    v = 1;
-    count = 0;
-    hashWithSalt(state, parallelism)
-    for i in range(numblocks*2):
-        oddState = list(state)
-        for j in range(8):
-            oddState[j] |= 1
-        for r in range(repetitions):
-            for j in range(multipliesPerBlock/8):
-                # This is reversible, and will not lose entropy
-                for k in range(8):
-                    v *= oddState[k]
-                    v &= 0xffffffff
-                    v ^= oddState[(k+4)&7]
-                oddState[count & 7] *= (v >> 8) | 1
-                oddState[count & 7] &= 0xffffffff
-                count += 1
-        # Apply a crypto-strength hash to the state and broadcast the result
-        hashWithSalt(state, v);
-        multHashes.append(list(state))
-    return multHashes
-
 def combineHashes(hash, mem, blocklen, numblocks, parallelism):
     """Add the last hashed data from each memory thread into the result."""
     hashlen = len(hash)/4
@@ -185,17 +159,10 @@ def combineHashes(hash, mem, blocklen, numblocks, parallelism):
     for p in range(parallelism):
         pos = 2*(p+1)*numblocks*blocklen - hashlen
         for i in range(hashlen):
-            s[i] = 0xffffffff & (s[i] + mem[pos + i])
+            s[i] ^= mem[pos + i]
     buf = toUint8Array(s)
     for i in range(len(hash)):
         hash[i] ^= buf[i]
-
-def hashMultIntoState(iteration, multHashes, state):
-    """Hash the multiply chain state into our state.  If the multiplies are falling behind, sleep for a while."""
-    hash = multHashes[iteration]
-    for i in range(8):
-        state[i] = 0xffffffff & (state[i] + hash[i])
-    hashWithSalt(state, iteration)
 
 def reverse(v, numBits):
     """Compute the bit reversal of v."""
@@ -206,17 +173,23 @@ def reverse(v, numBits):
         v >>= 1
     return result
 
-def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions):
+def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions):
     """Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth."""
     prevAddr = toAddr - blocklen
     numSubBlocks = blocklen/subBlocklen
     mask = numSubBlocks - 1
+    v = 1
     for r in range(repetitions):
         f = fromAddr
         t = toAddr
         for i in range(numSubBlocks):
-            p = prevAddr + subBlocklen*(mem[t-1] & mask)
+            randVal = mem[f]
+            p = prevAddr + subBlocklen*(randVal & mask)
             for j in range(subBlocklen/8):
+                for k in range(multiplies):
+                    v *= randVal | 1
+                    v &= 0xffffffff
+                    v ^= randVal
                 for k in range(8):
                     state[k] = (0xffffffff & (state[k] + mem[p])) ^ mem[f]
                     state[k] = (state[k] >> 24) | (0xffffffff & (state[k] << 8))
@@ -224,8 +197,9 @@ def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions)
                     p += 1
                     f += 1
                     t += 1
+    state[0] += v
 
-def hashWithoutPassword(mem, hash, p, blocklen, numblocks, repetitions, multHashes):
+def hashWithoutPassword(mem, hash, p, blocklen, numblocks, multiplies, repetitions):
     """Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
        Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal."""
     start = 2*p*numblocks*blocklen
@@ -236,7 +210,6 @@ def hashWithoutPassword(mem, hash, p, blocklen, numblocks, repetitions, multHash
     for i in range(8):
         mem[start + i] = buf[i]
     state = [0, 0, 0, 0, 0, 0, 0, 0]
-    hashMultIntoState(0, multHashes, state)
     numBits = 0
     toAddr = start + blocklen
     for i in range(1, numblocks):
@@ -246,11 +219,11 @@ def hashWithoutPassword(mem, hash, p, blocklen, numblocks, repetitions, multHash
         if reversePos + (1 << numBits) < i:
             reversePos += 1 << numBits
         fromAddr = start + blocklen*reversePos
-        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions)
-        hashMultIntoState(i, multHashes, state)
+        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions)
+        hashWithSalt(state, i)
         toAddr += blocklen
 
-def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repetitions, multHashes):
+def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions):
     """Hash memory with dependent memory addressing to thwart TMTO attacks."""
     start = (2*p + 1)*numblocks*blocklen
     state = [1 for _ in range(8)]
@@ -266,11 +239,11 @@ def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repe
             q = (p + i) % parallelism
             b = numblocks - 1 - (distance - i)
             fromAddr = (2*numblocks*q + b)*blocklen
-        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions)
-        hashMultIntoState(i + numblocks, multHashes, state)
+        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions)
+        hashWithSalt(state, i)
         toAddr += blocklen
 
-def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize, subBlockSize, parallelism,
+def TigerKDF(hash, memSize, multiplies, startGarlic, stopGarlic, blockSize, subBlockSize, parallelism,
         repetitions, skipLastHash):
     """The TigerKDF password hashing function.  MemSize is in KiB."""
     # Compute sizes
@@ -282,21 +255,18 @@ def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize,
     else:
         subBlocklen = blocklen
     memlen = (2*parallelism*numblocks*blocklen) << (stopGarlic - startGarlic)
-    multipliesPerBlock = 8*(multipliesPerKB*blockSize/(8*1024))
     # Allocate memory
     mem = [0 for _ in range(memlen)]
     # Iterate through the levels of garlic
     for i in range(startGarlic, stopGarlic+1):
         # Convert hash to 8 32-bit ints
         hash256 = hashTo256(hash)
-        # Do the multiplication chains
-        multHashes = multHash(hash256, numblocks, repetitions, multipliesPerBlock, parallelism)
         # Do the the first "pure" loop
         for p in range(parallelism):
-            hashWithoutPassword(mem, hash256, p, blocklen, numblocks, repetitions, multHashes)
+            hashWithoutPassword(mem, hash256, p, blocklen, numblocks, multiplies, repetitions)
         # Do the second "dirty" loop
         for p in range(parallelism):
-            hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, repetitions, multHashes)
+            hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions)
         # Combine all the memory thread hashes with a crypto-strength hash
         combineHashes(hash, mem, blocklen, numblocks, parallelism)
         # Double the memory for the next round of garlic
@@ -309,5 +279,5 @@ def TigerKDF(hash, memSize, multipliesPerKB, startGarlic, stopGarlic, blockSize,
 
 #import pdb; pdb.set_trace()
 #hash = TigerKDF_SimpleHashPassword(32, "password", "salt", 64)
-hash = TigerKDF_HashPassword(32, "password", "salt", 64, 20, 0, None, 1024, 0, 2, 4)
+hash = TigerKDF_HashPassword(32, "password", "salt", 64, 2, 0, None, 1024, 0, 2, 4)
 print toHex(str(hash))

@@ -135,6 +135,39 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 }
 #endif
 
+// Do the required number of multiplies efficiently.
+static inline uint32_t doMultiplies(uint32_t v, uint32_t randVal, uint32_t multiplies) {
+    switch(multiplies) {
+    case 8:
+        v *= randVal | 1;
+        v ^= randVal;
+    case 7:
+        v *= randVal | 1;
+        v ^= randVal;
+    case 6:
+        v *= randVal | 1;
+        v ^= randVal;
+    case 5:
+        v *= randVal | 1;
+        v ^= randVal;
+    case 4:
+        v *= randVal | 1;
+        v ^= randVal;
+    case 3:
+        v *= randVal | 1;
+        v ^= randVal;
+    case 2:
+        v *= randVal | 1;
+        v ^= randVal;
+    case 1:
+        v *= randVal | 1;
+        v ^= randVal;
+    case 0:
+        break;
+    }
+    return v;
+}
+
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 // Basically, it does for every 8 words:
 //     for(i = 0; i < 8; i++) {
@@ -142,7 +175,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 //         *t++ = state[i];
 //     
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
-        uint64_t fromAddr, uint64_t toAddr, uint32_t repetitions) {
+        uint64_t fromAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
 
     uint32_t v = 1;
     uint64_t prevAddr = toAddr - blocklen;
@@ -162,8 +195,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             uint32_t randVal = *(uint32_t *)f;
             p = m + prevAddr/8 + (subBlocklen/8)*(randVal & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
-                v *= randVal | 1;
-                v ^= state[j&7];
+                v = doMultiplies(v, randVal, multiplies);
                 s = _mm256_add_epi32(s, *p++);
                 s = _mm256_xor_si256(s, *f++);
                 // Rotate left 8
@@ -177,8 +209,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
         uint32_t randVal = *(uint32_t *)f;
         p = m + prevAddr/8 + (subBlocklen/8)*(randVal & mask);
         for(uint32_t j = 0; j < subBlocklen/8; j++) {
-            v *= randVal | 1;
-            v ^= randVal;
+            v = doMultiplies(v, randVal, multiplies);
             s = _mm256_add_epi32(s, *p++);
             s = _mm256_xor_si256(s, *f++);
             // Rotate left 8
@@ -196,14 +227,13 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     __m128i *f;
     __m128i *t;
     __m128i *p;
-    for(uint32_t r = 0; r < repetitions; r++) {
+    for(uint32_t r = 0; r < repetitions-1; r++) {
         f = m + fromAddr/4;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
             uint32_t randVal = *(uint32_t *)f;
             p = m + prevAddr/4 + (subBlocklen/4)*(randVal & mask);
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
-                v *= randVal | 1;
-                v ^= state[j&7];
+                v = doMultiplies(v, randVal, multiplies);
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
                 // Rotate left 8
@@ -221,8 +251,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
         uint32_t randVal = *(uint32_t *)f;
         p = m + prevAddr/4 + (subBlocklen/4)*(randVal & mask);
         for(uint32_t j = 0; j < subBlocklen/8; j++) {
-            v *= randVal | 1;
-            v ^= state[j&7];
+            v = doMultiplies(v, randVal, multiplies);
             s1 = _mm_add_epi32(s1, *p++);
             s1 = _mm_xor_si128(s1, *f++);
             // Rotate left 8
@@ -264,6 +293,7 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t p = ctx->p;
     uint32_t blocklen = c->blocklen;
     uint32_t numblocks = c->numblocks;
+    uint32_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
 
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
@@ -283,7 +313,7 @@ static void *hashWithoutPassword(void *contextPtr) {
             reversePos += mask;
         }
         uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
-        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, repetitions);
+        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
         hashWithSalt(state, state, i);
         toAddr += blocklen;
     }
@@ -301,6 +331,7 @@ static void *hashWithPassword(void *contextPtr) {
     uint32_t blocklen = c->blocklen;
     uint32_t subBlocklen = c->subBlocklen;
     uint32_t numblocks = c->numblocks;
+    uint32_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
 
     uint64_t start = (2*p + 1)*(uint64_t)numblocks*blocklen;
@@ -319,7 +350,7 @@ static void *hashWithPassword(void *contextPtr) {
             uint32_t b = numblocks - 1 - (distance - i);
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
-        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, repetitions);
+        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions);
         hashWithSalt(state, state, i);
         toAddr += blocklen;
     }
@@ -327,7 +358,7 @@ static void *hashWithPassword(void *contextPtr) {
 }
 
 // The TigerKDF password hashing function.  MemSize is in KiB.
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerKB, uint8_t startGarlic,
+bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multiplies, uint8_t startGarlic,
         uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
         bool skipLastHash) {
     // Compute sizes
@@ -335,7 +366,6 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
-    uint32_t multipliesPerBlock = 8*(multipliesPerKB*(uint64_t)blockSize/(8*1024));
     // Allocate memory
     uint32_t *mem;
     if(posix_memalign((void *)&mem,  32, memlen*sizeof(uint32_t))) {
@@ -353,12 +383,13 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     struct TigerKDFCommonDataStruct common;
     // Fill out the common constant data used in all threads
     uint32_t hash256[8];
-    common.multiplies = multipliesPerBlock;
+    common.multiplies = multiplies;
     common.hash = hash256;
     common.mem = mem;
     common.blocklen = blocklen;
     common.subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
     common.parallelism = parallelism;
+    common.multiplies = multiplies;
     common.repetitions = repetitions;
     // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
