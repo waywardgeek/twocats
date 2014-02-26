@@ -248,6 +248,8 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
     state[0] += v;
 }
 
+// This crazy wrapper is simply to force to optimizer to unroll the multiplication loop.
+// It only was required for Haswell while running entirely in L1 cache.
 static void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint64_t fromAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
     switch(multiplies) {
