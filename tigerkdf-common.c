@@ -204,6 +204,7 @@ void TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxPar
                 do {
                     clock_t newStart = clock();
                     *multiplies += 1;
+                    printf("Increasing multiplies to %u\n", *multiplies);
                     if(!TigerKDF_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
                             0, NULL, 0, blockSize, TIGERKDF_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
                         fprintf(stderr, "Memory hashing failed\n");
