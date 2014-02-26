@@ -11,11 +11,9 @@
    this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 */
 
-#define _POSIX_C_SOURCE 199309L // Otherwise nanosleep is not included
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <pthread.h>
 #include <byteswap.h>
 #include "tigerkdf.h"

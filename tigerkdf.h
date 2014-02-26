@@ -53,5 +53,5 @@ void TigerKDF_ServerHashPassword(uint8_t *hash, uint32_t hashSize);
 
 // Find a good set of parameters for this machine based on a desired hashing time and
 // maximum memory.  maxTime is in microseconds, and maxMem is in KiB.
-uint32_t TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxParallelism, uint32_t *memSize,
+void TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxParallelism, uint32_t *memSize,
     uint32_t *multiplies, uint32_t *parallelism, uint32_t *repetitions);
