@@ -213,7 +213,7 @@ void TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxPar
                         }
                         clock_t newEnd = clock();
                         newMillis = (newEnd - newStart) * 1000 / CLOCKS_PER_SEC;
-                    } while(*multiplies != 8 && newMillis < 1.1*millis);
+                    } while(*multiplies != 8 && newMillis < 1.05*millis);
                 }
             }
             return;
