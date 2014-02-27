@@ -81,10 +81,12 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
 static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
         uint32_t blocklen, uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
+    uint32_t state[8];
+    hashWithSalt(state, hash, p);
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
-    uint32_t state[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    hashWithSalt(mem + start, hash, p);
+    for(uint32_t i = 0; i < blocklen/8; i++) {
+        hashWithSalt(mem + start + i*8, state, i);
+    }
     uint32_t numBits = 0;
     uint64_t toAddr = start + blocklen;
     for(uint32_t i = 1; i < numblocks; i++) {

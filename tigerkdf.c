@@ -308,10 +308,12 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
 
+    uint32_t state[8];
+    hashWithSalt(state, hash, p);
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
-    uint32_t state[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    hashWithSalt(mem + start, hash, p);
+    for(uint32_t i = 0; i < blocklen/8; i++) {
+        hashWithSalt(mem + start + i*8, state, i);
+    }
     uint32_t mask = 1;
     uint32_t numBits = 0;
     uint64_t toAddr = start + blocklen;
