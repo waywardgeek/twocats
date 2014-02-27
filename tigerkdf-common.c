@@ -198,21 +198,23 @@ void TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxPar
         clock_t end = clock();
         clock_t millis = (end - start) * 1000 / CLOCKS_PER_SEC;
         printf("Time: %lu\n", millis);
-        if(millis > maxTime) {
-            uint32_t newMillis;
+        if(millis > (1.25*maxTime)) {
             if(*multiplies == 0) {
-                do {
-                    clock_t newStart = clock();
-                    *multiplies += 1;
-                    printf("Increasing multiplies to %u\n", *multiplies);
-                    if(!TigerKDF_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
-                            0, NULL, 0, blockSize, TIGERKDF_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
-                        fprintf(stderr, "Memory hashing failed\n");
-                        exit(1);
-                    }
-                    clock_t newEnd = clock();
-                    newMillis = (newEnd - newStart) * 1000 / CLOCKS_PER_SEC;
-                } while(*multiplies != 8 && newMillis < 1.2*millis);
+                uint32_t newMillis;
+                if(*multiplies == 0) {
+                    do {
+                        clock_t newStart = clock();
+                        *multiplies += 1;
+                        printf("Increasing multiplies to %u\n", *multiplies);
+                        if(!TigerKDF_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
+                                0, NULL, 0, blockSize, TIGERKDF_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
+                            fprintf(stderr, "Memory hashing failed\n");
+                            exit(1);
+                        }
+                        clock_t newEnd = clock();
+                        newMillis = (newEnd - newStart) * 1000 / CLOCKS_PER_SEC;
+                    } while(*multiplies != 8 && newMillis < 1.1*millis);
+                }
             }
             return;
         }
