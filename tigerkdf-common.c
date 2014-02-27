@@ -153,12 +153,14 @@ void TigerKDF_ServerHashPassword(uint8_t *hash, uint32_t hashSize) {
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
         unsigned int t_cost, unsigned int m_cost) {
     uint32_t multiplies, repetitions;
-    if(t_cost > 8) {
-        multiplies = 8; // Minimizes bandwidth for the given memory size
-        repetitions = t_cost - 7;
-    } else {
-        multiplies = t_cost;
+    if(t_cost < 8) {
+        multiplies = t_cost; // Minimizes bandwidth for the given memory size
         repetitions = 1;
+    } else if(t_cost > 38) {
+        return 1;
+    } else {
+        multiplies = 8;
+        repetitions = 1 << (t_cost - 8);
     }
     return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost,
         multiplies, 0, NULL, 0, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE,
