@@ -179,6 +179,7 @@ def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, 
     numSubBlocks = blocklen/subBlocklen
     mask = numSubBlocks - 1
     v = 1
+    origState = list(state)
     for r in range(repetitions):
         f = fromAddr
         t = toAddr
@@ -189,7 +190,7 @@ def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, 
                 for k in range(multiplies):
                     v *= randVal | 1
                     v &= 0xffffffff
-                    v ^= randVal
+                    v ^= origState[k]
                 for k in range(8):
                     state[k] = (0xffffffff & (state[k] + mem[p])) ^ mem[f]
                     state[k] = (state[k] >> 24) | (0xffffffff & (state[k] << 8))

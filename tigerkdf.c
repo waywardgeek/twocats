@@ -162,7 +162,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 for(uint32_t k = 0; k < multiplies; k++) {
                     v *= randVal | 1;
-                    v ^= randVal;
+                    v ^= state[k];
                 }
                 s = _mm256_add_epi32(s, *p++);
                 s = _mm256_xor_si256(s, *f++);
@@ -179,7 +179,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
         for(uint32_t j = 0; j < subBlocklen/8; j++) {
             for(uint32_t k = 0; k < multiplies; k++) {
                 v *= randVal | 1;
-                v ^= randVal;
+                v ^= state[k];
             }
             s = _mm256_add_epi32(s, *p++);
             s = _mm256_xor_si256(s, *f++);
@@ -206,7 +206,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
                 for(uint32_t k = 0; k < multiplies; k++) {
                     v *= randVal | 1;
-                    v ^= randVal;
+                    v ^= state[k];
                 }
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
@@ -227,7 +227,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
         for(uint32_t j = 0; j < subBlocklen/8; j++) {
             for(uint32_t k = 0; k < multiplies; k++) {
                 v *= randVal | 1;
-                v ^= randVal;
+                v ^= state[k];
             }
             s1 = _mm_add_epi32(s1, *p++);
             s1 = _mm_xor_si128(s1, *f++);
