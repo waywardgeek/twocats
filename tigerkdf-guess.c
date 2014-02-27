@@ -17,6 +17,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <getopt.h>
+#include <time.h>
 #include "tigerkdf.h"
 #include "tigerkdf-impl.h"
 
@@ -37,6 +38,60 @@ static uint32_t readuint32_t(char *paramName, char *arg) {
         usage("Invalid integer for parameter %s", paramName);
     }
     return value;
+}
+
+// Find a good set of parameters for this machine based on a desired hashing time and
+// maximum memory.  maxTime is in microseconds, and maxMem is in KiB.
+void TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxParallelism, uint32_t *memSize,
+        uint32_t *multiplies, uint32_t *parallelism, uint32_t *repetitions) {
+    *repetitions = 1;
+    *parallelism = TIGERKDF_PARALLELISM; // TODO: pick this automagically
+    *multiplies = 0;
+    *memSize = 1;
+    uint8_t password[1] = {'\0'};
+    uint8_t salt[1] = {'\0'};
+    while(true) {
+        clock_t start = clock();
+        uint8_t buf[32];
+        if(!TigerKDF_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
+                0, NULL, 0, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
+            fprintf(stderr, "Memory hashing failed\n");
+            exit(1);
+        }
+        clock_t end = clock();
+        clock_t millis = (end - start) * 1000 / CLOCKS_PER_SEC;
+        printf("Time: %lu\n", millis);
+        if(millis > (1.25*maxTime)) {
+            if(*multiplies == 0) {
+                uint32_t newMillis;
+                if(*multiplies == 0) {
+                    do {
+                        clock_t newStart = clock();
+                        *multiplies += 1;
+                        printf("Increasing multiplies to %u\n", *multiplies);
+                        if(!TigerKDF_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
+                                0, NULL, 0, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
+                            fprintf(stderr, "Memory hashing failed\n");
+                            exit(1);
+                        }
+                        clock_t newEnd = clock();
+                        newMillis = (newEnd - newStart) * 1000 / CLOCKS_PER_SEC;
+                    } while(*multiplies != 8 && newMillis < 1.05*millis);
+                }
+            }
+            return;
+        }
+        if(*memSize << 1 <= maxMem) {
+            *memSize <<= 1;
+            printf("Increasing memSize to %u\n", *memSize);
+        } else if(*multiplies < 8) {
+            *multiplies += 1;
+            printf("Increasing multiplies to %u\n", *multiplies);
+        } else {
+            *repetitions <<= 1;
+            printf("Increasing repetitions to %u\n", *repetitions);
+        }
+    }
 }
 
 int main(int argc, char **argv) {
