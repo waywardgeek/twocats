@@ -328,8 +328,8 @@ static void *hashWithoutPassword(void *contextPtr) {
             numBits++;
             mask <<= 1;
             // Overwrite early memory to hamper leaked memory attacks
-            printf("i:%u numBits:%u at %lu Overwriting %lu - %lu\n", i, numBits, toAddr*4,
-                first*4, (first + size)*4);
+            //printf("i:%u numBits:%u at %lu Overwriting %lu - %lu\n", i, numBits, toAddr*4,
+                //first*4, (first + size)*4);
             memcpy(mem + start + first, mem + toAddr - size, size*sizeof(uint32_t));
         }
         uint32_t reversePos = reverse(i, numBits);
