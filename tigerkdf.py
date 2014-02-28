@@ -215,7 +215,15 @@ def hashWithoutPassword(mem, hash, p, blocklen, numblocks, multiplies, repetitio
     toAddr = start + blocklen
     for i in range(1, numblocks):
         if 1 << (numBits + 1) <= i:
+            first = (toAddr - start)/16
+            size = first
+            if (numBits & 0x3) == 0:
+                first = 0
+                size = (toAddr - start)/8
             numBits += 1
+            # Overwrite early memory to hamper leaked memory attacks
+            for j in range(size):
+                mem[start + first + j] = mem[toAddr - size + j]
         reversePos = reverse(i, numBits)
         if reversePos + (1 << numBits) < i:
             reversePos += 1 << numBits

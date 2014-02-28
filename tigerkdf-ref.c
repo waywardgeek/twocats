@@ -91,7 +91,17 @@ static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
     uint64_t toAddr = start + blocklen;
     for(uint32_t i = 1; i < numblocks; i++) {
         if(1 << (numBits + 1) <= i) {
+            uint64_t first = (toAddr - start)/16;
+            uint64_t size = first;
+            if((numBits & 0x3) == 0) {
+                first = 0;
+                size = (toAddr - start)/8;
+            }
             numBits++;
+            // Overwrite early memory to hamper leaked memory attacks
+            //printf("i:%u numBits:%u at %lu Overwriting %lu - %lu\n", i, numBits, toAddr*4,
+                //first*4, (first + size)*4);
+            memcpy(mem + start + first, mem + toAddr - size, size*sizeof(uint32_t));
         }
         uint32_t reversePos = reverse(i, numBits);
         if(reversePos + (1 << numBits) < i) {
