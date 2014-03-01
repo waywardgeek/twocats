@@ -63,3 +63,4 @@ static inline void secureZeroMemory(void *v, size_t n) {
 
 void printHex(char *message, uint8_t *x, int len);
 void printState(char *message, uint32_t state[8]);
+void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);

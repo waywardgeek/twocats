@@ -39,6 +39,23 @@ void printHex(char *message, uint8_t *x, int len) {
     printf("     %d (octets)\n\n", len);
 }
 
+// Just dump memory in a format that can be passed to the dieharder tests with:
+//   dieharder -a -g 202 -f foo
+void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
+    FILE *file = fopen(fileName, "w");
+    if(file == NULL) {
+        fprintf(stderr, "Unable to open file %s for writing\n", fileName);
+        return;
+    }
+    fprintf(file, "type: d\n");
+    fprintf(file, "count: %lu\n", memlen);
+    fprintf(file, "numbit: 32\n");
+    for(uint64_t i = 0; i < memlen; i++) {
+        fprintf(file, "%u\n", mem[i]);
+    }
+    fclose(file);
+}
+
 // Verify that parameters are valid for password hashing.  Adjust block and subBlock size
 // rather than failing.
 static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t saltSize, uint32_t memSize,

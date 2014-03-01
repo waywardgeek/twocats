@@ -198,6 +198,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     }
 
     // The light is green, the trap is clean
+    //dumpMemory("dieharder_data", mem, memlen);
     free(mem);
     return true;
 }
