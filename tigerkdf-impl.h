@@ -54,5 +54,12 @@ static inline void hashTo256(uint32_t hash256[8], uint8_t *hash, uint32_t hashSi
     be32dec_vect(hash256, buf, 32);
 }
 
+// Prevents compiler optimizing out memset() -- from blake2-impl.h
+static inline void secureZeroMemory(void *v, size_t n) {
+    volatile uint8_t *p = ( volatile uint8_t * )v;
+    while( n-- ) *p++ = 0;
+}
+
+
 void printHex(char *message, uint8_t *x, int len);
 void printState(char *message, uint32_t state[8]);

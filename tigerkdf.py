@@ -63,7 +63,7 @@ class Blake2Hash:
         return Blake2Hash()
 
 def toHex(s):
-    return "".join("{0:02X}".format(ord(c)) for c in s)
+    return "".join("{0:02X}".format(ord(c)) for c in str(s))
 
 def toUint32Array(b):
     words = []
@@ -198,39 +198,48 @@ def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, 
                     p += 1
                     f += 1
                     t += 1
-    state[0] += v
+    hashWithSalt(state, v)
 
-def hashWithoutPassword(mem, hash, p, blocklen, numblocks, multiplies, repetitions):
+def hashWithoutPasswordInner(mem, state, p, blocklen, numblocks, multiplies, repetitions):
     """Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
        Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal."""
-    state = list(hash)
-    hashWithSalt(state, p)
     start = 2*p*numblocks*blocklen
-    for i in range(blocklen/8):
-        buf = list(state)
-        hashWithSalt(buf, i)
-        for j in range(8):
-            mem[start + i*8 + j] = buf[j]
     numBits = 0
     toAddr = start + blocklen
     for i in range(1, numblocks):
         if 1 << (numBits + 1) <= i:
-            first = (toAddr - start)/16
-            size = first
-            if (numBits & 0x3) == 0:
-                first = 0
-                size = (toAddr - start)/8
             numBits += 1
-            # Overwrite early memory to hamper leaked memory attacks
-            for j in range(size):
-                mem[start + first + j] = mem[toAddr - size + j]
         reversePos = reverse(i, numBits)
         if reversePos + (1 << numBits) < i:
             reversePos += 1 << numBits
         fromAddr = start + blocklen*reversePos
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions)
-        hashWithSalt(state, i)
         toAddr += blocklen
+
+def hashWithoutPassword(hash256, mem, p, blocklen, numblocks, multiplies, repetitions):
+    """Execute the first "resistant" loop, while throwing away some initial memory."""
+
+    # Initialize the state in a unique way based on p
+    state = list(hash256)
+    hashWithSalt(state, p)
+
+    # Initialize the first block of memory
+    start = 2*p*numblocks*blocklen
+    for i in range(blocklen):
+        mem[start + i] = 0x5c5c5c5c
+
+    # Throw away some early memory to reduce the damage in case memory is leaked later
+    i = 2
+    while i <= numblocks/32:
+        hashWithoutPasswordInner(mem, state, p, blocklen, i, multiplies, repetitions)
+
+        # Reinitialize the first block of memory
+        for j in range(blocklen):
+            mem[start + j] = mem[start + j + (i-1)*blocklen]
+        i <<= 1
+
+    # Now do the real first loop
+    hashWithoutPasswordInner(mem, state, p, blocklen, numblocks, multiplies, repetitions)
 
 def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions):
     """Hash memory with dependent memory addressing to thwart TMTO attacks."""
@@ -249,7 +258,6 @@ def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, mult
             b = numblocks - 1 - (distance - i)
             fromAddr = (2*numblocks*q + b)*blocklen
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions)
-        hashWithSalt(state, i)
         toAddr += blocklen
 
 def TigerKDF(hash, memSize, multiplies, startGarlic, stopGarlic, blockSize, subBlockSize, parallelism,
@@ -270,10 +278,10 @@ def TigerKDF(hash, memSize, multiplies, startGarlic, stopGarlic, blockSize, subB
     for i in range(startGarlic, stopGarlic+1):
         # Convert hash to 8 32-bit ints
         hash256 = hashTo256(hash)
-        # Do the the first "pure" loop
+        # Do the the first "resistant" loop
         for p in range(parallelism):
-            hashWithoutPassword(mem, hash256, p, blocklen, numblocks, multiplies, repetitions)
-        # Do the second "dirty" loop
+            hashWithoutPassword(hash256, mem, p, blocklen, numblocks, multiplies, repetitions)
+        # Do the second "unpredictable" loop
         for p in range(parallelism):
             hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions)
         # Combine all the memory thread hashes with a crypto-strength hash

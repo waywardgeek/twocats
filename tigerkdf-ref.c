@@ -74,47 +74,54 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             }
         }
     }
-    state[0] += v;
+    hashWithSalt(state, state, v);
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
-static void hashWithoutPassword(uint32_t *mem, uint32_t hash[32], uint32_t p,
-        uint32_t blocklen, uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
-    uint32_t state[8];
-    hashWithSalt(state, hash, p);
-    uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    for(uint32_t i = 0; i < blocklen/8; i++) {
-        hashWithSalt(mem + start + i*8, state, i);
-    }
+static void hashWithoutPasswordInner(uint32_t *mem, uint32_t state[8], uint32_t p, uint32_t blocklen,
+        uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
     uint32_t numBits = 0;
-    uint64_t toAddr = start + blocklen;
+    uint64_t toAddr = blocklen;
     for(uint32_t i = 1; i < numblocks; i++) {
         if(1 << (numBits + 1) <= i) {
-            uint64_t first = (toAddr - start)/16;
-            uint64_t size = first;
-            if((numBits & 0x3) == 0) {
-                first = 0;
-                size = (toAddr - start)/8;
-            }
             numBits++;
-            // Overwrite early memory to hamper leaked memory attacks
-            //printf("i:%u numBits:%u at %lu Overwriting %lu - %lu\n", i, numBits, toAddr*4,
-                //first*4, (first + size)*4);
-            memcpy(mem + start + first, mem + toAddr - size, size*sizeof(uint32_t));
         }
         uint32_t reversePos = reverse(i, numBits);
         if(reversePos + (1 << numBits) < i) {
             reversePos += 1 << numBits;
         }
-        uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
+        uint64_t fromAddr = (uint64_t)blocklen*reversePos;
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
-        hashWithSalt(state, state, i);
         toAddr += blocklen;
     }
 }
 
-// Hash memory with dependent memory addressing to thwart TMTO attacks.
+// Execute the first "resistant" loop, while throwing away some initial memory.
+static void hashWithoutPassword(uint32_t hash256[8], uint32_t *mem, uint32_t p, uint32_t blocklen,
+        uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
+
+    // Initialize the state in a unique way based on p
+    uint32_t state[8];
+    hashWithSalt(state, hash256, p);
+
+    // Initialize the first block of memory
+    uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
+    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
+
+    // Throw away some early memory to reduce the damage in case memory is leaked later
+    for(uint32_t i = 2; i <= numblocks/32; i <<= 1) {
+        hashWithoutPasswordInner(mem + start, state, p, blocklen, i, multiplies, repetitions);
+
+        // Reinitialize the first block of memory
+        memcpy(mem + start, mem + start + (i-1)*(uint64_t)blocklen, blocklen*sizeof(uint32_t));
+    }
+
+    // Now do the real first loop
+    hashWithoutPasswordInner(mem + start, state, p, blocklen, numblocks, multiplies, repetitions);
+}
+
+// Hash memory with password dependent addressing.
 static void hashWithPassword(uint32_t *mem, uint32_t parallelism, uint32_t p, uint32_t blocklen,
         uint32_t subBlocklen, uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
     uint64_t start = (2*p + 1)*(uint64_t)numblocks*blocklen;
@@ -134,7 +141,6 @@ static void hashWithPassword(uint32_t *mem, uint32_t parallelism, uint32_t p, ui
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions);
-        hashWithSalt(state, state, i);
         toAddr += blocklen;
     }
 }
@@ -147,12 +153,12 @@ static void hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t
     uint32_t hash256[8];
     hashTo256(hash256, hash, hashSize);
 
-    // Do the the first "pure" loop
+    // Do the the first "resistant" loop
     for(uint32_t p = 0; p < parallelism; p++) {
-        hashWithoutPassword(mem, hash256, p, blocklen, numblocks, multiplies, repetitions);
+        hashWithoutPassword(hash256, mem, p, blocklen, numblocks, multiplies, repetitions);
     }
 
-    // Do the second "dirty" loop
+    // Do the second "unpredictable" loop
     for(uint32_t p = 0; p < parallelism; p++) {
         hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions);
     }

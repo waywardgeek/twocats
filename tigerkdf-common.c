@@ -20,7 +20,7 @@
 
 // Print the state.
 void printState(char *message, uint32_t state[8]) {
-    puts(message);
+    printf("%s\n", message);
     for(uint32_t i = 0; i < 8; i++) {
         printf("%u ", state[i]);
     }
@@ -37,12 +37,6 @@ void printHex(char *message, uint8_t *x, int len) {
         printf("%02x ", x[i]);
     }
     printf("     %d (octets)\n\n", len);
-}
-
-// Prevents compiler optimizing out memset() -- from blake2-impl.h
-static inline void secure_zero_memory(void *v, size_t n) {
-    volatile uint8_t *p = ( volatile uint8_t * )v;
-    while( n-- ) *p++ = 0;
 }
 
 // Verify that parameters are valid for password hashing.  Adjust block and subBlock size
@@ -83,7 +77,7 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     return true;
 }
 
-// A simple password hashing interface.  MemSize is in KiB.  The password is cleared with secure_zero_memory.
+// A simple password hashing interface.  MemSize is in KiB.  The password is cleared with secureZeroMemory.
 bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint32_t memSize) {
     return TigerKDF_HashPassword(hash, hashSize, password, passwordSize, salt, saltSize,
@@ -134,9 +128,9 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
         PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
     }
     if(clearPassword) {
-        secure_zero_memory(password, passwordSize);
+        secureZeroMemory(password, passwordSize);
         if(data != NULL && dataSize != 0) {
-            secure_zero_memory(data, dataSize);
+            secureZeroMemory(data, dataSize);
         }
     }
     return TigerKDF(hash, hashSize, memSize, multiplies, 0, garlic, blockSize, subBlockSize,

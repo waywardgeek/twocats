@@ -243,7 +243,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
     }
     convStateFromM128iToUint32(&s1, &s2, state);
 #endif
-    state[0] += v;
+    hashWithSalt(state, state, v);
 }
 
 // This crazy wrapper is simply to force to optimizer to unroll the multiplication loop.
@@ -296,6 +296,25 @@ uint32_t reverse(uint32_t x, const uint8_t n)
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
+static void hashWithoutPasswordInner(uint32_t *mem, uint32_t state[8], uint32_t p, uint32_t blocklen,
+        uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
+    uint32_t numBits = 0;
+    uint64_t toAddr = blocklen;
+    for(uint32_t i = 1; i < numblocks; i++) {
+        if(1 << (numBits + 1) <= i) {
+            numBits++;
+        }
+        uint32_t reversePos = reverse(i, numBits);
+        if(reversePos + (1 << numBits) < i) {
+            reversePos += 1 << numBits;
+        }
+        uint64_t fromAddr = (uint64_t)blocklen*reversePos;
+        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
+        toAddr += blocklen;
+    }
+}
+
+// Execute the first "resistant" loop, while throwing away some initial memory.
 static void *hashWithoutPassword(void *contextPtr) {
     struct TigerKDFContextStruct *ctx = (struct TigerKDFContextStruct *)contextPtr;
     struct TigerKDFCommonDataStruct *c = ctx->common;
@@ -308,39 +327,25 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
 
+    // Initialize the state in a unique way based on p
     uint32_t state[8];
     hashWithSalt(state, hash, p);
+
+    // Initialize the first block of memory
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    for(uint32_t i = 0; i < blocklen/8; i++) {
-        hashWithSalt(mem + start + i*8, state, i);
+    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
+
+    // Throw away some early memory to reduce the damage in case memory is leaked later
+    for(uint32_t i = 2; i <= numblocks/64; i <<= 1) {
+        hashWithoutPasswordInner(mem + start, state, p, blocklen, i, multiplies, repetitions);
+
+        // Reinitialize the first block of memory
+        memcpy(mem + start, mem + start + (i-1)*(uint64_t)blocklen, blocklen*sizeof(uint32_t));
     }
-    uint32_t mask = 1;
-    uint32_t numBits = 0;
-    uint64_t toAddr = start + blocklen;
-    for(uint32_t i = 1; i < numblocks; i++) {
-        if(mask << 1 <= i) {
-            uint64_t first = (toAddr - start)/16;
-            uint64_t size = first;
-            if((numBits & 0x3) == 0) {
-                first = 0;
-                size = (toAddr - start)/8;
-            }
-            numBits++;
-            mask <<= 1;
-            // Overwrite early memory to hamper leaked memory attacks
-            //printf("i:%u numBits:%u at %lu Overwriting %lu - %lu\n", i, numBits, toAddr*4,
-                //first*4, (first + size)*4);
-            memcpy(mem + start + first, mem + toAddr - size, size*sizeof(uint32_t));
-        }
-        uint32_t reversePos = reverse(i, numBits);
-        if(reversePos + mask < i) {
-            reversePos += mask;
-        }
-        uint64_t fromAddr = start + (uint64_t)blocklen*reversePos;
-        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
-        hashWithSalt(state, state, i);
-        toAddr += blocklen;
-    }
+
+    // Now do the real first loop
+    hashWithoutPasswordInner(mem + start, state, p, blocklen, numblocks, multiplies, repetitions);
+
     pthread_exit(NULL);
 }
 
@@ -375,7 +380,6 @@ static void *hashWithPassword(void *contextPtr) {
             fromAddr = (2*numblocks*q + b)*(uint64_t)blocklen;
         }
         hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions);
-        hashWithSalt(state, state, i);
         toAddr += blocklen;
     }
     pthread_exit(NULL);
@@ -419,7 +423,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
         hashTo256(hash256, hash, hashSize);
         common.numblocks = numblocks;
-        // Start the memory threads for the first "pure" loop
+        // Start the memory threads for the first "resistant" loop
         uint32_t p;
         for(p = 0; p < parallelism; p++) {
             c[p].common = &common;
@@ -433,7 +437,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         for(p = 0; p < parallelism; p++) {
             (void)pthread_join(memThreads[p], NULL);
         }
-        // Start the memory threads for the second "dirty" loop
+        // Start the memory threads for the second "unpredictable" loop
         for(p = 0; p < parallelism; p++) {
             int rc = pthread_create(&memThreads[p], NULL, hashWithPassword, (void *)(c + p));
             if(rc) {
