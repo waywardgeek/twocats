@@ -40,7 +40,7 @@ void printHex(char *message, uint8_t *x, int len) {
 }
 
 // Just dump memory in a format that can be passed to the dieharder tests with:
-//   dieharder -a -g 202 -f foo
+//   dieharder -a -g 202 -f dieharder_data
 void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
     FILE *file = fopen(fileName, "w");
     if(file == NULL) {
