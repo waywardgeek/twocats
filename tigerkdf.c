@@ -296,25 +296,6 @@ uint32_t reverse(uint32_t x, const uint8_t n)
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
-static void hashWithoutPasswordInner(uint32_t *mem, uint32_t state[8], uint32_t p, uint32_t blocklen,
-        uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
-    uint32_t numBits = 0;
-    uint64_t toAddr = blocklen;
-    for(uint32_t i = 1; i < numblocks; i++) {
-        if(1 << (numBits + 1) <= i) {
-            numBits++;
-        }
-        uint32_t reversePos = reverse(i, numBits);
-        if(reversePos + (1 << numBits) < i) {
-            reversePos += 1 << numBits;
-        }
-        uint64_t fromAddr = (uint64_t)blocklen*reversePos;
-        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
-        toAddr += blocklen;
-    }
-}
-
-// Execute the first "resistant" loop, while throwing away some initial memory.
 static void *hashWithoutPassword(void *contextPtr) {
     struct TigerKDFContextStruct *ctx = (struct TigerKDFContextStruct *)contextPtr;
     struct TigerKDFCommonDataStruct *c = ctx->common;
@@ -327,25 +308,28 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
 
-    // Initialize the state in a unique way based on p
+    // Initialize the state and first block of memory in a unique way based on p
     uint32_t state[8];
     hashWithSalt(state, hash, p);
-
-    // Initialize the first block of memory
     uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
-
-    // Throw away some early memory to reduce the damage in case memory is leaked later
-    for(uint32_t i = 2; i <= numblocks/64; i <<= 1) {
-        hashWithoutPasswordInner(mem + start, state, p, blocklen, i, multiplies, repetitions);
-
-        // Reinitialize the first block of memory
-        memcpy(mem + start, mem + start + (i-1)*(uint64_t)blocklen, blocklen*sizeof(uint32_t));
+    for(uint32_t i = 0; i < blocklen/8; i++) {
+        hashWithSalt(mem + start + 8*i, state, i);
     }
 
-    // Now do the real first loop
-    hashWithoutPasswordInner(mem + start, state, p, blocklen, numblocks, multiplies, repetitions);
-
+    uint32_t numBits = 0;
+    uint64_t toAddr = blocklen;
+    for(uint32_t i = 1; i < numblocks; i++) {
+        if(1 << (numBits + 1) <= i) {
+            numBits++;
+        }
+        uint32_t reversePos = reverse(i, numBits);
+        if(reversePos + (1 << numBits) < i) {
+            reversePos += 1 << numBits;
+        }
+        uint64_t fromAddr = (uint64_t)blocklen*reversePos;
+        hashBlocks(state, mem + start, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
+        toAddr += blocklen;
+    }
     pthread_exit(NULL);
 }
 
@@ -394,6 +378,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic;
     memlen = (2*parallelism*(uint64_t)numblocks*blocklen) << (stopGarlic - startGarlic);
+
     // Allocate memory
     uint32_t *mem;
     if(posix_memalign((void *)&mem,  32, memlen*sizeof(uint32_t))) {
@@ -409,16 +394,18 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multi
         return false;
     }
     struct TigerKDFCommonDataStruct common;
+
     // Fill out the common constant data used in all threads
     uint32_t hash256[8];
     common.multiplies = multiplies;
-    common.hash = hash256;
     common.mem = mem;
+    common.hash = hash256;
     common.blocklen = blocklen;
     common.subBlocklen = subBlockSize != 0? subBlockSize/sizeof(uint32_t) : blocklen;
     common.parallelism = parallelism;
     common.multiplies = multiplies;
     common.repetitions = repetitions;
+
     // Iterate through the levels of garlic
     for(uint8_t i = startGarlic; i <= stopGarlic; i++) {
         hashTo256(hash256, hash, hashSize);

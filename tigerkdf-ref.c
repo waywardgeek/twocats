@@ -79,8 +79,16 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
-static void hashWithoutPasswordInner(uint32_t *mem, uint32_t state[8], uint32_t p, uint32_t blocklen,
+static void hashWithoutPassword(uint32_t hash[8], uint32_t *mem, uint32_t p, uint32_t blocklen,
         uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
+    // Initialize the state and first block of memory in a unique way based on p
+    uint32_t state[8];
+    hashWithSalt(state, hash, p);
+    uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
+    for(uint32_t i = 0; i < blocklen/8; i++) {
+        hashWithSalt(mem + start + 8*i, state, i);
+    }
+
     uint32_t numBits = 0;
     uint64_t toAddr = blocklen;
     for(uint32_t i = 1; i < numblocks; i++) {
@@ -92,33 +100,9 @@ static void hashWithoutPasswordInner(uint32_t *mem, uint32_t state[8], uint32_t 
             reversePos += 1 << numBits;
         }
         uint64_t fromAddr = (uint64_t)blocklen*reversePos;
-        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
+        hashBlocks(state, mem + start, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions);
         toAddr += blocklen;
     }
-}
-
-// Execute the first "resistant" loop, while throwing away some initial memory.
-static void hashWithoutPassword(uint32_t hash256[8], uint32_t *mem, uint32_t p, uint32_t blocklen,
-        uint32_t numblocks, uint32_t multiplies, uint32_t repetitions) {
-
-    // Initialize the state in a unique way based on p
-    uint32_t state[8];
-    hashWithSalt(state, hash256, p);
-
-    // Initialize the first block of memory
-    uint64_t start = 2*p*(uint64_t)numblocks*blocklen;
-    memset(mem + start, 0x5c, blocklen*sizeof(uint32_t));
-
-    // Throw away some early memory to reduce the damage in case memory is leaked later
-    for(uint32_t i = 2; i <= numblocks/32; i <<= 1) {
-        hashWithoutPasswordInner(mem + start, state, p, blocklen, i, multiplies, repetitions);
-
-        // Reinitialize the first block of memory
-        memcpy(mem + start, mem + start + (i-1)*(uint64_t)blocklen, blocklen*sizeof(uint32_t));
-    }
-
-    // Now do the real first loop
-    hashWithoutPasswordInner(mem + start, state, p, blocklen, numblocks, multiplies, repetitions);
 }
 
 // Hash memory with password dependent addressing.

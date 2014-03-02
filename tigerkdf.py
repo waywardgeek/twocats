@@ -200,10 +200,20 @@ def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, 
                     t += 1
     hashWithSalt(state, v)
 
-def hashWithoutPasswordInner(mem, state, p, blocklen, numblocks, multiplies, repetitions):
+def hashWithoutPassword(hash256, mem, p, blocklen, numblocks, multiplies, repetitions):
     """Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
        Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal."""
+
+    # Initialize the state in a unique way based on p
+    state = list(hash256)
+    hashWithSalt(state, p)
     start = 2*p*numblocks*blocklen
+    for i in range(blocklen/8):
+        buf = list(state)
+        hashWithSalt(buf, i)
+        for j in range(8):
+            mem[start + 8*i + j] = buf[j]
+
     numBits = 0
     toAddr = start + blocklen
     for i in range(1, numblocks):
@@ -215,31 +225,6 @@ def hashWithoutPasswordInner(mem, state, p, blocklen, numblocks, multiplies, rep
         fromAddr = start + blocklen*reversePos
         hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions)
         toAddr += blocklen
-
-def hashWithoutPassword(hash256, mem, p, blocklen, numblocks, multiplies, repetitions):
-    """Execute the first "resistant" loop, while throwing away some initial memory."""
-
-    # Initialize the state in a unique way based on p
-    state = list(hash256)
-    hashWithSalt(state, p)
-
-    # Initialize the first block of memory
-    start = 2*p*numblocks*blocklen
-    for i in range(blocklen):
-        mem[start + i] = 0x5c5c5c5c
-
-    # Throw away some early memory to reduce the damage in case memory is leaked later
-    i = 2
-    while i <= numblocks/32:
-        hashWithoutPasswordInner(mem, state, p, blocklen, i, multiplies, repetitions)
-
-        # Reinitialize the first block of memory
-        for j in range(blocklen):
-            mem[start + j] = mem[start + j + (i-1)*blocklen]
-        i <<= 1
-
-    # Now do the real first loop
-    hashWithoutPasswordInner(mem, state, p, blocklen, numblocks, multiplies, repetitions)
 
 def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions):
     """Hash memory with dependent memory addressing to thwart TMTO attacks."""
