@@ -61,7 +61,7 @@ void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
 static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t saltSize,  uint32_t dataSize,
         uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost, uint32_t blockSize, uint32_t subBlockSize,
         uint32_t parallelism) {
-    if(hashSize > blockSize || hashSize > 1024 || hashSize < 4 || (hashSize & 0x3) || passwordSize > 1024 ||
+    if(hashSize > 1024 || hashSize < 4 || (hashSize & 0x3) || passwordSize > 1024 ||
             passwordSize == 0 || saltSize > 1024 || saltSize == 0 || dataSize > 1024 || startMemCost > stopMemCost ||
             stopMemCost > 30 || blockSize > 1 << 30 || blockSize & 0x1f ||
             subBlockSize > blockSize || subBlockSize & 0x1f || subBlockSize*(blockSize/subBlockSize) !=  blockSize ||
@@ -107,8 +107,8 @@ bool TigerKDF_UpdatePasswordMemCost(uint8_t *hash, uint32_t hashSize,
             parallelism)) {
         return false;
     }
-    if(!TigerKDF(hash, hashSize, oldMemCost, newMemCost, timeCost, blockSize, subBlockSize,
-        parallelism, true)) {
+    if(!TigerKDF(hash, hashSize, oldMemCost, newMemCost, timeCost, blockSize/sizeof(uint32_t),
+            subBlockSize/sizeof(uint32_t), parallelism, true)) {
         return false;
     }
     TigerKDF_ServerHashPassword(hash, hashSize);
@@ -137,8 +137,8 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
             secureZeroMemory(data, dataSize);
         }
     }
-    return TigerKDF(hash, hashSize, startMemCost, stopMemCost, timeCost, blockSize, subBlockSize,
-        parallelism, false);
+    return TigerKDF(hash, hashSize, startMemCost, stopMemCost, timeCost, blockSize/sizeof(uint32_t),
+            subBlockSize/sizeof(uint32_t), parallelism, false);
 }
 
 // Server portion of work for server-relief mode.

@@ -18,9 +18,11 @@
 #include "tigerkdf-impl.h"
 
 // Add the last hashed data into the result.
-static void addIntoHash(uint32_t *hash256, uint32_t *mem) {
-    for(uint32_t i = 0; i < 8; i++) {
-        hash256[i] += mem[i];
+static void addIntoHash(uint32_t *hash256, uint32_t *mem, uint32_t parallelism, uint32_t blocksPerThread) {
+    for(uint32_t p = 0; p < parallelism; p++) {
+        for(uint32_t i = 0; i < 8; i++) {
+            hash256[i] += mem[(p+1)*blocksPerThread + i - 8];
+        }
     }
 }
 
@@ -83,7 +85,7 @@ static void hashWithoutPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint
         uint32_t blocksPerThread, uint32_t multiplies, uint32_t repetitions, uint32_t parallelism,
         uint32_t completedBlocks) {
 
-    uint64_t start = blocksPerThread*p;
+    uint64_t start = blocklen*blocksPerThread*p;
     if(completedBlocks == 0) {
         // Initialize the first block of memory
         for(uint32_t i = 0; i < blocklen/8; i++) {
@@ -119,7 +121,7 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
         uint32_t subBlocklen, uint32_t blocksPerThread, uint32_t multiplies, uint32_t repetitions,
         uint32_t parallelism, uint32_t completedBlocks) {
 
-    uint64_t start = p*blocksPerThread*blocklen + blocksPerThread*blocklen/2;
+    uint64_t start = blocklen*blocksPerThread*p;
 
     // Hash one "slice" worth of memory hashing
     for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/8; i++) {
@@ -128,7 +130,7 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
         uint64_t v = state[0];
         uint64_t v2 = v*v >> 32;
         uint64_t v3 = v*v2 >> 32;
-        uint32_t distance = (i + blocksPerThread - 1)*v3 >> 32;
+        uint32_t distance = (i-1)*v3 >> 32;
 
         // Hash the prior block and the block at 'distance' blocks in the past
         uint64_t fromAddr = (i - 1 - distance)*blocklen;
@@ -142,6 +144,8 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
 // Hash memory for one level of garlic.
 static void hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocksPerThread, uint32_t blocklen,
         uint32_t subBlocklen, uint32_t multiplies, uint32_t parallelism, uint32_t repetitions) {
+
+    printf("Hashing %lu memory\n", blocksPerThread*(uint64_t)blocklen*parallelism*4);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
@@ -159,7 +163,6 @@ static void hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t
         for(uint32_t p = 0; p < parallelism; p++) {
             hashWithoutPassword(state + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
                 parallelism, slice*blocksPerThread/8);
-            addIntoHash(hash256, mem + (slice+1)*blocksPerThread/8 - 8);
         }
     }
 
@@ -168,11 +171,11 @@ static void hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t
         for(uint32_t p = 0; p < parallelism; p++) {
             hashWithPassword(state + 8*p, mem, p, blocklen, subBlocklen, blocksPerThread, multiplies,
                 repetitions, parallelism, slice*blocksPerThread/8);
-            addIntoHash(hash256, mem + (slice+1)*blocksPerThread/8 - 8);
         }
     }
 
     // Apply a crypto-strength hash
+    addIntoHash(hash256, mem, parallelism, blocksPerThread);
     uint8_t buf[32];
     be32enc_vect(buf, hash256, 32);
     PBKDF2(hash, hashSize, buf, 32, NULL, 0);
@@ -193,7 +196,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
 
     // Expand time cost into multiplies and repetitions
     uint32_t multiplies, repetitions;
-    if(timeCost < 8) {
+    if(timeCost <= 8) {
         multiplies = timeCost; // Minimizes bandwidth for the given memory size
         repetitions = 1;
     } else {
@@ -203,10 +206,9 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
 
     if(!updateMemCostMode) {
         // Do some tiny rounds to throw away some early memory.
-        for(uint8_t i = 0; i <= startMemCost - 4; i++) {
+        for(uint8_t i = 0; i <= startMemCost - 6; i++) {
             blocksPerThread = 8*((1 << i)/(8*parallelism));
             if(blocksPerThread >= 8) {
-                printf("Hashing %lu memory\n", blocksPerThread*(uint64_t)blocklen*parallelism);
                 hashMemory(hash, hashSize, mem, blocksPerThread, blocklen, subBlocklen, multiplies,
                     parallelism, repetitions);
             }
@@ -216,7 +218,6 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
     // Iterate through the levels of garlic.
     for(uint8_t i = startMemCost; i <= stopMemCost; i++) {
         blocksPerThread = 8*((1 << i)/(8*parallelism));
-        printf("Hashing %lu memory\n", blocksPerThread*(uint64_t)blocklen*parallelism);
         hashMemory(hash, hashSize, mem, blocksPerThread, blocklen, subBlocklen, multiplies,
             parallelism, repetitions);
     }
