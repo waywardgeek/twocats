@@ -415,8 +415,6 @@ static void *hashWithPassword(void *contextPtr) {
 static bool hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocksPerThread, uint32_t blocklen,
         uint32_t subBlocklen, uint32_t multiplies, uint32_t parallelism, uint32_t repetitions) {
 
-    printf("Hashing %lu memory\n", blocksPerThread*(uint64_t)blocklen*parallelism*4);
-
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
     hashTo256(hash256, hash, hashSize);
