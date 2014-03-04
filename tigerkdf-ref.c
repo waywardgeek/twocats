@@ -50,9 +50,11 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
-    uint32_t origState[8];
-    memcpy(origState, state, 32);
-    uint32_t v = 1;
+    uint32_t oddState[8];
+    for(uint32_t i = 0; i < 8; i++) {
+        oddState[i] = state[i] | 1;
+    }
+    int64_t v = 1;
     for(uint32_t r = 0; r < repetitions; r++) {
         uint32_t *f = mem + fromAddr;
         uint32_t *t = mem + toAddr;
@@ -63,8 +65,9 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 
                 // Compute the multiplication chain
                 for(uint32_t k = 0; k < multiplies; k++) {
-                    v *= randVal | 1;
-                    v ^= origState[k];
+                    v = (int32_t)v * (int64_t)oddState[k];
+                    v ^= randVal;
+                    randVal += v >> 32;
                 }
 
                 // Hash 32 bytes of memory
@@ -76,7 +79,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             }
         }
     }
-    hashWithSalt(state, state, v);
+    hashWithSalt(state, state, (uint32_t)v);
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
@@ -204,22 +207,16 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
         repetitions = 1 << (timeCost - 8);
     }
 
-    if(!updateMemCostMode) {
-        // Do some tiny rounds to throw away some early memory.
-        for(uint8_t i = 0; i <= startMemCost - 6; i++) {
+    // Iterate through the levels of garlic.  Throw away some early memory to reduce the
+    // danger from leaking memory to an attacker.
+    for(uint8_t i = 0; i <= stopMemCost; i++) {
+        if(i >= startMemCost || (!updateMemCostMode && i < startMemCost - 6)) {
             blocksPerThread = 8*((1 << i)/(8*parallelism));
             if(blocksPerThread >= 8) {
                 hashMemory(hash, hashSize, mem, blocksPerThread, blocklen, subBlocklen, multiplies,
                     parallelism, repetitions);
             }
         }
-    }
-
-    // Iterate through the levels of garlic.
-    for(uint8_t i = startMemCost; i <= stopMemCost; i++) {
-        blocksPerThread = 8*((1 << i)/(8*parallelism));
-        hashMemory(hash, hashSize, mem, blocksPerThread, blocklen, subBlocklen, multiplies,
-            parallelism, repetitions);
     }
 
     // The light is green, the trap is clean

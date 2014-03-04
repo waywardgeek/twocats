@@ -3,7 +3,8 @@ CFLAGS=-std=c99 -Wall -pedantic -g -march=native
 #CFLAGS=-std=c99 -Wall -pedantic -O3 -march=native -funroll-loops
 #CFLAGS=-std=c99 -Wall -pedantic -O3 -msse4.2 -funroll-loops
 
-all: tigerkdf-ref tigerkdf tigerkdf-test counter tigerkdf-guess tigerkdf-phs
+all: tigerkdf-ref
+#all: tigerkdf-ref tigerkdf tigerkdf-test counter tigerkdf-guess tigerkdf-phs
 
 tigerkdf-ref: main.c tigerkdf-ref.c tigerkdf-common.c tigerkdf.h tigerkdf-impl.h pbkdf2.c pbkdf2.h
 	$(CC) $(CFLAGS) main.c tigerkdf-ref.c tigerkdf-common.c pbkdf2.c blake2/blake2s.c -o tigerkdf-ref
