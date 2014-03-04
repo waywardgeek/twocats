@@ -206,7 +206,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
     // Expand time cost into multiplies and repetitions
     uint32_t multiplies, repetitions;
     if(timeCost <= 8) {
-        multiplies = timeCost; // Minimizes bandwidth for the given memory size
+        multiplies = timeCost;
         repetitions = 1;
     } else {
         multiplies = 8;
