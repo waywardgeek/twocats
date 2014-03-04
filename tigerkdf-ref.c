@@ -40,14 +40,7 @@ static uint32_t reverse(uint32_t v, uint32_t numBits) {
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint32_t blocksPerThread, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies,
-        uint32_t repetitions, uint32_t p, uint32_t parallelism, uint32_t completedBlocks) {
-
-    // Compute which thread's memory to read from
-    if(fromAddr < completedBlocks*blocklen) {
-        fromAddr += (state[0] % parallelism)*blocksPerThread;
-    } else {
-        fromAddr += p*blocksPerThread;
-    }
+        uint32_t repetitions) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
@@ -56,6 +49,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
         oddState[i] = state[i] | 1;
     }
     int64_t v = 1;
+
     for(uint32_t r = 0; r < repetitions; r++) {
         uint32_t *f = mem + fromAddr;
         uint32_t *t = mem + toAddr;
@@ -111,13 +105,18 @@ static void hashWithoutPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint
         if(reversePos + (1 << (numBits-1)) < i) {
             reversePos += 1 << (numBits-1);
         }
-
-        // Hash the prior block and the block at reversePos and write the result
         uint64_t fromAddr = blocklen*reversePos; // Start for fromAddr is computed in hashBlocks
+
+        // Compute which thread's memory to read from
+        if(fromAddr < completedBlocks*blocklen) {
+            fromAddr += blocklen*blocksPerThread*(i % parallelism);
+        } else {
+            fromAddr += start;
+        }
+
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, blocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocks(state, mem, blocklen, blocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
 }
 
@@ -139,10 +138,17 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
 
         // Hash the prior block and the block at 'distance' blocks in the past
         uint64_t fromAddr = (i - 1 - distance)*blocklen;
+
+        // Compute which thread's memory to read from
+        if(fromAddr < completedBlocks*blocklen) {
+            fromAddr += blocklen*(state[1] % parallelism)*blocksPerThread;
+        } else {
+            fromAddr += start;
+        }
+
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocks(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
 }
 

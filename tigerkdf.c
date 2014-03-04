@@ -133,14 +133,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 //     
 static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint32_t blocksPerThread, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies,
-        uint32_t repetitions, uint32_t threadNum, uint32_t parallelism, uint32_t completedBlocks) {
-
-    // Compute which thread's memory to read from
-    if(fromAddr < completedBlocks*blocklen) {
-        fromAddr += (state[0] % parallelism)*blocksPerThread;
-    } else {
-        fromAddr += threadNum*blocksPerThread;
-    }
+        uint32_t repetitions) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
@@ -272,43 +265,34 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
 // It only was required for Haswell while running entirely in L1 cache.
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint32_t blocksPerThread, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies,
-        uint32_t repetitions, uint32_t p, uint32_t parallelism, uint32_t completedBlocks) {
+        uint32_t repetitions) {
     switch(multiplies) {
     case 0:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 0,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 0, repetitions);
         break;
     case 1:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 1,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 1, repetitions);
         break;
     case 2:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 2,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 2, repetitions);
         break;
     case 3:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 3,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 3, repetitions);
         break;
     case 4:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 4,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 4, repetitions);
         break;
     case 5:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 5,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 5, repetitions);
         break;
     case 6:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 6,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 6, repetitions);
         break;
     case 7:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 7,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 7, repetitions);
         break;
     case 8:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 8,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 8, repetitions);
         break;
     }
 }
@@ -367,10 +351,17 @@ static void *hashWithoutPassword(void *contextPtr) {
 
         // Hash the prior block and the block at reversePos and write the result
         uint64_t fromAddr = blocklen*reversePos; // Start for fromAddr is computed in hashBlocks
+
+        // Compute which thread's memory to read from
+        if(fromAddr < completedBlocks*blocklen) {
+            fromAddr += blocklen*blocksPerThread*(i % parallelism);
+        } else {
+            fromAddr += start;
+        }
+
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, blocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocks(state, mem, blocklen, blocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
     pthread_exit(NULL);
 }
@@ -404,10 +395,17 @@ static void *hashWithPassword(void *contextPtr) {
 
         // Hash the prior block and the block at 'distance' blocks in the past
         uint64_t fromAddr = (i - 1 - distance)*blocklen;
+
+        // Compute which thread's memory to read from
+        if(fromAddr < completedBlocks*blocklen) {
+            fromAddr += blocklen*(state[1] % parallelism)*blocksPerThread;
+        } else {
+            fromAddr += start;
+        }
+
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies,
-            repetitions, p, parallelism, completedBlocks);
+        hashBlocks(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
     pthread_exit(NULL);
 }
