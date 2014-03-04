@@ -238,25 +238,11 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
 
             // Compute the multiplication chain
 
-            /*
-            for(uint32_t k = 0; k < multiplies; k++) {
-                v = (int32_t)v * ((int64_t)(randVal | 1));
-                randVal ^= v >> 32;
-            }
-            */
-
             for(uint32_t k = 0; k < multiplies; k++) {
                 v = (int32_t)v * (int64_t)oddState[k];
                 v ^= randVal;
                 randVal += v >> 32;
             }
-
-            /*
-            for(uint32_t k = 0; k < multiplies; k++) {
-                v = (uint32_t)v * (uint64_t)randVal | 1;
-                v ^= state[k];
-            }
-            */
 
             // Hash 32 bytes of memory
             s1 = _mm_add_epi32(s1, *p++);

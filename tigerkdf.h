@@ -20,7 +20,7 @@
 #define TIGERKDF_BLOCKSIZE 16384
 #define TIGERKDF_SUBBLOCKSIZE 64
 #define TIGERKDF_TIMECOST 3
-#define TIGERKDF_SLICES 32
+#define TIGERKDF_SLICES 16
 
 // This is the prototype required for the password hashing competition.
 // t_cost is a multiplier on CPU work.  m_cost is the number of KiB of memory to hash.
