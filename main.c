@@ -25,16 +25,13 @@ static void usage(char *format, ...) {
     va_start(ap, format);
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
-    fprintf(stderr, "\nUsage: tigerkdf-test [OPTIONS]\n"
+    fprintf(stderr, "\nUsage: tigerkdf [OPTIONS]\n"
         "    -h hashSize     -- The output derived key length in bytes\n"
         "    -p password     -- Set the password to hash\n"
         "    -s salt         -- Set the salt.  Salt must be in hexidecimal\n"
-        "    -g garlic       -- Multiplies memory and CPU work by 2^garlic\n"
-        "    -m memorySize   -- The amount of memory to use in KB\n"
-        "    -M multiplies   -- The number of sequential multiplies to execute per\n"
-        "                       32 bytes of memory hashed (0 - 8)\n"
-        "    -r repetitions  -- A multiplier on the total number of times we hash\n"
-        "    -t parallelism  -- Parallelism parameter, typically the number of threads\n"
+        "    -m memCost      -- The amount of memory to use in KB\n"
+        "    -t timeCost     -- Parallelism parameter, typically the number of threads\n"
+        "    -P parallelism  -- Parallelism parameter, typically the number of threads\n"
         "    -b blockSize    -- Memory hashed in the inner loop at once, in bytes\n"
         "    -B subBlockSize -- Length of short reads from within a block in the inner loop\n");
     exit(1);
@@ -92,18 +89,18 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 }
 
 int main(int argc, char **argv) {
-    uint32_t memorySize = TIGERKDF_MEMSIZE, derivedKeySize = TIGERKDF_KEYSIZE;
-    uint32_t repetitions = 1, parallelism = TIGERKDF_PARALLELISM, blockSize = TIGERKDF_BLOCKSIZE;
-    uint32_t subBlockSize = TIGERKDF_SUBBLOCKSIZE;
-    uint8_t garlic = 0;
+    uint32_t derivedKeySize = TIGERKDF_KEYSIZE;
+    uint32_t parallelism = TIGERKDF_PARALLELISM;
+    uint32_t blockSize = TIGERKDF_BLOCKSIZE, subBlockSize = TIGERKDF_SUBBLOCKSIZE;
+    uint8_t memCost = TIGERKDF_MEMCOST;
     uint8_t *salt = (uint8_t *)"salt";
     uint32_t saltSize = 4;
     uint8_t *password = (uint8_t *)"password";
     uint32_t passwordSize = 8;
-    uint32_t multiplies = TIGERKDF_MULTIPLIES;
+    uint32_t timeCost = TIGERKDF_TIMECOST;
 
     char c;
-    while((c = getopt(argc, argv, "h:p:s:g:m:M:r:t:b:B:")) != -1) {
+    while((c = getopt(argc, argv, "h:p:s:m:t:P:b:B:")) != -1) {
         switch (c) {
         case 'h':
             derivedKeySize = readuint32_t(c, optarg);
@@ -115,19 +112,13 @@ int main(int argc, char **argv) {
         case 's':
             salt = readHexSalt(optarg, &saltSize);
             break;
-        case 'g':
-            garlic = readuint32_t(c, optarg);
-            break;
         case 'm':
-            memorySize = readuint32_t(c, optarg);
-            break;
-        case 'M':
-            multiplies = readuint32_t(c, optarg);
-            break;
-        case 'r':
-            repetitions = readuint32_t(c, optarg);
+            memCost = readuint32_t(c, optarg);
             break;
         case 't':
+            timeCost = readuint32_t(c, optarg);
+            break;
+        case 'P':
             parallelism = readuint32_t(c, optarg);
             break;
         case 'b':
@@ -144,15 +135,12 @@ int main(int argc, char **argv) {
         usage("Extra parameters not recognised\n");
     }
 
-    printf("garlic:%u memorySize(KB):%u multiplies:%u repetitions:%u\n",
-        garlic, memorySize, multiplies, repetitions);
-    printf("numThreads:%u blockSize:%u subBlockSize:%u\n",
-        parallelism, blockSize, subBlockSize);
+    printf("memCost:%u timeCost:%u numThreads:%u blockSize:%u subBlockSize:%u\n",
+        memCost, timeCost, parallelism, blockSize, subBlockSize);
     printf("Password:%s Salt:%s\n", password, salt);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
     if(!TigerKDF_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
-            memorySize, multiplies, garlic, NULL, 0, blockSize, subBlockSize, parallelism,
-            repetitions, false)) {
+            NULL, 0, memCost, memCost, timeCost, blockSize, subBlockSize, parallelism, false)) {
         fprintf(stderr, "Key stretching failed.\n");
         return 1;
     }

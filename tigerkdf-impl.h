@@ -16,9 +16,8 @@
 #include "blake2/blake2.h"
 #include "pbkdf2.h"
 
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multipliesPerKB, uint8_t startGarlic,
-        uint8_t stopGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, uint32_t repetitions,
-        bool serverReliefMode);
+bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+        uint32_t blocklen, uint32_t subBlocklen, uint32_t parallelism, bool updateMemCostMode);
 
 // Change these next two functions to use a different cryptographic hash function thank Blake2s.
 

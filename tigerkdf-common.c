@@ -58,33 +58,18 @@ void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
 
 // Verify that parameters are valid for password hashing.  Adjust block and subBlock size
 // rather than failing.
-static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t saltSize, uint32_t memSize,
-        uint32_t multiplies, uint8_t startGarlic, uint8_t stopGarlic, uint32_t dataSize, uint32_t *blockSize,
-        uint32_t *subBlockSize, uint32_t parallelism, uint32_t repetitions) {
-    if(((uint64_t)memSize << 10) < 4*(uint64_t)*blockSize*parallelism) {
-        *blockSize = ((uint64_t)memSize << 10) / (4*(uint64_t)parallelism);
-    }
-    if(*subBlockSize == 0) {
-        *subBlockSize = *blockSize;
-    }
-    if(*subBlockSize > *blockSize) {
-        *subBlockSize = *blockSize;
-    }
-    if(hashSize > *blockSize || hashSize < 12 || (hashSize & 0x3) || passwordSize > 1024 ||
-            passwordSize == 0 || saltSize > 1024  || saltSize == 0 || memSize == 0 ||
-            memSize > 1 << 30 || multiplies > 8 || startGarlic > stopGarlic || stopGarlic > 30 ||
-            dataSize > 1024 || *blockSize > 1 << 30 || *blockSize & 0x1f || *subBlockSize > *blockSize ||
-            *subBlockSize & 0x1f || *subBlockSize*(*blockSize/ *subBlockSize) !=  *blockSize ||
-            ((uint64_t)memSize << 10) < 4*(uint64_t)*blockSize*parallelism || parallelism == 0 ||
-            parallelism > 1 << 20 || repetitions == 0 || repetitions > 1 << 30) {
-        return false;
-    }
-    uint64_t totalSize = (uint64_t)memSize << (10 + stopGarlic);
-    if(totalSize >> (10 + stopGarlic) != memSize || totalSize > 1LL << 50 || totalSize/ *blockSize > 1 << 30) {
+static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t saltSize,  uint32_t dataSize,
+        uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost, uint32_t blockSize, uint32_t subBlockSize,
+        uint32_t parallelism) {
+    if(hashSize > blockSize || hashSize > 1024 || hashSize < 4 || (hashSize & 0x3) || passwordSize > 1024 ||
+            passwordSize == 0 || saltSize > 1024 || saltSize == 0 || dataSize > 1024 || startMemCost > stopMemCost ||
+            stopMemCost > 30 || blockSize > 1 << 30 || blockSize & 0x1f ||
+            subBlockSize > blockSize || subBlockSize & 0x1f || subBlockSize*(blockSize/subBlockSize) !=  blockSize ||
+            parallelism == 0 || parallelism > 1024 || timeCost > 38) {
         return false;
     }
     // numSubBlocks has to be a power of 2 so we can use a simple mask to select a random-ish one
-    uint32_t numSubBlocks =  *blockSize/ *subBlockSize;
+    uint32_t numSubBlocks =  blockSize/subBlockSize;
     while((numSubBlocks & 1) == 0) {
         numSubBlocks >>= 1;
     }
@@ -94,47 +79,49 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
     return true;
 }
 
-// A simple password hashing interface.  MemSize is in KiB.  The password is cleared with secureZeroMemory.
+// A simple password hashing interface.  The password is cleared with secureZeroMemory.
 bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
-        const uint8_t *salt, uint32_t saltSize, uint32_t memSize) {
-    return TigerKDF_HashPassword(hash, hashSize, password, passwordSize, salt, saltSize,
-        memSize, TIGERKDF_MULTIPLIES, 0, NULL, 0, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE,
-        TIGERKDF_PARALLELISM, 1, true);
+        const uint8_t *salt, uint32_t saltSize, uint8_t memCost, uint8_t timeCost) {
+    return TigerKDF_HashPassword(hash, hashSize, password, passwordSize, salt, saltSize, NULL, 0, memCost,
+        memCost, timeCost, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE, TIGERKDF_PARALLELISM, true);
 }
 
-// The full password hashing interface.  MemSize is in KiB.
-bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint8_t passwordSize,
-        const uint8_t *salt, uint32_t saltSize, uint32_t memSize, uint32_t multiplies, uint8_t garlic,
-        uint8_t *data, uint32_t dataSize, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism,
-        uint32_t repetitions, bool clearPassword) {
-    if(!TigerKDF_ClientHashPassword(hash, hashSize, password, passwordSize, salt, saltSize, memSize,
-            multiplies, garlic, data, dataSize, blockSize, subBlockSize, parallelism, repetitions,
-            clearPassword)) {
+// The full password hashing interface.  
+bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+        const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize,
+        uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+        uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, bool clearPassword) {
+    if(!TigerKDF_ClientHashPassword(hash, hashSize, password, passwordSize, salt, saltSize, data, dataSize,
+            startMemCost, stopMemCost, timeCost, blockSize, subBlockSize, parallelism, clearPassword)) {
         return false;
     }
     TigerKDF_ServerHashPassword(hash, hashSize);
     return true;
 }
 
-// Update an existing password hash to a more difficult level of garlic.
-bool TigerKDF_UpdatePasswordHash(uint8_t *hash, uint32_t hashSize, uint32_t memSize, uint32_t multiplies,
-        uint8_t oldGarlic, uint8_t newGarlic, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism,
-        uint32_t repetitions) {
-    if(!verifyParameters(hashSize, 16, 16, memSize, multiplies, oldGarlic, newGarlic, 0,
-            &blockSize, &subBlockSize, parallelism, repetitions)) {
+// Update an existing password hash to a more difficult level of memory cost (garlic).
+bool TigerKDF_UpdatePasswordMemCost(uint8_t *hash, uint32_t hashSize,
+        uint8_t oldMemCost, uint8_t newMemCost, uint8_t timeCost,
+        uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism) {
+    if(!verifyParameters(hashSize, 16, 16, 0, oldMemCost, newMemCost, timeCost, blockSize, subBlockSize,
+            parallelism)) {
         return false;
     }
-    return TigerKDF(hash, hashSize, memSize, multiplies, oldGarlic, newGarlic,
-        blockSize, subBlockSize, parallelism, repetitions, false);
+    if(!TigerKDF(hash, hashSize, oldMemCost, newMemCost, timeCost, blockSize, subBlockSize,
+        parallelism, true)) {
+        return false;
+    }
+    TigerKDF_ServerHashPassword(hash, hashSize);
+    return true;
 }
 
 // Client-side portion of work for server-relief mode.
 bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint8_t passwordSize,
-        const uint8_t *salt, uint32_t saltSize, uint32_t memSize, uint32_t multiplies, uint8_t garlic,
-        uint8_t *data, uint32_t dataSize, uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism,
-        uint32_t repetitions, bool clearPassword) {
-    if(!verifyParameters(hashSize, passwordSize, saltSize, memSize, multiplies, 0, garlic, dataSize,
-            &blockSize, &subBlockSize, parallelism, repetitions)) {
+        const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize,
+        uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+        uint32_t blockSize, uint32_t subBlockSize, uint32_t parallelism, bool clearPassword) {
+    if(!verifyParameters(hashSize, passwordSize, saltSize, dataSize, startMemCost, stopMemCost, timeCost,
+            blockSize, subBlockSize, parallelism)) {
         return false;
     }
     if(data != NULL && dataSize != 0) {
@@ -150,8 +137,8 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
             secureZeroMemory(data, dataSize);
         }
     }
-    return TigerKDF(hash, hashSize, memSize, multiplies, 0, garlic, blockSize, subBlockSize,
-        parallelism, repetitions, true);
+    return TigerKDF(hash, hashSize, startMemCost, stopMemCost, timeCost, blockSize, subBlockSize,
+        parallelism, false);
 }
 
 // Server portion of work for server-relief mode.
@@ -160,20 +147,12 @@ void TigerKDF_ServerHashPassword(uint8_t *hash, uint32_t hashSize) {
 }
 
 // This is the prototype required for the password hashing competition.
-// t_cost is a multiplier on CPU work.  m_cost is the number of KiB of memory to hash.
+// t_cost is a multiplier on CPU work.  m_cost is garlic.
+// If possible, call TigerKDF_SimpleHashPassword instead so that the password can be cleared.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
         unsigned int t_cost, unsigned int m_cost) {
-    uint32_t multiplies, repetitions;
-    if(t_cost < 8) {
-        multiplies = t_cost; // Minimizes bandwidth for the given memory size
-        repetitions = 1;
-    } else if(t_cost > 38) {
-        return 1;
-    } else {
-        multiplies = 8;
-        repetitions = 1 << (t_cost - 8);
-    }
-    return !TigerKDF_HashPassword(out, outlen, (void *)in, inlen, salt, saltlen, m_cost,
-        multiplies, 0, NULL, 0, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE,
-        TIGERKDF_PARALLELISM, repetitions, false);
+    // Make a copy because SimpleHashPassword clears the password
+    uint8_t buf[inlen];
+    memcpy(buf, in, inlen);
+    return !TigerKDF_SimpleHashPassword(out, outlen, buf, inlen, salt, saltlen, m_cost, t_cost);
 }
