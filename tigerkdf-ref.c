@@ -18,10 +18,11 @@
 #include "tigerkdf-impl.h"
 
 // Add the last hashed data into the result.
-static void addIntoHash(uint32_t *hash256, uint32_t *mem, uint32_t parallelism, uint32_t blocksPerThread) {
+static void addIntoHash(uint32_t *hash256, uint32_t *mem, uint32_t parallelism, uint32_t blocklen,
+        uint32_t blocksPerThread) {
     for(uint32_t p = 0; p < parallelism; p++) {
         for(uint32_t i = 0; i < 8; i++) {
-            hash256[i] += mem[(p+1)*blocksPerThread + i - 8];
+            hash256[i] += mem[(p+1)*(uint64_t)blocklen*blocksPerThread + i - 8];
         }
     }
 }
@@ -79,7 +80,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
             }
         }
     }
-    hashWithSalt(state, state, (uint32_t)v);
+    hashWithSalt(state, state, v);
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
@@ -89,17 +90,18 @@ static void hashWithoutPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint
         uint32_t completedBlocks) {
 
     uint64_t start = blocklen*blocksPerThread*p;
+    uint32_t firstBlock = completedBlocks;
     if(completedBlocks == 0) {
         // Initialize the first block of memory
         for(uint32_t i = 0; i < blocklen/8; i++) {
             hashWithSalt(mem + start + 8*i, state, i);
         }
-        completedBlocks = 1;
+        firstBlock = 1;
     }
 
     // Hash one "slice" worth of memory hashing
     uint32_t numBits = 1; // The number of bits in i
-    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/8; i++) {
+    for(uint32_t i = firstBlock; i < completedBlocks + blocksPerThread/TIGERKDF_SLICES; i++) {
         while(1 << numBits <= i) {
             numBits++;
         }
@@ -127,7 +129,7 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
     uint64_t start = blocklen*blocksPerThread*p;
 
     // Hash one "slice" worth of memory hashing
-    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/8; i++) {
+    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TIGERKDF_SLICES; i++) {
 
         // Compute rand()^3 distance distribution
         uint64_t v = state[0];
@@ -161,24 +163,24 @@ static void hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t
         hashWithSalt(state + 8*p, hash256, p);
     }
 
-    // Do the the first "resistant" loop in 4 "slices"
-    for(uint32_t slice = 0; slice < 4; slice++) {
+    // Do the the first "resistant" loop in "slices"
+    for(uint32_t slice = 0; slice < TIGERKDF_SLICES/2; slice++) {
         for(uint32_t p = 0; p < parallelism; p++) {
             hashWithoutPassword(state + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
-                parallelism, slice*blocksPerThread/8);
+                parallelism, slice*blocksPerThread/TIGERKDF_SLICES);
         }
     }
 
-    // Do the second "unpredictable" loop in 4 "slices"
-    for(uint32_t slice = 4; slice < 8; slice++) {
+    // Do the second "unpredictable" loop in "slices"
+    for(uint32_t slice = TIGERKDF_SLICES/2; slice < TIGERKDF_SLICES; slice++) {
         for(uint32_t p = 0; p < parallelism; p++) {
             hashWithPassword(state + 8*p, mem, p, blocklen, subBlocklen, blocksPerThread, multiplies,
-                repetitions, parallelism, slice*blocksPerThread/8);
+                repetitions, parallelism, slice*blocksPerThread/TIGERKDF_SLICES);
         }
     }
 
     // Apply a crypto-strength hash
-    addIntoHash(hash256, mem, parallelism, blocksPerThread);
+    addIntoHash(hash256, mem, parallelism, blocklen, blocksPerThread);
     uint8_t buf[32];
     be32enc_vect(buf, hash256, 32);
     PBKDF2(hash, hashSize, buf, 32, NULL, 0);
@@ -191,7 +193,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
         uint32_t blocklen, uint32_t subBlocklen, uint32_t parallelism, bool updateMemCostMode) {
 
     // Allocate memory
-    uint32_t blocksPerThread = 8*((1 << stopMemCost)/(8*parallelism));
+    uint32_t blocksPerThread = TIGERKDF_SLICES*((1 << stopMemCost)/(TIGERKDF_SLICES*parallelism));
     uint32_t *mem = malloc((uint64_t)blocklen*blocksPerThread*parallelism*sizeof(uint32_t));
     if(mem == NULL) {
         return false;
@@ -211,8 +213,8 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if(i >= startMemCost || (!updateMemCostMode && i < startMemCost - 6)) {
-            blocksPerThread = 8*((1 << i)/(8*parallelism));
-            if(blocksPerThread >= 8) {
+            blocksPerThread = TIGERKDF_SLICES*((1 << i)/(TIGERKDF_SLICES*parallelism));
+            if(blocksPerThread >= TIGERKDF_SLICES) {
                 hashMemory(hash, hashSize, mem, blocksPerThread, blocklen, subBlocklen, multiplies,
                     parallelism, repetitions);
             }
@@ -220,7 +222,7 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
     }
 
     // The light is green, the trap is clean
-    //dumpMemory("dieharder_data", mem, numblocks*(uint64_t)blocklen);
+    dumpMemory("dieharder_data", mem, (uint64_t)blocklen*blocksPerThread*parallelism);
     free(mem);
     return true;
 }

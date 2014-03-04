@@ -68,6 +68,9 @@ static bool verifyParameters(uint32_t hashSize, uint32_t passwordSize, uint32_t 
             parallelism == 0 || parallelism > 1024 || timeCost > 38) {
         return false;
     }
+    if((1 << stopMemCost) < TIGERKDF_SLICES*parallelism) {
+        return false;
+    }
     // numSubBlocks has to be a power of 2 so we can use a simple mask to select a random-ish one
     uint32_t numSubBlocks =  blockSize/subBlockSize;
     while((numSubBlocks & 1) == 0) {
