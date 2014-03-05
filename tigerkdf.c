@@ -132,8 +132,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 //         *t++ = state[i];
 //     
 static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
-        uint32_t blocksPerThread, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies,
-        uint32_t repetitions) {
+        uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
@@ -265,35 +264,34 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
 // This crazy wrapper is simply to force to optimizer to unroll the multiplication loop.
 // It only was required for Haswell while running entirely in L1 cache.
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
-        uint32_t blocksPerThread, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies,
-        uint32_t repetitions) {
+        uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
     switch(multiplies) {
     case 0:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 0, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 0, repetitions);
         break;
     case 1:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 1, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 1, repetitions);
         break;
     case 2:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 2, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 2, repetitions);
         break;
     case 3:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 3, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 3, repetitions);
         break;
     case 4:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 4, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 4, repetitions);
         break;
     case 5:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 5, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 5, repetitions);
         break;
     case 6:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 6, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 6, repetitions);
         break;
     case 7:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 7, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 7, repetitions);
         break;
     case 8:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, 8, repetitions);
+        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 8, repetitions);
         break;
     }
 }
@@ -362,7 +360,7 @@ static void *hashWithoutPassword(void *contextPtr) {
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, blocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
     pthread_exit(NULL);
 }
@@ -406,7 +404,7 @@ static void *hashWithPassword(void *contextPtr) {
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, subBlocklen, blocksPerThread, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
     pthread_exit(NULL);
 }
