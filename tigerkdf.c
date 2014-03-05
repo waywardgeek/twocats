@@ -67,10 +67,9 @@ struct TigerKDFCommonDataStruct {
     uint32_t *hash256;
     uint32_t parallelism;
     uint32_t blocklen;
-    uint32_t subBlocklen;
     uint32_t blocksPerThread;
     uint32_t repetitions;
-    uint32_t multiplies;
+    uint8_t multiplies;
     uint32_t completedBlocks;
 };
 
@@ -132,7 +131,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 //         *t++ = state[i];
 //     
 static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
-        uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
+        uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint8_t multiplies, uint32_t repetitions) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
@@ -158,7 +157,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
 
                 // Compute the multiplication chain
-                for(uint32_t k = 0; k < multiplies; k++) {
+                for(uint8_t k = 0; k < multiplies; k++) {
                     v = (int32_t)v * (int64_t)oddState[k];
                     v ^= randVal;
                     randVal += v >> 32;
@@ -179,7 +178,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
         for(uint32_t j = 0; j < subBlocklen/8; j++) {
 
             // Compute the multiplication chain
-            for(uint32_t k = 0; k < multiplies; k++) {
+            for(uint8_t k = 0; k < multiplies; k++) {
                 v = (int32_t)v * (int64_t)oddState[k];
                 v ^= randVal;
                 randVal += v >> 32;
@@ -210,7 +209,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
 
                 // Compute the multiplication chain
-                for(uint32_t k = 0; k < multiplies; k++) {
+                for(uint8_t k = 0; k < multiplies; k++) {
                     v = (int32_t)v * (int64_t)oddState[k];
                     v ^= randVal;
                     randVal += v >> 32;
@@ -237,7 +236,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
 
             // Compute the multiplication chain
 
-            for(uint32_t k = 0; k < multiplies; k++) {
+            for(uint8_t k = 0; k < multiplies; k++) {
                 v = (int32_t)v * (int64_t)oddState[k];
                 v ^= randVal;
                 randVal += v >> 32;
@@ -264,7 +263,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
 // This crazy wrapper is simply to force to optimizer to unroll the multiplication loop.
 // It only was required for Haswell while running entirely in L1 cache.
 static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
-        uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
+        uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint8_t multiplies, uint32_t repetitions) {
     switch(multiplies) {
     case 0:
         hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 0, repetitions);
@@ -320,7 +319,7 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t p = ctx->p;
     uint32_t blocklen = c->blocklen;
     uint32_t blocksPerThread = c->blocksPerThread;
-    uint32_t multiplies = c->multiplies;
+    uint8_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
     uint32_t parallelism = c->parallelism;
     uint32_t completedBlocks = c->completedBlocks;
@@ -374,9 +373,8 @@ static void *hashWithPassword(void *contextPtr) {
     uint32_t *mem = c->mem;
     uint32_t p = ctx->p;
     uint64_t blocklen = c->blocklen;
-    uint32_t subBlocklen = c->subBlocklen;
     uint32_t blocksPerThread = c->blocksPerThread;
-    uint32_t multiplies = c->multiplies;
+    uint8_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
     uint32_t parallelism = c->parallelism;
     uint32_t completedBlocks = c->completedBlocks;
@@ -404,14 +402,20 @@ static void *hashWithPassword(void *contextPtr) {
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(state, mem, blocklen, TIGERKDF_SUBBLOCKLEN, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
     pthread_exit(NULL);
 }
 
 // Hash memory for one level of garlic.
-static bool hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t blocksPerThread, uint32_t blocklen,
-        uint32_t subBlocklen, uint32_t multiplies, uint32_t parallelism, uint32_t repetitions) {
+static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t memCost, uint8_t timeCost,
+        uint8_t parallelism) {
+
+    uint32_t blocklen, blocksPerThread, repetitions;
+    uint8_t multiplies;
+
+    // Determine parameters that meet the memory goal
+    TigerKDF_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread, &repetitions, &multiplies);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
@@ -427,7 +431,6 @@ static bool hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t
     common.hash256 = hash256;
     common.blocklen = blocklen;
     common.blocksPerThread = blocksPerThread;
-    common.subBlocklen = subBlocklen;
     common.parallelism = parallelism;
     common.repetitions = repetitions;
 
@@ -476,43 +479,24 @@ static bool hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t
     return true;
 }
 
-// The TigerKDF password hashing function.  blocklen should be a multiple of subBlocklen.
-// hashSize should be a multiple of 4, and blocklen and subBlocklen should be multiples of 8.
-// Return false if there is a memory allocation error.
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-        uint32_t blocklen, uint32_t subBlocklen, uint32_t parallelism, bool updateMemCostMode) {
+// The TigerKDF password hashing function.  Return false if there is a memory allocation error.
+bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+        uint8_t parallelism, bool updateMemCostMode) {
 
     // Allocate memory
-    uint32_t blocksPerThread = TIGERKDF_SLICES*((1 << stopMemCost)/(TIGERKDF_SLICES*parallelism));
     uint32_t *mem;
-    if(posix_memalign((void *)&mem,  32, (uint64_t)blocklen*blocksPerThread*parallelism*sizeof(uint32_t))) {
+    if(posix_memalign((void *)&mem,  32, (uint64_t)1024 << stopMemCost)) {
+        fprintf(stderr, "Unable to allocate memory\n");
         return false;
-    }
-    if(mem == NULL) {
-        return false;
-    }
-
-    // Expand time cost into multiplies and repetitions
-    uint32_t multiplies, repetitions;
-    if(timeCost <= 8) {
-        multiplies = timeCost;
-        repetitions = 1;
-    } else {
-        multiplies = 8;
-        repetitions = 1 << (timeCost - 8);
     }
 
     // Iterate through the levels of garlic.  Throw away some early memory to reduce the
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if(i >= startMemCost || (!updateMemCostMode && i < startMemCost - 6)) {
-            blocksPerThread = TIGERKDF_SLICES*((1 << i)/(TIGERKDF_SLICES*parallelism));
-            if(blocksPerThread >= TIGERKDF_SLICES) {
-                if(!hashMemory(hash, hashSize, mem, blocksPerThread, blocklen, subBlocklen, multiplies,
-                        parallelism, repetitions)) {
-                    free(mem);
-                    return false;
-                }
+            if(!hashMemory(hash, hashSize, mem, i, timeCost, parallelism)) {
+                free(mem);
+                return false;
             }
         }
     }

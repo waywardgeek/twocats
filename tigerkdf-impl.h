@@ -16,8 +16,9 @@
 #include "blake2/blake2.h"
 #include "pbkdf2.h"
 
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-        uint32_t blocklen, uint32_t subBlocklen, uint32_t parallelism, bool updateMemCostMode);
+// The TigerKDF password hashing function.  Return false if there is a memory allocation error.
+bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+        uint8_t parallelism, bool updateMemCostMode);
 
 // Change these next two functions to use a different cryptographic hash function thank Blake2s.
 
@@ -55,11 +56,14 @@ static inline void hashTo256(uint32_t hash256[8], uint8_t *hash, uint32_t hashSi
 
 // Prevents compiler optimizing out memset() -- from blake2-impl.h
 static inline void secureZeroMemory(void *v, size_t n) {
-    volatile uint8_t *p = ( volatile uint8_t * )v;
-    while( n-- ) *p++ = 0;
+    volatile uint8_t *p = (volatile uint8_t *)v;
+    while(n--) {
+        *p++ = 0;
+    }
 }
 
-
+void TigerKDF_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
+    uint32_t *blocksPerThread, uint32_t *repetitions, uint8_t *multiplies);
 void printHex(char *message, uint8_t *x, int len);
 void printState(char *message, uint32_t state[8]);
 void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);
