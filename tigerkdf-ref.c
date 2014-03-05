@@ -160,9 +160,9 @@ static void hashMemory(uint8_t *hash, uint32_t hashSize, uint32_t *mem, uint32_t
     uint32_t hash256[8];
     hashTo256(hash256, hash, hashSize);
     secureZeroMemory(hash, hashSize);
-    uint32_t state[8*parallelism];
 
     // Initialize thread states
+    uint32_t state[8*parallelism];
     for(uint32_t p = 0; p < parallelism; p++) {
         hashWithSalt(state + 8*p, hash256, p);
     }
