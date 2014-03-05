@@ -92,8 +92,8 @@ void TigerKDF_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *paralleli
             }
         }
     }
-    //printf("For memCost %u -  parallelism:%u blocklen:%u blocksPerThread:%u repetitions:%u multiplies:%u\n",
-        //memCost, *parallelism, *blocklen*4, *blocksPerThread, *repetitions, *multiplies);
+    printf("For memCost %u -  parallelism:%u blocklen:%u blocksPerThread:%u repetitions:%u multiplies:%u\n",
+        memCost, *parallelism, *blocklen*4, *blocksPerThread, *repetitions, *multiplies);
 }
 
 // Verify that parameters are valid for password hashing.
