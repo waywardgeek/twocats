@@ -498,6 +498,10 @@ bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t sto
                 free(mem);
                 return false;
             }
+            if(i != stopMemCost) {
+                // Not doing the last hash is for server relief support
+                PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
+            }
         }
     }
 

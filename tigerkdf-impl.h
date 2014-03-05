@@ -18,7 +18,7 @@
 
 // The TigerKDF password hashing function.  Return false if there is a memory allocation error.
 bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-        uint8_t parallelism, bool updateMemCostMode);
+    uint8_t parallelism, bool updateMemCostMode);
 
 // Change these next two functions to use a different cryptographic hash function thank Blake2s.
 

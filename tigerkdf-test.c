@@ -10,7 +10,7 @@
 #include "tigerkdf.h"
 #include "tigerkdf-impl.h"
 
-#define TEST_MEMCOST 5
+#define TEST_MEMCOST 10
 
 /*******************************************************************/
 
@@ -26,7 +26,7 @@ void test_output(uint8_t hashlen,
     printHex("Password: ",pwd, pwdlen);
     printHex("Salt: ",salt, saltlen);
     printHex("Associated data:", data, datalen);
-    printf("memCost:%u timeCost:%u parallelism%u\n", memCost, timeCost, parallelism);
+    printf("memCost:%u timeCost:%u parallelism:%u\n", memCost, timeCost, parallelism);
 
     if(!TigerKDF_HashPassword(hash, hashlen, pwd, pwdlen, salt, saltlen, data, datalen, memCost, memCost,
             timeCost, parallelism, false)) {
@@ -35,7 +35,7 @@ void test_output(uint8_t hashlen,
     }
 
     printHex("\nOutput: ", hash, hashlen);
-    puts("\n\n");
+    printf("\n");
 }
 
 /*******************************************************************/
@@ -60,7 +60,7 @@ void PHC_test(void)
             TIGERKDF_PARALLELISM);
     }
     printf("****************************************** Test memCost\n");
-    for(i=5; i < 12; i++) {
+    for(i=0; i < TEST_MEMCOST; i++) {
         test_output(TIGERKDF_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, i, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM);
     }
     printf("****************************************** Test timeCost\n");
@@ -78,8 +78,8 @@ void PHC_test(void)
 }
 
 void verifyPasswordUpdate(void) {
-    uint8_t hash1[TIGERKDF_KEYSIZE], hash2[TIGERKDF_KEYSIZE];
 
+    uint8_t hash1[TIGERKDF_KEYSIZE], hash2[TIGERKDF_KEYSIZE];
     if(!TigerKDF_HashPassword(hash1, TIGERKDF_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, NULL, 0,
             0, TEST_MEMCOST, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM, false)) {
         fprintf(stderr, "Password hashing failed!\n");
@@ -104,9 +104,10 @@ void verifyPasswordUpdate(void) {
 }
 
 void verifyClientServer(void) {
+
     uint8_t hash1[32];
-    if(!TigerKDF_ClientHashPassword(hash1, TIGERKDF_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, NULL, 0,
-            TEST_MEMCOST, TEST_MEMCOST, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM, false)) {
+    if(!TigerKDF_ClientHashPassword(hash1, TIGERKDF_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4,
+            (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
@@ -127,12 +128,8 @@ void verifyClientServer(void) {
 
 int main()
 {
-    printf("****************************************** Basic tests\n");
-
     verifyClientServer();
     verifyPasswordUpdate();
-
     PHC_test();
-
     return 0;
 }

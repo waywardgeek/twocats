@@ -211,6 +211,10 @@ bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t sto
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if(i >= startMemCost || (!updateMemCostMode && i + 6 < startMemCost)) {
             hashMemory(hash, hashSize, mem, i, timeCost, parallelism);
+            if(i != stopMemCost) {
+                // Not doing the last hash is for server relief support
+                PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
+            }
         }
     }
 
