@@ -24,6 +24,7 @@ import blake2
 import os
 
 BLAKE2S_OUTBYTES=32
+TIGERKDF_SLICES=16
 
 # A simple digest class wrapper for Blake2
 
@@ -103,40 +104,15 @@ def H_PBKDF2(hashSize, password, salt):
     password = str(password)
     return bytearray(PBKDF2(password, salt, iterations=1, digestmodule=Blake2Hash).read(hashSize))
 
-def TigerKDF_SimpleHashPassword(hashSize, password, salt, memSize):
-    hash = H_PBKDF2(hashSize, password, salt)
-    return TigerKDF(hash, memSize, 250, 0, 0, 16384, 0, 2, 1, False)
-
-def TigerKDF_HashPassword(hashSize, password, salt, memSize, multipliesPerKB, garlic, data, blockSize,
-        subblockSize, parallelism, repetitions):
-    """The full password hashing interface.  memSize is in KiB."""
+def TigerKDF_HashPassword(hashSize, password, salt, data, startMemCost, stopMemCost, timeCost,
+        blockSize, subBlockSize, parallelism):
+    """The full password hashing interface."""
     if data != None:
         derivedSalt = H_PBKDF2(hashSize, data, salt)
         hash = H_PBKDF2(hashSize, password, derivedSalt)
     else:
         hash = H_PBKDF2(hashSize, password, salt)
-    return TigerKDF(hash, memSize, multipliesPerKB, 0, garlic, blockSize, subblockSize, parallelism, repetitions, False)
-
-def TigerKDF_UpdatePasswordHash(hash, memSize, multipliesPerKB, oldGarlic, newGarlic,
-        blockSize, subblockSize, parallelism, repetitions):
-    """Update an existing password hash to a more difficult level of garlic."""
-    return TigerKDF(hash, memSize, multipliesPerKB, oldGarlic, newGarlic, blockSize, subblockSize, parallelism,
-            repetitions, False)
-
-def TigerKDF_ClientHashPassword(hash, password, salt, memSize, multipliesPerKB, garlic, data, blockSize, subblockSize,
-        parallelism, repetitions):
-    """Client-side portion of work for server-relief mode."""
-    if data != None:
-        derivedSalt = H_PBKDF2(hashSize, data, salt)
-        hash = H_PBKDF2(hashSize, password, derivedSalt)
-    else:
-        hash = H_PBKDF2(hashSize, password, salt)
-    return TigerKDF(hash, memSize, multipliesPerKB, 0, garlic, blockSize, subblockSize,
-            parallelism, repetitions, True)
-
-def TigerKDF_ServerHashPassword(hash):
-    """Server portion of work for server-relief mode."""
-    H_PBKDF2(len(hash), hash, "");
+    return TigerKDF(hash, startMemCost, stopMemCost, timeCost, blockSize/4, subBlockSize/4, parallelism, False)
 
 def hashWithSalt(state, salt):
     """Perform one crypto-strength hash on a 32-byte state, with a 32-bit salt."""
@@ -152,17 +128,11 @@ def hashTo256(hash):
     buf = H(32, hash)
     return toUint32Array(buf)
 
-def combineHashes(hash, mem, blocklen, numblocks, parallelism):
-    """Add the last hashed data from each memory thread into the result."""
-    hashlen = len(hash)/4
-    s = [0 for _ in range(hashlen)]
+def addIntoHash(hash256, mem, parallelism, blocklen, blocksPerThread):
+    """Add the last hashed data into the result."""
     for p in range(parallelism):
-        pos = 2*(p+1)*numblocks*blocklen - hashlen
-        for i in range(hashlen):
-            s[i] ^= mem[pos + i]
-    buf = toUint8Array(s)
-    for i in range(len(hash)):
-        hash[i] ^= buf[i]
+        for i in range(8):
+            hash256[i] += mem[(p+1)*blocklen*blocksPerThread + i - 8]
 
 def reverse(v, numBits):
     """Compute the bit reversal of v."""
@@ -173,114 +143,153 @@ def reverse(v, numBits):
         v >>= 1
     return result
 
-def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions):
+def hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions):
     """Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth."""
-    prevAddr = toAddr - blocklen
+
+    # Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     numSubBlocks = blocklen/subBlocklen
-    mask = numSubBlocks - 1
+    oddState = list(state)
+    for i in range(8):
+        oddState[i] |= 1
     v = 1
-    origState = list(state)
+
     for r in range(repetitions):
-        f = fromAddr
-        t = toAddr
         for i in range(numSubBlocks):
-            randVal = mem[f]
-            p = prevAddr + subBlocklen*(randVal & mask)
+            randVal = mem[fromAddr]
+            p = prevAddr + subBlocklen*(randVal & (numSubBlocks - 1))
             for j in range(subBlocklen/8):
+
+                # Compute the multiplication chain
                 for k in range(multiplies):
-                    v *= randVal | 1
-                    v &= 0xffffffff
-                    v ^= origState[k]
+                    v = (0xffffffff & v) * oddState[k]
+                    v ^= randVal
+                    randVal += v >> 32;
+
+                # Hash 32 bytes of memory
                 for k in range(8):
-                    state[k] = (0xffffffff & (state[k] + mem[p])) ^ mem[f]
-                    state[k] = (state[k] >> 24) | (0xffffffff & (state[k] << 8))
-                    mem[t] = state[k]
+                    state[k] = (state[k] + mem[p]) ^ mem[fromAddr]
+                    state[k] = 0xffffffff & ((state[k] >> 24) | (state[k] << 8))
+                    mem[toAddr] = state[k]
                     p += 1
-                    f += 1
-                    t += 1
+                    fromAddr += 1
+                    toAddr += 1
     hashWithSalt(state, v)
 
-def hashWithoutPassword(hash256, mem, p, blocklen, numblocks, multiplies, repetitions):
+def hashWithoutPassword(state, mem, p, blocklen, blocksPerThread, multiplies, repetitions, parallelism, completedBlocks):
     """Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
        Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal."""
 
-    # Initialize the state in a unique way based on p
-    state = list(hash256)
-    hashWithSalt(state, p)
-    start = 2*p*numblocks*blocklen
-    for i in range(blocklen/8):
-        buf = list(state)
-        hashWithSalt(buf, i)
-        for j in range(8):
-            mem[start + 8*i + j] = buf[j]
+    start = blocklen*blocksPerThread*p
+    firstBlock = completedBlocks
+    if completedBlocks == 0:
+        # Initialize the first block of memory
+        for i in range(blocklen/8):
+            buf = list(state)
+            hashWithSalt(buf, i)
+            for j in range(8):
+                mem[start + 8*i + j] = buf[j]
+        firstBlock = 1
 
-    numBits = 0
-    toAddr = start + blocklen
-    for i in range(1, numblocks):
-        if 1 << (numBits + 1) <= i:
+    # Hash one "slice" worth of memory hashing
+    numBits = 1; # The number of bits in i
+    for i in range(firstBlock, completedBlocks + blocksPerThread/TIGERKDF_SLICES):
+        while 1 << numBits <= i:
             numBits += 1
-        reversePos = reverse(i, numBits)
-        if reversePos + (1 << numBits) < i:
-            reversePos += 1 << numBits
-        fromAddr = start + blocklen*reversePos
-        hashBlocks(state, mem, blocklen, blocklen, fromAddr, toAddr, multiplies, repetitions)
-        toAddr += blocklen
 
-def hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions):
-    """Hash memory with dependent memory addressing to thwart TMTO attacks."""
-    start = (2*p + 1)*numblocks*blocklen
-    state = [1 for _ in range(8)]
-    toAddr = start
-    for i in range(numblocks):
+        # Compute the "sliding reverse" block position
+        reversePos = reverse(i, numBits-1)
+        if reversePos + (1 << (numBits-1)) < i:
+            reversePos += 1 << (numBits-1)
+        fromAddr = blocklen*reversePos # Start for fromAddr is computed in hashBlocks
+
+        # Compute which thread's memory to read from
+        if fromAddr < completedBlocks*blocklen:
+            fromAddr += blocklen*blocksPerThread*(i % parallelism)
+        else:
+            fromAddr += start
+
+        toAddr = start + i*blocklen
+        prevAddr = toAddr - blocklen
+        hashBlocks(state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions)
+
+def hashWithPassword(state, mem, p, blocklen, subBlocklen, blocksPerThread, multiplies,
+        repetitions, parallelism, completedBlocks):
+    """Hash memory with password dependent addressing."""
+
+    start = blocklen*blocksPerThread*p
+
+    # Hash one "slice" worth of memory hashing
+    for i in range(completedBlocks, completedBlocks + blocksPerThread/TIGERKDF_SLICES):
+
+        # Compute rand()^3 distance distribution
         v = state[0]
         v2 = v*v >> 32
         v3 = v*v2 >> 32
-        distance = (i + numblocks - 1)*v3 >> 32
-        if distance < i:
-            fromAddr = start + (i - 1 - distance)*blocklen
+        distance = (i-1)*v3 >> 32
+
+        # Hash the prior block and the block at 'distance' blocks in the past
+        fromAddr = (i - 1 - distance)*blocklen
+
+        # Compute which thread's memory to read from
+        if fromAddr < completedBlocks*blocklen:
+            fromAddr += blocklen*(state[1] % parallelism)*blocksPerThread
         else:
-            q = (p + i) % parallelism
-            b = numblocks - 1 - (distance - i)
-            fromAddr = (2*numblocks*q + b)*blocklen
-        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, toAddr, multiplies, repetitions)
-        toAddr += blocklen
+            fromAddr += start
 
-def TigerKDF(hash, memSize, multiplies, startGarlic, stopGarlic, blockSize, subBlockSize, parallelism,
-        repetitions, serverReliefMode):
-    """The TigerKDF password hashing function.  MemSize is in KiB."""
-    # Compute sizes
-    memlen = (1 << 10)*memSize/4
-    blocklen = blockSize/4
-    numblocks = (memlen/(2*parallelism*blocklen)) << startGarlic
-    if subBlockSize != 0:
-        subBlocklen = subBlockSize/4
-    else:
-        subBlocklen = blocklen
-    memlen = (2*parallelism*numblocks*blocklen) << (stopGarlic - startGarlic)
+        toAddr = start + i*blocklen
+        prevAddr = toAddr - blocklen
+        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions)
+
+def hashMemory(hash, mem, blocksPerThread, blocklen, subBlocklen, multiplies, parallelism, repetitions):
+    """Hash memory for one level of garlic."""
+
+    # Convert hash to 8 32-bit ints.
+    hash256 = hashTo256(hash)
+
+    # Initialize thread states
+    states = [list(hash256) for _ in range(parallelism)]
+    for p in range(parallelism):
+        hashWithSalt(states[p], p)
+
+    # Do the the first "resistant" loop in "slices"
+    for slice in range(TIGERKDF_SLICES/2):
+        for p in range(parallelism):
+            hashWithoutPassword(states[p], mem, p, blocklen, blocksPerThread, multiplies, repetitions,
+                parallelism, slice*blocksPerThread/TIGERKDF_SLICES)
+
+    # Do the second "unpredictable" loop in "slices"
+    for slice in range(TIGERKDF_SLICES/2, TIGERKDF_SLICES):
+        for p in range(parallelism):
+            hashWithPassword(states[p], mem, p, blocklen, subBlocklen, blocksPerThread, multiplies,
+                repetitions, parallelism, slice*blocksPerThread/TIGERKDF_SLICES)
+
+    # Apply a crypto-strength hash
+    addIntoHash(hash256, mem, parallelism, blocklen, blocksPerThread)
+    hash = H_PBKDF2(len(hash), toUint8Array(hash256), "")
+
+def TigerKDF(hash, startMemCost, stopMemCost, timeCost, blocklen, subBlocklen, parallelism, updateMemCostMode):
+    """The TigerKDF password hashing function."""
+
     # Allocate memory
-    mem = [0 for _ in range(memlen)]
-    # Iterate through the levels of garlic
-    for i in range(startGarlic, stopGarlic+1):
-        # Convert hash to 8 32-bit ints
-        hash256 = hashTo256(hash)
-        # Do the the first "resistant" loop
-        for p in range(parallelism):
-            hashWithoutPassword(hash256, mem, p, blocklen, numblocks, multiplies, repetitions)
-        # Do the second "unpredictable" loop
-        for p in range(parallelism):
-            hashWithPassword(mem, parallelism, p, blocklen, subBlocklen, numblocks, multiplies, repetitions)
-        # Combine all the memory thread hashes with a crypto-strength hash
-        combineHashes(hash, mem, blocklen, numblocks, parallelism)
-        hash = H_PBKDF2(len(hash), hash, "")
-        if i < stopGarlic or not serverReliefMode:
-            # For server relief mode, skip doing this last hash
-            hash = H_PBKDF2(len(hash), hash, "")
-        # Double the memory for the next round of garlic
-        numblocks *= 2
-    # The light is green, the trap is clean
-    return hash
+    blocksPerThread = TIGERKDF_SLICES*((1 << stopMemCost)/(TIGERKDF_SLICES*parallelism))
+    mem = [0 for _ in range(blocklen*blocksPerThread*parallelism)]
 
-#import pdb; pdb.set_trace()
-#hash = TigerKDF_SimpleHashPassword(32, "password", "salt", 64)
-hash = TigerKDF_HashPassword(32, "password", "salt", 64, 3, 0, None, 1024, 0, 2, 4)
+    # Expand time cost into multiplies and repetitions
+    if(timeCost <= 8):
+        multiplies = timeCost
+        repetitions = 1
+    else:
+        multiplies = 8
+        repetitions = 1 << (timeCost - 8)
+
+    # Iterate through the levels of garlic.  Throw away some early memory to reduce the
+    # danger from leaking memory to an attacker.
+    for i in range(stopMemCost+1):
+        if i >= startMemCost or (not updateMemCostMode and i < startMemCost - 6):
+            blocksPerThread = TIGERKDF_SLICES*((1 << i)/(TIGERKDF_SLICES*parallelism))
+            if blocksPerThread >= TIGERKDF_SLICES:
+                hashMemory(hash, mem, blocksPerThread, blocklen, subBlocklen, multiplies, parallelism, repetitions)
+
+import pdb; pdb.set_trace()
+hash = TigerKDF_HashPassword(32, "password", "salt", None, 12, 12, 1, 256, 64, 2)
 print toHex(str(hash))

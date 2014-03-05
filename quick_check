@@ -5,6 +5,6 @@
 # In addition, you may need to build the blake2 python package.  See the top of
 # tigerkdf.py for more details.
 
-tigerkdf -m64 -M3 -b1024 -B0 -t2 -r4
-tigerkdf-ref -m64 -M3 -b1024 -B0 -t2 -r4
+tigerkdf -m12 -t1 -b256 -B64 -P2
+tigerkdf-ref -m12 -t1 -b256 -B64 -P2
 python2 tigerkdf.py
