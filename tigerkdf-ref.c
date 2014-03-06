@@ -47,7 +47,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
     for(uint32_t i = 0; i < 8; i++) {
         oddState[i] = state[i] | 1;
     }
-    int64_t v = 1;
+    uint64_t v = 1;
 
     for(uint32_t r = 0; r < repetitions; r++) {
         uint32_t *f = mem + fromAddr;
@@ -59,7 +59,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 
                 // Compute the multiplication chain
                 for(uint32_t k = 0; k < multiplies; k++) {
-                    v = (int32_t)v * (int64_t)oddState[k];
+                    v = (uint32_t)v * (uint64_t)oddState[k];
                     v ^= randVal;
                     randVal += v >> 32;
                 }
@@ -104,7 +104,7 @@ static void hashWithoutPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint
         if(reversePos + (1 << (numBits-1)) < i) {
             reversePos += 1 << (numBits-1);
         }
-        uint64_t fromAddr = blocklen*reversePos; // Start for fromAddr is computed in hashBlocks
+        uint64_t fromAddr = blocklen*reversePos;
 
         // Compute which thread's memory to read from
         if(fromAddr < completedBlocks*blocklen) {

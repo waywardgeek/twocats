@@ -348,7 +348,7 @@ static void *hashWithoutPassword(void *contextPtr) {
         }
 
         // Hash the prior block and the block at reversePos and write the result
-        uint64_t fromAddr = blocklen*reversePos; // Start for fromAddr is computed in hashBlocks
+        uint64_t fromAddr = blocklen*reversePos;
 
         // Compute which thread's memory to read from
         if(fromAddr < completedBlocks*blocklen) {
