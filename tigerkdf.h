@@ -15,7 +15,7 @@
 #include <stdbool.h>
 
 // This is the prototype required for the password hashing competition.
-// t_cost is a multiplier on CPU work.  2^m_cost is the number of KiB of memory to hash.
+// This is equivalent to !TigerKDF_SimpleHashPassword0
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
     unsigned int t_cost, unsigned int m_cost);
 
