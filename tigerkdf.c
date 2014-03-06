@@ -409,7 +409,7 @@ static void *hashWithPassword(void *contextPtr) {
 
 // Hash memory for one level of garlic.
 static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t memCost, uint8_t timeCost,
-        uint8_t parallelism) {
+        uint8_t parallelism, uint32_t resistantSlices) {
 
     uint32_t blocklen, blocksPerThread, repetitions;
     uint8_t multiplies;
@@ -441,26 +441,15 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
         c[p].p = p;
     }
 
-    // Do the the first "resistant" loop in "slices"
-    for(uint32_t slice = 0; slice < TIGERKDF_SLICES/2; slice++) {
+    for(uint32_t slice = 0; slice < TIGERKDF_SLICES; slice++) {
         common.completedBlocks = slice*blocksPerThread/TIGERKDF_SLICES;
         for(uint32_t p = 0; p < parallelism; p++) {
-            int rc = pthread_create(&memThreads[p], NULL, hashWithoutPassword, (void *)(c + p));
-            if(rc) {
-                fprintf(stderr, "Unable to start threads\n");
-                return false;
+            int rc;
+            if(slice < resistantSlices) {
+                rc = pthread_create(&memThreads[p], NULL, hashWithoutPassword, (void *)(c + p));
+            } else {
+                rc = pthread_create(&memThreads[p], NULL, hashWithPassword, (void *)(c + p));
             }
-        }
-        for(uint32_t p = 0; p < parallelism; p++) {
-            (void)pthread_join(memThreads[p], NULL);
-        }
-    }
-
-    // Do the second "unpredictable" loop in "slices"
-    for(uint32_t slice = TIGERKDF_SLICES/2; slice < TIGERKDF_SLICES; slice++) {
-        common.completedBlocks = slice*blocksPerThread/TIGERKDF_SLICES;
-        for(uint32_t p = 0; p < parallelism; p++) {
-            int rc = pthread_create(&memThreads[p], NULL, hashWithPassword, (void *)(c + p));
             if(rc) {
                 fprintf(stderr, "Unable to start threads\n");
                 return false;
@@ -494,7 +483,11 @@ bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t sto
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if(i >= startMemCost || (!updateMemCostMode && i + 6 < startMemCost)) {
-            if(!hashMemory(hash, hashSize, mem, i, timeCost, parallelism)) {
+            uint32_t resistantSlices = TIGERKDF_SLICES/2;
+            if(i < startMemCost) {
+                resistantSlices = TIGERKDF_SLICES;
+            }
+            if(!hashMemory(hash, hashSize, mem, i, timeCost, parallelism, resistantSlices)) {
                 free(mem);
                 return false;
             }

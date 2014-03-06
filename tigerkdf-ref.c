@@ -153,7 +153,7 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
 
 // Hash memory for one level of garlic.
 static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t memCost, uint8_t timeCost,
-        uint8_t parallelism) {
+        uint8_t parallelism, uint32_t resistantSlices) {
 
     uint32_t blocklen, blocksPerThread, repetitions;
     uint8_t multiplies;
@@ -167,24 +167,20 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     secureZeroMemory(hash, hashSize);
 
     // Initialize thread states
-    uint32_t state[8*parallelism];
+    uint32_t states[8*parallelism];
     for(uint32_t p = 0; p < parallelism; p++) {
-        hashWithSalt(state + 8*p, hash256, p);
+        hashWithSalt(states + 8*p, hash256, p);
     }
 
-    // Do the the first "resistant" loop in "slices"
-    for(uint32_t slice = 0; slice < TIGERKDF_SLICES/2; slice++) {
+    for(uint32_t slice = 0; slice < TIGERKDF_SLICES; slice++) {
         for(uint32_t p = 0; p < parallelism; p++) {
-            hashWithoutPassword(state + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
-                parallelism, slice*blocksPerThread/TIGERKDF_SLICES);
-        }
-    }
-
-    // Do the second "unpredictable" loop in "slices"
-    for(uint32_t slice = TIGERKDF_SLICES/2; slice < TIGERKDF_SLICES; slice++) {
-        for(uint32_t p = 0; p < parallelism; p++) {
-            hashWithPassword(state + 8*p, mem, p, blocklen, blocksPerThread, multiplies,
-                repetitions, parallelism, slice*blocksPerThread/TIGERKDF_SLICES);
+            if(slice < resistantSlices) {
+                hashWithoutPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
+                    parallelism, slice*blocksPerThread/TIGERKDF_SLICES);
+            } else {
+                hashWithPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
+                    parallelism, slice*blocksPerThread/TIGERKDF_SLICES);
+            }
         }
     }
 
@@ -210,7 +206,11 @@ bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t sto
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if(i >= startMemCost || (!updateMemCostMode && i + 6 < startMemCost)) {
-            hashMemory(hash, hashSize, mem, i, timeCost, parallelism);
+            uint32_t resistantSlices = TIGERKDF_SLICES/2;
+            if(i < startMemCost) {
+                resistantSlices = TIGERKDF_SLICES;
+            }
+            hashMemory(hash, hashSize, mem, i, timeCost, parallelism, resistantSlices);
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
                 PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
