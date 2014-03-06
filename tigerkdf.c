@@ -139,7 +139,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
     for(uint32_t i = 0; i < 8; i++) {
         oddState[i] = state[i] | 1;
     }
-    int64_t v = 1;
+    uint64_t v = 1;
 
 #ifdef __AVX2__
     __m256i s;
@@ -158,9 +158,9 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
 
                 // Compute the multiplication chain
                 for(uint8_t k = 0; k < multiplies; k++) {
-                    v = (int32_t)v * (int64_t)oddState[k];
+                    v = (uint32_t)v * (uint64_t)oddState[k];
                     v ^= randVal;
-                    randVal += v >> 32;
+                    //randVal += v >> 32;
                 }
 
                 // Hash 32 bytes of memory
@@ -179,9 +179,9 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
 
             // Compute the multiplication chain
             for(uint8_t k = 0; k < multiplies; k++) {
-                v = (int32_t)v * (int64_t)oddState[k];
+                v = (uint32_t)v * (uint64_t)oddState[k];
                 v ^= randVal;
-                randVal += v >> 32;
+                //randVal += v >> 32;
             }
 
             // Hash 32 bytes of memory
@@ -210,7 +210,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
 
                 // Compute the multiplication chain
                 for(uint8_t k = 0; k < multiplies; k++) {
-                    v = (int32_t)v * (int64_t)oddState[k];
+                    v = (uint32_t)v * (uint64_t)oddState[k];
                     v ^= randVal;
                     randVal += v >> 32;
                 }
@@ -237,7 +237,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
             // Compute the multiplication chain
 
             for(uint8_t k = 0; k < multiplies; k++) {
-                v = (int32_t)v * (int64_t)oddState[k];
+                v = (uint32_t)v * (uint64_t)oddState[k];
                 v ^= randVal;
                 randVal += v >> 32;
             }
