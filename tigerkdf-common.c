@@ -213,14 +213,14 @@ static clock_t findRuntime(uint8_t memCost, uint8_t timeCost) {
 // success, or 255 on failure to allocate memory.
 uint8_t TigerKDF_FindTimeCost(uint8_t memCost) {
     uint8_t timeCost = 0;
-    clock_t minTime = findRuntime(memCost, timeCost);
+    clock_t minTime = findRuntime(memCost - 3, timeCost);
     while(true) {
         timeCost++;
-        clock_t newTime = findRuntime(memCost, timeCost);
+        clock_t newTime = findRuntime(memCost - 3, timeCost);
         if(newTime == -1) {
             return 255;
         }
-        if(newTime > minTime * 1.2) {
+        if(newTime > minTime * 1.1) {
             return timeCost - 1;
         }
         if(timeCost == 8) {
@@ -238,8 +238,11 @@ uint8_t TigerKDF_FindMemCost(uint32_t milliSeconds, uint32_t maxMemCost) {
         if(newTime == -1) {
             return memCost - 1;
         }
-        if(newTime > milliSeconds) {
-            return memCost - 1;
+        if(newTime > milliSeconds/8) {
+            if(maxMemCost < memCost + 2) {
+                return maxMemCost;
+            }
+            return memCost + 2;
         }
         if(memCost == maxMemCost) {
             return memCost;
