@@ -23,10 +23,6 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
 bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *password, uint8_t passwordSize,
     const uint8_t *salt, uint8_t saltSize, uint8_t memCost, uint8_t timeCost);
 
-// Find a good timeCost for a given memCost on this machine.  This just finds the largest
-// timeCost that doees not significantly slow down password hashing.
-uint8_t TigerKDF_FindTimeCost(uint8_t memCost);
-
 // The full password hashing interface.  If clearPassword is set, both the password are cleared.
 bool TigerKDF_HashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *password, uint8_t passwordSize,
     const uint8_t *salt, uint8_t saltSize, uint8_t *data, uint8_t dataSize, uint8_t startMemCost,
@@ -43,3 +39,11 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *passw
 
 // Server portion of work for server-relief mode.
 void TigerKDF_ServerHashPassword(uint8_t *hash, uint8_t hashSize);
+
+// Find a good memCost for a given runtime this machine.  This just finds the largest
+// memCost that doees not take longer than runtime.
+uint8_t TigerKDF_FindMemCost(uint32_t milliSeconds, uint32_t maxMemCost);
+
+// Find a good timeCost for a given memCost on this machine.  This just finds the largest
+// timeCost that doees not significantly slow down password hashing.
+uint8_t TigerKDF_FindTimeCost(uint8_t memCost);

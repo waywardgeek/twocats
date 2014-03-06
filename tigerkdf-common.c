@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "pbkdf2.h"
 #include "tigerkdf.h"
 #include "tigerkdf-impl.h"
@@ -195,8 +196,54 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
     return !TigerKDF_SimpleHashPassword(out, outlen, buf, inlen, salt, saltlen, m_cost, t_cost);
 }
 
-// Find a good timeCost for a given memCost on this machine.  This just finds the largest
-// timeCost that doees not significantly slow down password hashing.
-uint8_t TigerKDF_FindTimeCost(uint8_t memCost) {
+// Just measure the time for a given memCost and timeCost.  Return -1 if memory allocation fails.
+static clock_t findRuntime(uint8_t memCost, uint8_t timeCost) {
+    uint8_t buf[TIGERKDF_KEYSIZE];
+    clock_t start = clock();
+    if(!TigerKDF_SimpleHashPassword(buf, TIGERKDF_KEYSIZE, NULL, 0, NULL, 0, memCost, timeCost)) {
+        fprintf(stderr, "Memory hashing failed\n");
+        return -1;
+    }
+    clock_t end = clock();
+    return (end - start) * 1000 / CLOCKS_PER_SEC;
+}
 
+// Find a good timeCost for a given memCost on this machine.  This just finds the largest
+// timeCost that doees not significantly slow down password hashing.  Returns 0 - 38 on
+// success, or 255 on failure to allocate memory.
+uint8_t TigerKDF_FindTimeCost(uint8_t memCost) {
+    uint8_t timeCost = 0;
+    clock_t minTime = findRuntime(memCost, timeCost);
+    while(true) {
+        timeCost++;
+        clock_t newTime = findRuntime(memCost, timeCost);
+        if(newTime == -1) {
+            return 255;
+        }
+        if(newTime > minTime * 1.2) {
+            return timeCost - 1;
+        }
+        if(timeCost == 8) {
+            return timeCost;
+        }
+    }
+}
+
+// Find a good memCost for a given time on this machine.  This just finds the largest
+// memCost that runs in less than milliSeconds ms.  Return 255 on failure to allocate memory.
+uint8_t TigerKDF_FindMemCost(uint32_t milliSeconds, uint32_t maxMemCost) {
+    uint8_t memCost = 1;
+    while(true) {
+        clock_t newTime = findRuntime(memCost, 0);
+        if(newTime == -1) {
+            return memCost - 1;
+        }
+        if(newTime > milliSeconds) {
+            return memCost - 1;
+        }
+        if(memCost == maxMemCost) {
+            return memCost;
+        }
+        memCost++;
+    }
 }
