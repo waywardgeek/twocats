@@ -194,3 +194,9 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
     memcpy(buf, in, inlen);
     return !TigerKDF_SimpleHashPassword(out, outlen, buf, inlen, salt, saltlen, m_cost, t_cost);
 }
+
+// Find a good timeCost for a given memCost on this machine.  This just finds the largest
+// timeCost that doees not significantly slow down password hashing.
+uint8_t TigerKDF_FindTimeCost(uint8_t memCost) {
+
+}

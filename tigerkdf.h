@@ -15,13 +15,17 @@
 #include <stdbool.h>
 
 // This is the prototype required for the password hashing competition.
-// This is equivalent to !TigerKDF_SimpleHashPassword0
+// This is equivalent to !TigerKDF_SimpleHashPassword(...)
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
     unsigned int t_cost, unsigned int m_cost);
 
 // A simple password hashing interface.  The password is set to 0's.
 bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *password, uint8_t passwordSize,
     const uint8_t *salt, uint8_t saltSize, uint8_t memCost, uint8_t timeCost);
+
+// Find a good timeCost for a given memCost on this machine.  This just finds the largest
+// timeCost that doees not significantly slow down password hashing.
+uint8_t TigerKDF_FindTimeCost(uint8_t memCost);
 
 // The full password hashing interface.  If clearPassword is set, both the password are cleared.
 bool TigerKDF_HashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *password, uint8_t passwordSize,
