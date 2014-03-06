@@ -18,10 +18,10 @@ tigerkdf-phs: tigerkdf-phs.c tigerkdf.c tigerkdf-common.c tigerkdf.h tigerkdf-im
 	$(CC) $(CFLAGS) -pthread tigerkdf-phs.c tigerkdf.c tigerkdf-common.c pbkdf2.c blake2/blake2s.c -o tigerkdf-phs
 
 tigerkdf-enc: tigerkdf-enc.c tigerkdf.c tigerkdf-common.c tigerkdf.h tigerkdf-impl.h pbkdf2.c pbkdf2.h
-	$(CC) $(CFLAGS) -pthread -lssl -lcrypto tigerkdf-enc.c tigerkdf.c tigerkdf-common.c pbkdf2.c blake2/blake2s.c -o tigerkdf-enc
+	$(CC) $(CFLAGS) -pthread tigerkdf-enc.c tigerkdf.c tigerkdf-common.c pbkdf2.c blake2/blake2s.c -o tigerkdf-enc -lssl -lcrypto
 
 tigerkdf-dec: tigerkdf-dec.c tigerkdf.c tigerkdf-common.c tigerkdf.h tigerkdf-impl.h pbkdf2.c pbkdf2.h
-	$(CC) $(CFLAGS) -pthread -lssl -lcrypto tigerkdf-dec.c tigerkdf.c tigerkdf-common.c pbkdf2.c blake2/blake2s.c -o tigerkdf-dec
+	$(CC) $(CFLAGS) -pthread tigerkdf-dec.c tigerkdf.c tigerkdf-common.c pbkdf2.c blake2/blake2s.c -o tigerkdf-dec -lssl -lcrypto
 
 clean:
 	rm -f tigerkdf-ref tigerkdf tigerkdf-test tigerkdf-phs tigerkdf-enc tigerkdf-dec
