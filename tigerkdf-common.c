@@ -74,15 +74,12 @@ void TigerKDF_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *paralleli
     // and if needed, parallelism
     uint64_t memlen = (1024/sizeof(uint32_t)) << memCost;
     *blocklen = TIGERKDF_BLOCKLEN;
-    *blocksPerThread = memlen/(*parallelism * *blocklen);
+    *blocksPerThread = TIGERKDF_SLICES*(memlen/(TIGERKDF_SLICES * *parallelism * *blocklen));
     if(*blocksPerThread < TIGERKDF_MINBLOCKS) {
         *blocksPerThread = TIGERKDF_MINBLOCKS;
         while(*parallelism * *blocksPerThread * *blocklen > memlen) {
             if(*blocklen > TIGERKDF_SUBBLOCKLEN) {
-                *blocklen = memlen/(*parallelism * *blocksPerThread);
-                if(*blocklen < TIGERKDF_SUBBLOCKLEN) {
-                    *blocklen = TIGERKDF_SUBBLOCKLEN;
-                }
+                *blocklen >>= 1;
             } else if(*parallelism > 1) {
                 *parallelism = memlen/(*blocksPerThread * *blocklen);
                 if(*parallelism == 0) {

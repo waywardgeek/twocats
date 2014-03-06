@@ -493,7 +493,7 @@ bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t sto
     // Iterate through the levels of garlic.  Throw away some early memory to reduce the
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
-        if(i >= startMemCost || (!updateMemCostMode && i < startMemCost - 6)) {
+        if(i >= startMemCost || (!updateMemCostMode && i + 6 < startMemCost)) {
             if(!hashMemory(hash, hashSize, mem, i, timeCost, parallelism)) {
                 free(mem);
                 return false;
