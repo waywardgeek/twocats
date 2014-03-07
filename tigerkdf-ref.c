@@ -38,7 +38,7 @@ static uint32_t reverse(uint32_t v, uint32_t numBits) {
 }
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
-static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
+static void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
         uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint32_t multiplies, uint32_t repetitions) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain

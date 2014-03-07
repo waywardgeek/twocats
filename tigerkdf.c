@@ -296,7 +296,7 @@ static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blockle
 }
 
 // Bit-reversal function derived from Catena's version.
-uint32_t reverse(uint32_t x, const uint8_t n)
+static inline uint32_t reverse(uint32_t x, const uint8_t n)
 {
     if(n == 0) {
         return 0;
