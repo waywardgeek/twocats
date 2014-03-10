@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "pbkdf2.h"
+#include "hkdf/sha.h"
 #include "tigerkdf.h"
 #include "tigerkdf-impl.h"
 
@@ -94,11 +94,41 @@ void TigerKDF_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *paralleli
         //memCost, *parallelism, *blocklen*4, *blocksPerThread, *repetitions, *multiplies);
 }
 
+// This is a simple wrapper around the official hkdfExtract function.
+void TigerKDF_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize) {
+    uint8_t buf[32];
+    if(hkdfExtract(SHA256, NULL, 0, hash, hashSize, buf)) {
+        fprintf(stderr, "hkdfExtract failed\n");
+        exit(1);
+    }
+    be32dec_vect(hash256, buf, 32);
+    secureZeroMemory(buf, 32);
+}
+
+// This is a simple wrapper around the official hkdfExpand function.
+void TigerKDF_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]) {
+    uint8_t buf[32];
+    be32enc_vect(buf, hash256, 32);
+    if(hkdfExpand(SHA256, buf, 32, NULL, 0, hash, hashSize)) {
+        fprintf(stderr, "hkdfExpand failed\n");
+        exit(1);
+    }
+    secureZeroMemory(buf, 32);
+}
+
+// This is a simple wrapper around the official hkdf function, which hashes the hash onto itself.
+void TigerKDF_hkdf(uint8_t *hash, uint32_t hashSize) {
+    if(hkdf(SHA256, NULL, 0, hash, hashSize, (uint8_t *)"TigerKDF", 8, hash, hashSize)) {
+        fprintf(stderr, "hkdf failed\n");
+        exit(1);
+    }
+}
+
 // Verify that parameters are valid for password hashing.
-static bool verifyParameters(uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-        uint8_t parallelism) {
-    if(hashSize == 0 || (hashSize & 0x3)) {
-        fprintf(stderr, "Invalid hash size: the range is 4 through 252 in multiples of 4\n");
+static bool verifyParameters(uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
+        uint8_t multiplies , uint8_t timeCost, uint8_t parallelism) {
+    if(hashSize == 0 || hashSize > 255*32) {
+        fprintf(stderr, "Invalid hash size: the range is 1 through 255*32\n");
         return false;
     }
     if(startMemCost > stopMemCost) {
@@ -109,7 +139,11 @@ static bool verifyParameters(uint8_t hashSize, uint8_t startMemCost, uint8_t sto
         fprintf(stderr, "stopMemCost must be <= 30\n");
         return false;
     }
-    if(timeCost > 38) {
+    if(timeCost > 30) {
+        fprintf(stderr, "timeCost must be <= 30\n");
+        return false;
+    }
+    if(multiplies > 8) {
         fprintf(stderr, "timeCost must be <= 38\n");
         return false;
     }
@@ -121,18 +155,25 @@ static bool verifyParameters(uint8_t hashSize, uint8_t startMemCost, uint8_t sto
 }
 
 // A simple password hashing interface.  The password is cleared with secureZeroMemory.
-bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *password, uint8_t passwordSize,
-        const uint8_t *salt, uint8_t saltSize, uint8_t memCost, uint8_t timeCost) {
+bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+        const uint8_t *salt, uint32_t saltSize, uint8_t memCost, uint8_t timeCost) {
+    uint8_t multiplies = 3; // Decent match for Intel Sandy Bridge through Haswell
+    if(memCost <= 16*1024) {
+        multiplies = 1; // Assume it fits in L1 cache
+    } else if(memCost < 1024*1024) {
+        multiplies = 2; // Assume it fits in L2 or L3 cache
+    }
     return TigerKDF_HashPassword(hash, hashSize, password, passwordSize, salt, saltSize, NULL, 0, memCost,
-        memCost, timeCost, TIGERKDF_PARALLELISM, true);
+        memCost, timeCost, multiplies, TIGERKDF_PARALLELISM, true, false);
 }
 
 // The full password hashing interface.  
-bool TigerKDF_HashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *password, uint8_t passwordSize,
-        const uint8_t *salt, uint8_t saltSize, uint8_t *data, uint8_t dataSize, uint8_t startMemCost,
-        uint8_t stopMemCost, uint8_t timeCost, uint8_t parallelism, bool clearPassword) {
+bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+        const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize, uint8_t startMemCost,
+        uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
+        bool clearPassword, bool clearData) {
     if(!TigerKDF_ClientHashPassword(hash, hashSize, password, passwordSize, salt, saltSize, data, dataSize,
-            startMemCost, stopMemCost, timeCost, parallelism, clearPassword)) {
+            startMemCost, stopMemCost, timeCost, multiplies, parallelism, clearPassword, clearData)) {
         return false;
     }
     TigerKDF_ServerHashPassword(hash, hashSize);
@@ -140,42 +181,92 @@ bool TigerKDF_HashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *password, u
 }
 
 // Update an existing password hash to a more difficult level of memory cost (garlic).
-bool TigerKDF_UpdatePasswordMemCost(uint8_t *hash, uint8_t hashSize, uint8_t oldMemCost, uint8_t newMemCost,
-        uint8_t timeCost, uint8_t parallelism) {
-    if(!verifyParameters(hashSize, oldMemCost, newMemCost, timeCost, parallelism)) {
+bool TigerKDF_UpdatePasswordMemCost(uint8_t *hash, uint32_t hashSize, uint8_t oldMemCost, uint8_t newMemCost,
+        uint8_t timeCost, uint8_t multiplies, uint8_t parallelism) {
+    if(!verifyParameters(hashSize, oldMemCost, newMemCost, timeCost, multiplies, parallelism)) {
         return false;
     }
-    if(!TigerKDF(hash, hashSize, oldMemCost, newMemCost, timeCost, parallelism, true)) {
+    if(!TigerKDF(hash, hashSize, oldMemCost, newMemCost, timeCost, multiplies, parallelism, true)) {
         return false;
     }
     TigerKDF_ServerHashPassword(hash, hashSize);
     return true;
 }
 
-// Client-side portion of work for server-relief mode.
-bool TigerKDF_ClientHashPassword(uint8_t *hash, uint8_t hashSize, uint8_t *password, uint8_t passwordSize,
-        const uint8_t *salt, uint8_t saltSize, uint8_t *data, uint8_t dataSize, uint8_t startMemCost,
-        uint8_t stopMemCost, uint8_t timeCost, uint8_t parallelism, bool clearPassword) {
-    if(!verifyParameters(hashSize, startMemCost, stopMemCost, timeCost, parallelism)) {
+// Add a 32-bit value to the input.  Deal with conversion to big-endian.
+static bool addUint32Input(HKDFContext *context, uint32_t value) {
+    uint8_t buf[4];
+    be32enc(buf, value);
+    if(hkdfInput(context, buf, 4)) {
+        fprintf(stderr, "Unable to add input to hkdf\n");
         return false;
     }
-    if(data != NULL && dataSize != 0) {
-        uint8_t derivedSalt[hashSize];
-        PBKDF2(derivedSalt, hashSize, data, dataSize, salt, saltSize);
-        PBKDF2(hash, hashSize, password, passwordSize, derivedSalt, hashSize);
-    } else {
-        PBKDF2(hash, hashSize, password, passwordSize, salt, saltSize);
+    return true;
+}
+
+// Add an byte to the input.
+static bool addUint8Input(HKDFContext *context, uint8_t value) {
+    if(hkdfInput(context, &value, 1)) {
+        fprintf(stderr, "Unable to add input to hkdf\n");
+        return false;
     }
-    if(clearPassword) {
+    return true;
+}
+
+// Add an array of bytes to the input.
+static bool addInput(HKDFContext *context, uint8_t *input, uint32_t inputSize) {
+    if(hkdfInput(context, input, inputSize)) {
+        fprintf(stderr, "Unable to add input to hkdf\n");
+        return false;
+    }
+    return true;
+}
+
+// Client-side portion of work for server-relief mode.  Return true if there are no memory
+// allocation errors.  The password and data are not cleared if there is an error.
+bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+        const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize, uint8_t startMemCost,
+        uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
+        bool clearPassword, bool clearData) {
+    if(!verifyParameters(hashSize, startMemCost, stopMemCost, timeCost, multiplies, parallelism)) {
+        return false;
+    }
+
+    // Initialize the hkdf context with the salt
+    HKDFContext context;
+    memset(&context, 0, sizeof(HKDFContext));
+    if(hkdfReset(&context, SHA256, salt, saltSize)) {
+        fprintf(stderr, "Unable to initialize hkdf\n");
+        return false;
+    }
+
+    // Add all the inputs, other than stopMemCost
+    if(!addUint32Input(&context, hashSize) || !addUint32Input(&context, passwordSize) ||
+            !addInput(&context, password, passwordSize) || !addUint32Input(&context, dataSize) ||
+            !addInput(&context, data, dataSize) || !addUint8Input(&context, startMemCost) ||
+            !addUint8Input(&context, timeCost) || !addUint8Input(&context, multiplies) ||
+            !addUint8Input(&context, parallelism)) {
+        fprintf(stderr, "Unable to add input to hkdf\n");
+        return false;
+    }
+    // Now clear the password and data if allowed
+    if(clearPassword && passwordSize != 0) {
         secureZeroMemory(password, passwordSize);
+    }
+    if(clearData && dataSize != 0) {
         secureZeroMemory(data, dataSize);
     }
-    return TigerKDF(hash, hashSize, startMemCost, stopMemCost, timeCost, parallelism, false);
+
+    if(hkdfResult(&context, NULL, (uint8_t *)"TigerKDF", 8, hash, hashSize)) {
+        fprintf(stderr, "Unable to finalize hkdf\n");
+        return false;
+    }
+    return TigerKDF(hash, hashSize, startMemCost, stopMemCost, timeCost, multiplies, parallelism, false);
 }
 
 // Server portion of work for server-relief mode.
 void TigerKDF_ServerHashPassword(uint8_t *hash, uint8_t hashSize) {
-    PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
+    TigerKDF_hkdf(hash, hashSize);
 }
 
 // This is the prototype required for the password hashing competition.

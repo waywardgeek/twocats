@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "hkdf/sha.h"
 #include "tigerkdf.h"
 #include "tigerkdf-impl.h"
 
@@ -163,8 +164,7 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
-    hashTo256(hash256, hash, hashSize);
-    secureZeroMemory(hash, hashSize);
+    TigerKDF_hkdfExtract(hash256, hash, hashSize);
 
     // Initialize thread states
     uint32_t states[8*parallelism];
@@ -186,14 +186,12 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
 
     // Apply a crypto-strength hash
     addIntoHash(hash256, mem, parallelism, blocklen, blocksPerThread);
-    uint8_t buf[32];
-    be32enc_vect(buf, hash256, 32);
-    PBKDF2(hash, hashSize, buf, 32, NULL, 0);
+    TigerKDF_hkdfExpand(hash, hashSize, hash256);
 }
 
 // The TigerKDF password hashing function.  Return false if there is a memory allocation error.
-bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-        uint8_t parallelism, bool updateMemCostMode) {
+bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+        uint8_t multiplies, uint8_t parallelism, bool updateMemCostMode) {
 
     // Allocate memory
     uint32_t *mem = malloc((uint64_t)1024 << stopMemCost);
@@ -213,7 +211,7 @@ bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t sto
             hashMemory(hash, hashSize, mem, i, timeCost, parallelism, resistantSlices);
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
-                PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
+                TigerKDF_hkdf(hash, hashSize);
             }
         }
     }

@@ -31,6 +31,7 @@ static void usage(char *format, ...) {
         "    -s salt         -- Set the salt.  Salt must be in hexidecimal\n"
         "    -m memCost      -- The amount of memory to use in KB\n"
         "    -t timeCost     -- Parallelism parameter, typically the number of threads\n"
+        "    -M multiplies   -- The number of multiplies per 32 bytes of hashing\n"
         "    -P parallelism  -- Parallelism parameter, typically the number of threads\n");
     exit(1);
 }
@@ -88,16 +89,17 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 
 int main(int argc, char **argv) {
     uint32_t derivedKeySize = TIGERKDF_KEYSIZE;
-    uint32_t parallelism = TIGERKDF_PARALLELISM;
+    uint8_t parallelism = TIGERKDF_PARALLELISM;
     uint8_t memCost = TIGERKDF_MEMCOST;
     uint8_t *salt = (uint8_t *)"salt";
     uint32_t saltSize = 4;
     uint8_t *password = (uint8_t *)"password";
     uint32_t passwordSize = 8;
-    uint32_t timeCost = TIGERKDF_TIMECOST;
+    uint8_t timeCost = TIGERKDF_TIMECOST;
+    uint8_t multiplies = TIGERKDF_MULTIPLIES;
 
     char c;
-    while((c = getopt(argc, argv, "h:p:s:m:t:P:b:B:")) != -1) {
+    while((c = getopt(argc, argv, "h:p:s:m:M:t:P:b:B:")) != -1) {
         switch (c) {
         case 'h':
             derivedKeySize = readuint32_t(c, optarg);
@@ -111,6 +113,9 @@ int main(int argc, char **argv) {
             break;
         case 'm':
             memCost = readuint32_t(c, optarg);
+            break;
+        case 'M':
+            multiplies = readuint32_t(c, optarg);
             break;
         case 't':
             timeCost = readuint32_t(c, optarg);
@@ -126,11 +131,11 @@ int main(int argc, char **argv) {
         usage("Extra parameters not recognised\n");
     }
 
-    printf("memCost:%u timeCost:%u parallelism:%u password:%s salt:%s\n",
-        memCost, timeCost, parallelism, password, salt);
+    printf("memCost:%u timeCost:%u multiplies:%u parallelism:%u password:%s salt:%s\n",
+        memCost, timeCost, multiplies, parallelism, password, salt);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
     if(!TigerKDF_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
-            NULL, 0, memCost, memCost, timeCost, parallelism, false)) {
+            NULL, 0, memCost, memCost, timeCost, multiplies, parallelism, false, false)) {
         fprintf(stderr, "Key stretching failed.\n");
         return 1;
     }

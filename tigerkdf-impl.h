@@ -14,20 +14,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "blake2/blake2.h"
-#include "pbkdf2.h"
 
 #define TIGERKDF_KEYSIZE 32
 #define TIGERKDF_MEMCOST 20 // 1 GiB
 #define TIGERKDF_PARALLELISM 2
 #define TIGERKDF_BLOCKLEN (16384/sizeof(uint32_t))
 #define TIGERKDF_SUBBLOCKLEN (64/sizeof(uint32_t))
-#define TIGERKDF_TIMECOST 3
+#define TIGERKDF_TIMECOST 0
+#define TIGERKDF_MULTIPLIES 3
 #define TIGERKDF_SLICES 16
 #define TIGERKDF_MINBLOCKS 256
 
 // The TigerKDF password hashing function.  Return false if there is a memory allocation error.
-bool TigerKDF(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-    uint8_t parallelism, bool updateMemCostMode);
+bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+    uint8_t parallelism, uint8_t multiplies, bool updateMemCostMode);
 
 // Change these next two functions to use a different cryptographic hash function thank Blake2s.
 
@@ -40,10 +40,52 @@ static inline void H(uint8_t *out, uint32_t outlen, const uint8_t *in, uint32_t 
     }
 }
 
-// This is a PBKDF2 password hashing function based on Blake2s.
-static inline void PBKDF2(uint8_t *hash, uint32_t hashSize, const uint8_t *password, uint32_t passwordSize,
-        const uint8_t *salt, uint32_t saltSize) {
-    PBKDF2_BLAKE2S(password, passwordSize, salt, saltSize, 1, hash, hashSize);
+// These big-endian encode/decode functions were copied from Script's sha.h
+
+static inline void
+be32enc(void *pp, uint32_t x)
+{
+        uint8_t * p = (uint8_t *)pp;
+
+        p[3] = x & 0xff;
+        p[2] = (x >> 8) & 0xff;
+        p[1] = (x >> 16) & 0xff;
+        p[0] = (x >> 24) & 0xff;
+}
+
+/*
+ * Encode a length len/4 vector of (uint32_t) into a length len vector of
+ * (unsigned char) in big-endian form.  Assumes len is a multiple of 4.
+ */
+static inline void
+be32enc_vect(unsigned char *dst, const uint32_t *src, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < len / 4; i++)
+		be32enc(dst + i * 4, src[i]);
+}
+
+static inline uint32_t
+be32dec(const void *pp)
+{
+        const uint8_t *p = (uint8_t const *)pp;
+
+        return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
+            ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
+}
+
+/*
+ * Decode a big-endian length len vector of (unsigned char) into a length
+ * len/4 vector of (uint32_t).  Assumes len is a multiple of 4.
+ */
+static inline void
+be32dec_vect(uint32_t *dst, const unsigned char *src, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < len / 4; i++)
+		dst[i] = be32dec(src + i * 4);
 }
 
 // Perform one crypto-strength hash on a 32-byte state, with a 32-bit salt.
@@ -73,6 +115,9 @@ static inline void secureZeroMemory(void *v, size_t n) {
 
 void TigerKDF_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
     uint32_t *blocksPerThread, uint32_t *repetitions, uint8_t *multiplies);
+void TigerKDF_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize);
+void TigerKDF_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]);
+void TigerKDF_hkdf(uint8_t *hash, uint32_t hashSize);
 void printHex(char *message, uint8_t *x, int len);
 void printState(char *message, uint32_t state[8]);
 void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);
