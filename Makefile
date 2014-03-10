@@ -20,7 +20,7 @@ tigerphs-common.c
 OBJS=$(patsubst %.c,obj/%.o,$(SOURCE))
 
 all: tigerphs-ref tigerphs tigerphs-test tigerphs-phs
-#all: tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerphs-enc tigerphs-dec
+all: tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerphs-enc tigerphs-dec
 
 -include $(OBJS:.o=.d)
 

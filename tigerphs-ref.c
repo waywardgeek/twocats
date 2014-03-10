@@ -154,13 +154,12 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
 
 // Hash memory for one level of garlic.
 static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t memCost, uint8_t timeCost,
-        uint8_t parallelism, uint32_t resistantSlices) {
+        uint8_t multiplies, uint8_t parallelism, uint32_t resistantSlices) {
 
-    uint32_t blocklen, blocksPerThread, repetitions;
-    uint8_t multiplies;
+    uint32_t blocklen, blocksPerThread, repetitions = 1 << timeCost;
 
     // Determine parameters that meet the memory goal
-    TigerPHS_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread, &repetitions, &multiplies);
+    TigerPHS_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
@@ -209,7 +208,7 @@ bool TigerPHS(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
             if(i < startMemCost) {
                 resistantSlices = TIGERPHS_SLICES;
             }
-            hashMemory(hash, hashSize, mem, i, timeCost, parallelism, resistantSlices);
+            hashMemory(hash, hashSize, mem, i, timeCost, multiplies, parallelism, resistantSlices);
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
                 TigerPHS_hkdf(hash, hashSize);

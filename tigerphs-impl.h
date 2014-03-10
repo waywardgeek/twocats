@@ -114,7 +114,7 @@ static inline void secureZeroMemory(void *v, size_t n) {
 }
 
 void TigerPHS_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
-    uint32_t *blocksPerThread, uint32_t *repetitions, uint8_t *multiplies);
+    uint32_t *blocksPerThread);
 void TigerPHS_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize);
 void TigerPHS_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]);
 void TigerPHS_hkdf(uint8_t *hash, uint32_t hashSize);

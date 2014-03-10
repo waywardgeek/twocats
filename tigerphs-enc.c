@@ -57,10 +57,9 @@ int main(int argc, char **argv) {
 
     // Find out how much memory to use to have 0.5 second of hashing.  Max out at 2GiB.
     // 1000 means 1000 milliseconds, and 20 means 2^21 KiB max memory == 2 GiB.
-    uint8_t memCost = TigerPHS_FindMemCost(1000, 21);
-    // Now that we know how much memory, find a good time cost.
-    uint8_t timeCost = TigerPHS_FindTimeCost(memCost);
-    printf("Encrypting with memCost=%u and timeCost=%u\n", memCost, timeCost);
+    uint8_t memCost, timeCost, multiplies;
+    TigerPHS_FindCostParameters(1000, 1024*1024, &memCost, &timeCost, &multiplies);
+    printf("Encrypting with memCost=%u timeCost=%u multiplies=%u\n", memCost, timeCost, multiplies);
 
     genSalt(salt);
     if(!TigerPHS_SimpleHashPassword(key, KEY_SIZE, (uint8_t *)password, strlen(password),

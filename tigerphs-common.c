@@ -59,17 +59,7 @@ void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
 
 // This is used to determine block length and other parameters for each level of garlic (memCost)
 void TigerPHS_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
-    uint32_t *blocksPerThread, uint32_t *repetitions, uint8_t *multiplies) {
-
-    // Expand time cost into multiplies and repetitions
-    if(timeCost <= 8) {
-        *multiplies = timeCost;
-        *repetitions = 1;
-    } else {
-        *multiplies = 8;
-        *repetitions = 1 << (timeCost - 8);
-    }
-
+    uint32_t *blocksPerThread) {
     // We really want a decent number of blocks per thread, so if it's < TIGERPHS_MINBLOCKS, then reduce blocklen,
     // and if needed, parallelism
     uint64_t memlen = (1024/sizeof(uint32_t)) << memCost;
@@ -285,10 +275,11 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
 }
 
 // Just measure the time for a given memCost and timeCost.  Return -1 if memory allocation fails.
-static clock_t findRuntime(uint8_t memCost, uint8_t timeCost) {
+static clock_t findRuntime(uint8_t memCost, uint8_t timeCost, uint8_t multiplies) {
     uint8_t buf[TIGERPHS_KEYSIZE];
     clock_t start = clock();
-    if(!TigerPHS_SimpleHashPassword(buf, TIGERPHS_KEYSIZE, NULL, 0, NULL, 0, memCost, timeCost)) {
+    if(!TigerPHS_HashPassword(buf, TIGERPHS_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, memCost, memCost,
+            timeCost, multiplies, TIGERPHS_PARALLELISM, false, false)) {
         fprintf(stderr, "Memory hashing failed\n");
         return -1;
     }
@@ -296,45 +287,58 @@ static clock_t findRuntime(uint8_t memCost, uint8_t timeCost) {
     return (end - start) * 1000 / CLOCKS_PER_SEC;
 }
 
-// Find a good timeCost for a given memCost on this machine.  This just finds the largest
-// timeCost that doees not significantly slow down password hashing.  Returns 0 - 38 on
-// success, or 255 on failure to allocate memory.
-uint8_t TigerPHS_FindTimeCost(uint8_t memCost) {
-    uint8_t timeCost = 0;
-    clock_t minTime = findRuntime(memCost - 3, timeCost);
-    while(true) {
-        timeCost++;
-        clock_t newTime = findRuntime(memCost - 3, timeCost);
-        if(newTime == -1) {
-            return 255;
+// Find a good memCost for a given time on this machine.  This just finds the largest
+// memCost that runs in less than milliseconds ms.  Return 255 on failure to allocate memory.
+static uint8_t findMemCost(uint32_t milliseconds, uint32_t maxMem, clock_t *finalTime) {
+    // First, find a decent memCost
+    uint8_t memCost = 0;
+    clock_t runtime = findRuntime(0, 0, 0);
+    while(runtime < milliseconds && (1 << memCost) <= maxMem) {
+        memCost++;
+        if(runtime < milliseconds/8) {
+            memCost++;
         }
-        if(newTime > minTime * 1.1) {
-            return timeCost - 1;
-        }
-        if(timeCost == 8) {
-            return timeCost;
-        }
+        runtime = findRuntime(memCost, 0, 0);
+        //printf("New findMemCost runtime: %u\n", runtime);
     }
+    *finalTime = runtime;
+    return memCost;
 }
 
-// Find a good memCost for a given time on this machine.  This just finds the largest
-// memCost that runs in less than milliSeconds ms.  Return 255 on failure to allocate memory.
-uint8_t TigerPHS_FindMemCost(uint32_t milliSeconds, uint32_t maxMemCost) {
-    uint8_t memCost = 1;
-    while(true) {
-        clock_t newTime = findRuntime(memCost, 0);
-        if(newTime == -1) {
-            return memCost - 1;
+// Find parameter settings on this machine for a given desired runtime and maximum memory
+// usage.  maxMem is in KiB.  Runtime with be typically +/- 50% and memory will be <= maxMem.
+void TigerPHS_FindCostParameters(uint32_t milliseconds, uint32_t maxMem, uint8_t *memCost,
+        uint8_t *timeCost, uint8_t *multiplies) {
+    clock_t runtime;
+    *memCost = findMemCost(milliseconds/16, maxMem/16, &runtime);
+    // Now increase timeCost until we see it beginning to work
+    clock_t initialRuntime = findRuntime(*memCost, 0, *multiplies);
+    clock_t prevRuntime;
+    *timeCost = 0;
+    do {
+        *timeCost += 1;
+        prevRuntime = runtime;
+        runtime = findRuntime(*memCost, *timeCost, 0);
+        //printf("Increasing timeCost: %u\n", runtime);
+    } while(runtime < 1.05*initialRuntime);
+    *timeCost -= 1;
+    initialRuntime = prevRuntime;
+    *multiplies = 0;
+    do {
+        *multiplies += 1;
+        runtime = findRuntime(*memCost, *timeCost, *multiplies);
+        //printf("New multiply runtime: %u\n", runtime);
+    } while(runtime < 1.05*initialRuntime && *multiplies < 8);
+    // Now scale up the memory
+    for(uint32_t i = 0; i < 4; i++) {
+        if(runtime < milliseconds) {
+            *memCost += 1;
+            runtime <<= 1;
         }
-        if(newTime > milliSeconds/8) {
-            if(maxMemCost < memCost + 2) {
-                return maxMemCost;
-            }
-            return memCost + 2;
-        }
-        if(memCost == maxMemCost) {
-            return memCost;
-        }
-        memCost++;
+    }
+    // Increase timeCost if still needed
+    while(runtime < milliseconds) {
+        *timeCost += 1;
+        runtime <<= 1;
     }
 }

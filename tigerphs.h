@@ -60,5 +60,5 @@ void TigerPHS_ServerHashPassword(uint8_t *hash, uint8_t hashSize);
 
 // Find parameter settings on this machine for a given desired runtime and maximum memory
 // usage.  maxMem is in KiB.  Runtime with be typically +/- 50% and memory will be <= maxMem.
-uint8_t TigerPHS_FindCostParameters(uint32_t milliSeconds, uint32_t maxMem, uint8_t *memCost,
+void TigerPHS_FindCostParameters(uint32_t milliSeconds, uint32_t maxMem, uint8_t *memCost,
     uint8_t *timeCost, uint8_t *multplies);
