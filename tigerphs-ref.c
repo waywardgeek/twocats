@@ -165,6 +165,7 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
     TigerPHS_hkdfExtract(hash256, hash, hashSize);
+    secureZeroMemory(hash, hashSize);
 
     // Initialize thread states
     uint32_t states[8*parallelism];

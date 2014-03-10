@@ -419,7 +419,7 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
-    hashTo256(hash256, hash, hashSize);
+    TigerPHS_hkdfExtract(hash256, hash, hashSize);
     secureZeroMemory(hash, hashSize);
 
     // Fill out the common constant data used in all threads
@@ -462,15 +462,13 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
 
     // Apply a crypto-strength hash
     addIntoHash(hash256, mem, parallelism, blocklen, blocksPerThread);
-    uint8_t buf[32];
-    be32enc_vect(buf, hash256, 32);
-    PBKDF2(hash, hashSize, buf, 32, NULL, 0);
+    TigerPHS_hkdfExpand(hash, hashSize, hash256);
     return true;
 }
 
 // The TigerPHS password hashing function.  Return false if there is a memory allocation error.
-bool TigerPHS(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-        uint8_t parallelism, bool updateMemCostMode) {
+bool TigerPHS(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+        uint8_t multiplies, uint8_t parallelism, bool updateMemCostMode) {
 
     // Allocate memory
     uint32_t *mem;
@@ -493,7 +491,7 @@ bool TigerPHS(uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t sto
             }
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
-                PBKDF2(hash, hashSize, hash, hashSize, NULL, 0);
+                TigerPHS_hkdf(hash, hashSize);
             }
         }
     }
