@@ -126,7 +126,7 @@ void TigerPHS_hkdf(uint8_t *hash, uint32_t hashSize) {
 
 // Verify that parameters are valid for password hashing.
 static bool verifyParameters(uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
-        uint8_t multiplies , uint8_t timeCost, uint8_t parallelism) {
+        uint8_t timeCost, uint8_t multiplies, uint8_t parallelism) {
     if(hashSize == 0 || hashSize > 255*32) {
         fprintf(stderr, "Invalid hash size: the range is 1 through 255*32\n");
         return false;
