@@ -1,5 +1,5 @@
 /*
-   TigerKDF C API header file
+   TigerPHS C API header file
 
    Written in 2014 by Bill Cox <waywardgeek@gmail.com>
 
@@ -30,35 +30,35 @@
 
 
 // This is the prototype required for the password hashing competition.
-// This is equivalent to !TigerKDF_SimpleHashPassword(...)
+// This is equivalent to !TigerPHS_SimpleHashPassword(...)
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
     unsigned int t_cost, unsigned int m_cost);
 
 // A simple password hashing interface.  The password is set to 0's.  hashSize must be <= 255*32
-bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+bool TigerPHS_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
     const uint8_t *salt, uint32_t saltSize, uint8_t memCost, uint8_t timeCost);
 
 // The full password hashing interface.  If clearPassword is set, both the password are cleared.
 // hashSize must be <= 255*32
-bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+bool TigerPHS_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
     const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize, uint8_t startMemCost,
     uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
     bool clearPassword, bool clearData);
 
 // Update an existing password hash to a more difficult level of memCost.
-bool TigerKDF_UpdatePasswordMemCost(uint8_t *hash, uint32_t hashSize, uint8_t oldMemCost, uint8_t newMemCost,
+bool TigerPHS_UpdatePasswordMemCost(uint8_t *hash, uint32_t hashSize, uint8_t oldMemCost, uint8_t newMemCost,
     uint8_t timeCost, uint8_t multiplies, uint8_t parallelism);
 
 // Client-side portion of work for server-relief mode.  hashSize must be <= 255*32
-bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+bool TigerPHS_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
     const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize, uint8_t startMemCost,
     uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
     bool clearPassword, bool clearData);
 
 // Server portion of work for server-relief mode.
-void TigerKDF_ServerHashPassword(uint8_t *hash, uint8_t hashSize);
+void TigerPHS_ServerHashPassword(uint8_t *hash, uint8_t hashSize);
 
 // Find parameter settings on this machine for a given desired runtime and maximum memory
 // usage.  maxMem is in KiB.  Runtime with be typically +/- 50% and memory will be <= maxMem.
-uint8_t TigerKDF_FindCostParameters(uint32_t milliSeconds, uint32_t maxMem, uint8_t *memCost,
+uint8_t TigerPHS_FindCostParameters(uint32_t milliSeconds, uint32_t maxMem, uint8_t *memCost,
     uint8_t *timeCost, uint8_t *multplies);

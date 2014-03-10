@@ -1,5 +1,5 @@
 /*
-   TigerKDF reference C implementation
+   TigerPHS reference C implementation
 
    Written in 2014 by Bill Cox <waywardgeek@gmail.com>
 
@@ -15,8 +15,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "hkdf/sha.h"
-#include "tigerkdf.h"
-#include "tigerkdf-impl.h"
+#include "tigerphs.h"
+#include "tigerphs-impl.h"
 
 // Add the last hashed data into the result.
 static void addIntoHash(uint32_t *hash256, uint32_t *mem, uint32_t parallelism, uint32_t blocklen,
@@ -95,7 +95,7 @@ static void hashWithoutPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint
 
     // Hash one "slice" worth of memory hashing
     uint32_t numBits = 1; // The number of bits in i
-    for(uint32_t i = firstBlock; i < completedBlocks + blocksPerThread/TIGERKDF_SLICES; i++) {
+    for(uint32_t i = firstBlock; i < completedBlocks + blocksPerThread/TIGERPHS_SLICES; i++) {
         while(1 << numBits <= i) {
             numBits++;
         }
@@ -128,7 +128,7 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
     uint64_t start = blocklen*blocksPerThread*p;
 
     // Hash one "slice" worth of memory hashing
-    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TIGERKDF_SLICES; i++) {
+    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TIGERPHS_SLICES; i++) {
 
         // Compute rand()^3 distance distribution
         uint64_t v = state[0];
@@ -148,7 +148,7 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, TIGERKDF_SUBBLOCKLEN, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(state, mem, blocklen, TIGERPHS_SUBBLOCKLEN, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
 }
 
@@ -160,11 +160,11 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     uint8_t multiplies;
 
     // Determine parameters that meet the memory goal
-    TigerKDF_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread, &repetitions, &multiplies);
+    TigerPHS_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread, &repetitions, &multiplies);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
-    TigerKDF_hkdfExtract(hash256, hash, hashSize);
+    TigerPHS_hkdfExtract(hash256, hash, hashSize);
 
     // Initialize thread states
     uint32_t states[8*parallelism];
@@ -172,25 +172,25 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
         hashWithSalt(states + 8*p, hash256, p);
     }
 
-    for(uint32_t slice = 0; slice < TIGERKDF_SLICES; slice++) {
+    for(uint32_t slice = 0; slice < TIGERPHS_SLICES; slice++) {
         for(uint32_t p = 0; p < parallelism; p++) {
             if(slice < resistantSlices) {
                 hashWithoutPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
-                    parallelism, slice*blocksPerThread/TIGERKDF_SLICES);
+                    parallelism, slice*blocksPerThread/TIGERPHS_SLICES);
             } else {
                 hashWithPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
-                    parallelism, slice*blocksPerThread/TIGERKDF_SLICES);
+                    parallelism, slice*blocksPerThread/TIGERPHS_SLICES);
             }
         }
     }
 
     // Apply a crypto-strength hash
     addIntoHash(hash256, mem, parallelism, blocklen, blocksPerThread);
-    TigerKDF_hkdfExpand(hash, hashSize, hash256);
+    TigerPHS_hkdfExpand(hash, hashSize, hash256);
 }
 
-// The TigerKDF password hashing function.  Return false if there is a memory allocation error.
-bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+// The TigerPHS password hashing function.  Return false if there is a memory allocation error.
+bool TigerPHS(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
         uint8_t multiplies, uint8_t parallelism, bool updateMemCostMode) {
 
     // Allocate memory
@@ -204,14 +204,14 @@ bool TigerKDF(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if(i >= startMemCost || (!updateMemCostMode && i + 6 < startMemCost)) {
-            uint32_t resistantSlices = TIGERKDF_SLICES/2;
+            uint32_t resistantSlices = TIGERPHS_SLICES/2;
             if(i < startMemCost) {
-                resistantSlices = TIGERKDF_SLICES;
+                resistantSlices = TIGERPHS_SLICES;
             }
             hashMemory(hash, hashSize, mem, i, timeCost, parallelism, resistantSlices);
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
-                TigerKDF_hkdf(hash, hashSize);
+                TigerPHS_hkdf(hash, hashSize);
             }
         }
     }

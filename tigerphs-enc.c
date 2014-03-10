@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <openssl/evp.h>
-#include "tigerkdf.h"
+#include "tigerphs.h"
 
 #define KEY_SIZE 32
 #define SALT_SIZE 16
@@ -13,7 +13,7 @@ static void usage(char *format, ...) {
     va_start(ap, format);
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
-    fprintf(stderr, "\nUsage: tigerkdf-enc pasword file\n"
+    fprintf(stderr, "\nUsage: tigerphs-enc pasword file\n"
         "    This will create file.enc, encrypted with AES-256 in CBC mode.\n"
         "    Please use this as example code rather than a real encryption tool\n");
     exit(1);
@@ -57,13 +57,13 @@ int main(int argc, char **argv) {
 
     // Find out how much memory to use to have 0.5 second of hashing.  Max out at 2GiB.
     // 1000 means 1000 milliseconds, and 20 means 2^21 KiB max memory == 2 GiB.
-    uint8_t memCost = TigerKDF_FindMemCost(1000, 21);
+    uint8_t memCost = TigerPHS_FindMemCost(1000, 21);
     // Now that we know how much memory, find a good time cost.
-    uint8_t timeCost = TigerKDF_FindTimeCost(memCost);
+    uint8_t timeCost = TigerPHS_FindTimeCost(memCost);
     printf("Encrypting with memCost=%u and timeCost=%u\n", memCost, timeCost);
 
     genSalt(salt);
-    if(!TigerKDF_SimpleHashPassword(key, KEY_SIZE, (uint8_t *)password, strlen(password),
+    if(!TigerPHS_SimpleHashPassword(key, KEY_SIZE, (uint8_t *)password, strlen(password),
             salt, SALT_SIZE, memCost, timeCost)) {
         fprintf(stderr, "Unable to hash password - memory allocation failed\n");
         return 1;

@@ -1,5 +1,5 @@
 /*
-   TigerKDF main wrapper.
+   TigerPHS main wrapper.
 
    Written in 2014 by Bill Cox <waywardgeek@gmail.com>
 
@@ -18,15 +18,15 @@
 #include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include "tigerkdf.h"
-#include "tigerkdf-impl.h"
+#include "tigerphs.h"
+#include "tigerphs-impl.h"
 
 static void usage(char *format, ...) {
     va_list ap;
     va_start(ap, format);
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
-    fprintf(stderr, "\nUsage: tigerkdf-guess maxMemory maxTime\n");
+    fprintf(stderr, "\nUsage: tigerphs-guess maxMemory maxTime\n");
     exit(1);
 }
 
@@ -42,10 +42,10 @@ static uint32_t readuint32_t(char *paramName, char *arg) {
 
 // Find a good set of parameters for this machine based on a desired hashing time and
 // maximum memory.  maxTime is in microseconds, and maxMem is in KiB.
-void TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxParallelism, uint32_t *memSize,
+void TigerPHS_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxParallelism, uint32_t *memSize,
         uint32_t *multiplies, uint32_t *parallelism, uint32_t *repetitions) {
     *repetitions = 1;
-    *parallelism = TIGERKDF_PARALLELISM; // TODO: pick this automagically
+    *parallelism = TIGERPHS_PARALLELISM; // TODO: pick this automagically
     *multiplies = 0;
     *memSize = 1;
     uint8_t password[1] = {'\0'};
@@ -53,8 +53,8 @@ void TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxPar
     while(true) {
         clock_t start = clock();
         uint8_t buf[32];
-        if(!TigerKDF_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
-                0, NULL, 0, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
+        if(!TigerPHS_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
+                0, NULL, 0, TIGERPHS_BLOCKSIZE, TIGERPHS_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
             fprintf(stderr, "Memory hashing failed\n");
             exit(1);
         }
@@ -69,8 +69,8 @@ void TigerKDF_GuessParameters(uint32_t maxTime, uint32_t maxMem, uint32_t maxPar
                         clock_t newStart = clock();
                         *multiplies += 1;
                         printf("Increasing multiplies to %u\n", *multiplies);
-                        if(!TigerKDF_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
-                                0, NULL, 0, TIGERKDF_BLOCKSIZE, TIGERKDF_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
+                        if(!TigerPHS_HashPassword(buf, 32, password, 1, salt, 1, *memSize, *multiplies,
+                                0, NULL, 0, TIGERPHS_BLOCKSIZE, TIGERPHS_SUBBLOCKSIZE, *parallelism, *repetitions, false)) {
                             fprintf(stderr, "Memory hashing failed\n");
                             exit(1);
                         }
@@ -102,8 +102,8 @@ int main(int argc, char **argv) {
     uint32_t maxTime = readuint32_t("maxTime", argv[2]);
     uint32_t memSize, multiplies, parallelism, repetitions;
 
-    TigerKDF_GuessParameters(maxTime, maxMem, 4, &memSize, &multiplies, &parallelism, &repetitions);
+    TigerPHS_GuessParameters(maxTime, maxMem, 4, &memSize, &multiplies, &parallelism, &repetitions);
     printf("memSize:%u multiplies:%u parallelism:%u repetitions:%u\n", memSize, multiplies, parallelism, repetitions);
-    printf("command: tigerkdf -m %u -M %u -t %u -r %u\n", memSize, multiplies, parallelism, repetitions);
+    printf("command: tigerphs -m %u -M %u -t %u -r %u\n", memSize, multiplies, parallelism, repetitions);
     return 0;
 }

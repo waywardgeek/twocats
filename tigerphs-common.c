@@ -1,5 +1,5 @@
 /*
-   TigerKDF common functions between reference and optimized C versions.
+   TigerPHS common functions between reference and optimized C versions.
 
    Written in 2014 by Bill Cox <waywardgeek@gmail.com>
 
@@ -16,8 +16,8 @@
 #include <string.h>
 #include <time.h>
 #include "hkdf/sha.h"
-#include "tigerkdf.h"
-#include "tigerkdf-impl.h"
+#include "tigerphs.h"
+#include "tigerphs-impl.h"
 
 // Print the state.
 void printState(char *message, uint32_t state[8]) {
@@ -58,7 +58,7 @@ void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
 }
 
 // This is used to determine block length and other parameters for each level of garlic (memCost)
-void TigerKDF_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
+void TigerPHS_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
     uint32_t *blocksPerThread, uint32_t *repetitions, uint8_t *multiplies) {
 
     // Expand time cost into multiplies and repetitions
@@ -70,15 +70,15 @@ void TigerKDF_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *paralleli
         *repetitions = 1 << (timeCost - 8);
     }
 
-    // We really want a decent number of blocks per thread, so if it's < TIGERKDF_MINBLOCKS, then reduce blocklen,
+    // We really want a decent number of blocks per thread, so if it's < TIGERPHS_MINBLOCKS, then reduce blocklen,
     // and if needed, parallelism
     uint64_t memlen = (1024/sizeof(uint32_t)) << memCost;
-    *blocklen = TIGERKDF_BLOCKLEN;
-    *blocksPerThread = TIGERKDF_SLICES*(memlen/(TIGERKDF_SLICES * *parallelism * *blocklen));
-    if(*blocksPerThread < TIGERKDF_MINBLOCKS) {
-        *blocksPerThread = TIGERKDF_MINBLOCKS;
+    *blocklen = TIGERPHS_BLOCKLEN;
+    *blocksPerThread = TIGERPHS_SLICES*(memlen/(TIGERPHS_SLICES * *parallelism * *blocklen));
+    if(*blocksPerThread < TIGERPHS_MINBLOCKS) {
+        *blocksPerThread = TIGERPHS_MINBLOCKS;
         while(*parallelism * *blocksPerThread * *blocklen > memlen) {
-            if(*blocklen > TIGERKDF_SUBBLOCKLEN) {
+            if(*blocklen > TIGERPHS_SUBBLOCKLEN) {
                 *blocklen >>= 1;
             } else if(*parallelism > 1) {
                 *parallelism = memlen/(*blocksPerThread * *blocklen);
@@ -95,7 +95,7 @@ void TigerKDF_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *paralleli
 }
 
 // This is a simple wrapper around the official hkdfExtract function.
-void TigerKDF_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize) {
+void TigerPHS_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize) {
     uint8_t buf[32];
     if(hkdfExtract(SHA256, NULL, 0, hash, hashSize, buf)) {
         fprintf(stderr, "hkdfExtract failed\n");
@@ -106,7 +106,7 @@ void TigerKDF_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize)
 }
 
 // This is a simple wrapper around the official hkdfExpand function.
-void TigerKDF_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]) {
+void TigerPHS_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]) {
     uint8_t buf[32];
     be32enc_vect(buf, hash256, 32);
     if(hkdfExpand(SHA256, buf, 32, NULL, 0, hash, hashSize)) {
@@ -117,8 +117,8 @@ void TigerKDF_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]) 
 }
 
 // This is a simple wrapper around the official hkdf function, which hashes the hash onto itself.
-void TigerKDF_hkdf(uint8_t *hash, uint32_t hashSize) {
-    if(hkdf(SHA256, NULL, 0, hash, hashSize, (uint8_t *)"TigerKDF", 8, hash, hashSize)) {
+void TigerPHS_hkdf(uint8_t *hash, uint32_t hashSize) {
+    if(hkdf(SHA256, NULL, 0, hash, hashSize, (uint8_t *)"TigerPHS", 8, hash, hashSize)) {
         fprintf(stderr, "hkdf failed\n");
         exit(1);
     }
@@ -155,7 +155,7 @@ static bool verifyParameters(uint8_t hashSize, uint8_t startMemCost, uint8_t sto
 }
 
 // A simple password hashing interface.  The password is cleared with secureZeroMemory.
-bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+bool TigerPHS_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint8_t memCost, uint8_t timeCost) {
     uint8_t multiplies = 3; // Decent match for Intel Sandy Bridge through Haswell
     if(memCost <= 16*1024) {
@@ -163,33 +163,33 @@ bool TigerKDF_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
     } else if(memCost < 1024*1024) {
         multiplies = 2; // Assume it fits in L2 or L3 cache
     }
-    return TigerKDF_HashPassword(hash, hashSize, password, passwordSize, salt, saltSize, NULL, 0, memCost,
-        memCost, timeCost, multiplies, TIGERKDF_PARALLELISM, true, false);
+    return TigerPHS_HashPassword(hash, hashSize, password, passwordSize, salt, saltSize, NULL, 0, memCost,
+        memCost, timeCost, multiplies, TIGERPHS_PARALLELISM, true, false);
 }
 
 // The full password hashing interface.  
-bool TigerKDF_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+bool TigerPHS_HashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize, uint8_t startMemCost,
         uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
         bool clearPassword, bool clearData) {
-    if(!TigerKDF_ClientHashPassword(hash, hashSize, password, passwordSize, salt, saltSize, data, dataSize,
+    if(!TigerPHS_ClientHashPassword(hash, hashSize, password, passwordSize, salt, saltSize, data, dataSize,
             startMemCost, stopMemCost, timeCost, multiplies, parallelism, clearPassword, clearData)) {
         return false;
     }
-    TigerKDF_ServerHashPassword(hash, hashSize);
+    TigerPHS_ServerHashPassword(hash, hashSize);
     return true;
 }
 
 // Update an existing password hash to a more difficult level of memory cost (garlic).
-bool TigerKDF_UpdatePasswordMemCost(uint8_t *hash, uint32_t hashSize, uint8_t oldMemCost, uint8_t newMemCost,
+bool TigerPHS_UpdatePasswordMemCost(uint8_t *hash, uint32_t hashSize, uint8_t oldMemCost, uint8_t newMemCost,
         uint8_t timeCost, uint8_t multiplies, uint8_t parallelism) {
     if(!verifyParameters(hashSize, oldMemCost, newMemCost, timeCost, multiplies, parallelism)) {
         return false;
     }
-    if(!TigerKDF(hash, hashSize, oldMemCost, newMemCost, timeCost, multiplies, parallelism, true)) {
+    if(!TigerPHS(hash, hashSize, oldMemCost, newMemCost, timeCost, multiplies, parallelism, true)) {
         return false;
     }
-    TigerKDF_ServerHashPassword(hash, hashSize);
+    TigerPHS_ServerHashPassword(hash, hashSize);
     return true;
 }
 
@@ -224,7 +224,7 @@ static bool addInput(HKDFContext *context, uint8_t *input, uint32_t inputSize) {
 
 // Client-side portion of work for server-relief mode.  Return true if there are no memory
 // allocation errors.  The password and data are not cleared if there is an error.
-bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
+bool TigerPHS_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize, uint8_t startMemCost,
         uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
         bool clearPassword, bool clearData) {
@@ -257,21 +257,21 @@ bool TigerKDF_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
         secureZeroMemory(data, dataSize);
     }
 
-    if(hkdfResult(&context, NULL, (uint8_t *)"TigerKDF", 8, hash, hashSize)) {
+    if(hkdfResult(&context, NULL, (uint8_t *)"TigerPHS", 8, hash, hashSize)) {
         fprintf(stderr, "Unable to finalize hkdf\n");
         return false;
     }
-    return TigerKDF(hash, hashSize, startMemCost, stopMemCost, timeCost, multiplies, parallelism, false);
+    return TigerPHS(hash, hashSize, startMemCost, stopMemCost, timeCost, multiplies, parallelism, false);
 }
 
 // Server portion of work for server-relief mode.
-void TigerKDF_ServerHashPassword(uint8_t *hash, uint8_t hashSize) {
-    TigerKDF_hkdf(hash, hashSize);
+void TigerPHS_ServerHashPassword(uint8_t *hash, uint8_t hashSize) {
+    TigerPHS_hkdf(hash, hashSize);
 }
 
 // This is the prototype required for the password hashing competition.
 // t_cost is a multiplier on CPU work.  m_cost is garlic.
-// If possible, call TigerKDF_SimpleHashPassword instead so that the password can be cleared.
+// If possible, call TigerPHS_SimpleHashPassword instead so that the password can be cleared.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
         unsigned int t_cost, unsigned int m_cost) {
     if(outlen >= 256 || inlen >= 256 || saltlen >= 256 || t_cost >= 256 || m_cost >= 256) {
@@ -281,14 +281,14 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
     // Make a copy because SimpleHashPassword clears the password
     uint8_t buf[inlen];
     memcpy(buf, in, inlen);
-    return !TigerKDF_SimpleHashPassword(out, outlen, buf, inlen, salt, saltlen, m_cost, t_cost);
+    return !TigerPHS_SimpleHashPassword(out, outlen, buf, inlen, salt, saltlen, m_cost, t_cost);
 }
 
 // Just measure the time for a given memCost and timeCost.  Return -1 if memory allocation fails.
 static clock_t findRuntime(uint8_t memCost, uint8_t timeCost) {
-    uint8_t buf[TIGERKDF_KEYSIZE];
+    uint8_t buf[TIGERPHS_KEYSIZE];
     clock_t start = clock();
-    if(!TigerKDF_SimpleHashPassword(buf, TIGERKDF_KEYSIZE, NULL, 0, NULL, 0, memCost, timeCost)) {
+    if(!TigerPHS_SimpleHashPassword(buf, TIGERPHS_KEYSIZE, NULL, 0, NULL, 0, memCost, timeCost)) {
         fprintf(stderr, "Memory hashing failed\n");
         return -1;
     }
@@ -299,7 +299,7 @@ static clock_t findRuntime(uint8_t memCost, uint8_t timeCost) {
 // Find a good timeCost for a given memCost on this machine.  This just finds the largest
 // timeCost that doees not significantly slow down password hashing.  Returns 0 - 38 on
 // success, or 255 on failure to allocate memory.
-uint8_t TigerKDF_FindTimeCost(uint8_t memCost) {
+uint8_t TigerPHS_FindTimeCost(uint8_t memCost) {
     uint8_t timeCost = 0;
     clock_t minTime = findRuntime(memCost - 3, timeCost);
     while(true) {
@@ -319,7 +319,7 @@ uint8_t TigerKDF_FindTimeCost(uint8_t memCost) {
 
 // Find a good memCost for a given time on this machine.  This just finds the largest
 // memCost that runs in less than milliSeconds ms.  Return 255 on failure to allocate memory.
-uint8_t TigerKDF_FindMemCost(uint32_t milliSeconds, uint32_t maxMemCost) {
+uint8_t TigerPHS_FindMemCost(uint32_t milliSeconds, uint32_t maxMemCost) {
     uint8_t memCost = 1;
     while(true) {
         clock_t newTime = findRuntime(memCost, 0);

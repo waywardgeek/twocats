@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <openssl/evp.h>
-#include "tigerkdf.h"
+#include "tigerphs.h"
 
 #define KEY_SIZE 32
 #define SALT_SIZE 16
@@ -13,7 +13,7 @@ static void usage(char *format, ...) {
     va_start(ap, format);
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
-    fprintf(stderr, "\nUsage: tigerkdf-dec pasword file.enc\n"
+    fprintf(stderr, "\nUsage: tigerphs-dec pasword file.enc\n"
         "    This will decrypt file to file.enc\n"
         "    Please use this as example code rather than a real encryption tool\n");
     exit(1);
@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if(!TigerKDF_SimpleHashPassword(key, KEY_SIZE, (uint8_t *)password, strlen(password),
+    if(!TigerPHS_SimpleHashPassword(key, KEY_SIZE, (uint8_t *)password, strlen(password),
             salt, SALT_SIZE, memCost, timeCost)) {
         fprintf(stderr, "Unable to hash password - memory allocation failed\n");
         return 1;

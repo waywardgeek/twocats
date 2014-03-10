@@ -1,5 +1,5 @@
 // I, Bill Cox, initially copied this file from Catena's src/catena_test_vectors.c in
-// 2014, and modified it to call TigerKDF.  It was written by the Catena team and slightly
+// 2014, and modified it to call TigerPHS.  It was written by the Catena team and slightly
 // changed by me.  It therefore falls under Catena's MIT license.
 
 #include <stdint.h>
@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "tigerkdf.h"
-#include "tigerkdf-impl.h"
+#include "tigerphs.h"
+#include "tigerphs-impl.h"
 
 #define TEST_MEMCOST 10
 
@@ -28,7 +28,7 @@ void test_output(uint8_t hashlen,
     printHex("Associated data:", data, datalen);
     printf("memCost:%u timeCost:%u parallelism:%u\n", memCost, timeCost, parallelism);
 
-    if(!TigerKDF_HashPassword(hash, hashlen, pwd, pwdlen, salt, saltlen, data, datalen, memCost, memCost,
+    if(!TigerPHS_HashPassword(hash, hashlen, pwd, pwdlen, salt, saltlen, data, datalen, memCost, memCost,
             timeCost, parallelism, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
@@ -46,57 +46,57 @@ void PHC_test(void)
 
     printf("****************************************** Test passwords\n");
     for(i=0; i < 256; i++) {
-        test_output(TIGERKDF_KEYSIZE, (uint8_t *) &i, 1, NULL, 0, NULL, 0, TEST_MEMCOST, TIGERKDF_TIMECOST,
-            TIGERKDF_PARALLELISM);
+        test_output(TIGERPHS_KEYSIZE, (uint8_t *) &i, 1, NULL, 0, NULL, 0, TEST_MEMCOST, TIGERPHS_TIMECOST,
+            TIGERPHS_PARALLELISM);
     }
     printf("****************************************** Test salt\n");
     for(i=0; i < 256; i++) {
-        test_output(TIGERKDF_KEYSIZE, NULL, 0, (uint8_t *)&i, 1, NULL, 0, TEST_MEMCOST, TIGERKDF_TIMECOST,
-            TIGERKDF_PARALLELISM);
+        test_output(TIGERPHS_KEYSIZE, NULL, 0, (uint8_t *)&i, 1, NULL, 0, TEST_MEMCOST, TIGERPHS_TIMECOST,
+            TIGERPHS_PARALLELISM);
     }
     printf("****************************************** Test data\n");
     for(i=0; i < 256; i++) {
-        test_output(TIGERKDF_KEYSIZE, NULL, 0, NULL, 0, (uint8_t *)&i, 1, TEST_MEMCOST, TIGERKDF_TIMECOST,
-            TIGERKDF_PARALLELISM);
+        test_output(TIGERPHS_KEYSIZE, NULL, 0, NULL, 0, (uint8_t *)&i, 1, TEST_MEMCOST, TIGERPHS_TIMECOST,
+            TIGERPHS_PARALLELISM);
     }
     printf("****************************************** Test memCost\n");
     for(i=0; i < TEST_MEMCOST; i++) {
-        test_output(TIGERKDF_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, i, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM);
+        test_output(TIGERPHS_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, i, TIGERPHS_TIMECOST, TIGERPHS_PARALLELISM);
     }
     printf("****************************************** Test timeCost\n");
     for(i=0; i < 12; i++) {
-        test_output(TIGERKDF_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, TEST_MEMCOST, i, TIGERKDF_PARALLELISM);
+        test_output(TIGERPHS_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, TEST_MEMCOST, i, TIGERPHS_PARALLELISM);
     }
     printf("****************************************** Test parallelism\n");
     for(i=1; i < 10; i++) {
-        test_output(TIGERKDF_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, TEST_MEMCOST, TIGERKDF_TIMECOST, i);
+        test_output(TIGERPHS_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, TEST_MEMCOST, TIGERPHS_TIMECOST, i);
     }
     printf("****************************************** Test hashlen\n");
     for(i=4; i < 256; i += 4) {
-        test_output(i, NULL, 0, NULL, 0, NULL, 0, TEST_MEMCOST, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM);
+        test_output(i, NULL, 0, NULL, 0, NULL, 0, TEST_MEMCOST, TIGERPHS_TIMECOST, TIGERPHS_PARALLELISM);
     }
 }
 
 void verifyPasswordUpdate(void) {
 
-    uint8_t hash1[TIGERKDF_KEYSIZE], hash2[TIGERKDF_KEYSIZE];
-    if(!TigerKDF_HashPassword(hash1, TIGERKDF_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, NULL, 0,
-            0, TEST_MEMCOST, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM, false)) {
+    uint8_t hash1[TIGERPHS_KEYSIZE], hash2[TIGERPHS_KEYSIZE];
+    if(!TigerPHS_HashPassword(hash1, TIGERPHS_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, NULL, 0,
+            0, TEST_MEMCOST, TIGERPHS_TIMECOST, TIGERPHS_PARALLELISM, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
     for(uint8_t memCost = 0; memCost < TEST_MEMCOST; memCost++) {
-        if(!TigerKDF_HashPassword(hash2, TIGERKDF_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, NULL, 0,
-                0, memCost, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM, false)) {
+        if(!TigerPHS_HashPassword(hash2, TIGERPHS_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, NULL, 0,
+                0, memCost, TIGERPHS_TIMECOST, TIGERPHS_PARALLELISM, false)) {
             fprintf(stderr, "Password hashing failed!\n");
             exit(1);
         }
-        if(!TigerKDF_UpdatePasswordMemCost(hash2, TIGERKDF_KEYSIZE, memCost + 1, TEST_MEMCOST, TIGERKDF_TIMECOST,
-            TIGERKDF_PARALLELISM)) {
+        if(!TigerPHS_UpdatePasswordMemCost(hash2, TIGERPHS_KEYSIZE, memCost + 1, TEST_MEMCOST, TIGERPHS_TIMECOST,
+            TIGERPHS_PARALLELISM)) {
             fprintf(stderr, "Password hashing failed!\n");
             exit(1);
         }
-        if(memcmp(hash1, hash2, TIGERKDF_KEYSIZE)) {
+        if(memcmp(hash1, hash2, TIGERPHS_KEYSIZE)) {
             fprintf(stderr, "Password update got wrong answer!\n");
             exit(1);
         }
@@ -106,19 +106,19 @@ void verifyPasswordUpdate(void) {
 void verifyClientServer(void) {
 
     uint8_t hash1[32];
-    if(!TigerKDF_ClientHashPassword(hash1, TIGERKDF_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4,
-            (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM, false)) {
+    if(!TigerPHS_ClientHashPassword(hash1, TIGERPHS_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4,
+            (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST, TIGERPHS_TIMECOST, TIGERPHS_PARALLELISM, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
-    TigerKDF_ServerHashPassword(hash1, TIGERKDF_KEYSIZE);
-    uint8_t hash2[TIGERKDF_KEYSIZE];
-    if(!TigerKDF_HashPassword(hash2, TIGERKDF_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4,
-            (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST, TIGERKDF_TIMECOST, TIGERKDF_PARALLELISM, false)) {
+    TigerPHS_ServerHashPassword(hash1, TIGERPHS_KEYSIZE);
+    uint8_t hash2[TIGERPHS_KEYSIZE];
+    if(!TigerPHS_HashPassword(hash2, TIGERPHS_KEYSIZE, (uint8_t *)"password", 8, (uint8_t *)"salt", 4,
+            (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST, TIGERPHS_TIMECOST, TIGERPHS_PARALLELISM, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
-    if(memcmp(hash1, hash2, TIGERKDF_KEYSIZE)) {
+    if(memcmp(hash1, hash2, TIGERPHS_KEYSIZE)) {
         fprintf(stderr, "Password client/server got wrong answer!\n");
         exit(1);
     }
