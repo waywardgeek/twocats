@@ -20,6 +20,8 @@
 #include "tigerphs-impl.h"
 
 // This include code copied from blake2s.c
+#ifdef __SSE2__
+
 #include "blake2/blake2-config.h"
 
 #include <emmintrin.h>
@@ -58,6 +60,8 @@
 #define DECLARE_ROTATE_CONSTS
 #define ROTATE_LEFT8(s) _mm_roti_epi32(r, 8)
 #endif
+#endif
+
 #endif
 
 
@@ -141,7 +145,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
     }
     uint64_t v = 1;
 
-#ifdef __AVX2__
+#if defined(HAVE_AVX2)
     __m256i s;
     convStateFromUint32ToM256i(state, &s);
     __m256i *m = (__m256i *)mem;
@@ -192,7 +196,7 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
         }
     }
     convStateFromM256iToUint32(&s, state);
-#else
+#elif defined(HAVE_SSE2)
     __m128i s1;
     __m128i s2;
     convStateFromUint32ToM128i(state, &s1, &s2);
@@ -256,6 +260,51 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
         }
     }
     convStateFromM128iToUint32(&s1, &s2, state);
+#else
+    for(uint32_t r = 0; r < repetitions-1; r++) {
+        uint32_t *f = mem + fromAddr;
+        uint32_t *t = mem + toAddr;
+        for(uint32_t i = 0; i < numSubBlocks; i++) {
+            uint32_t randVal = *f;
+            for(uint32_t j = 0; j < subBlocklen/8; j++) {
+
+                // Compute the multiplication chain
+                for(uint32_t k = 0; k < multiplies; k++) {
+                    v = (uint32_t)v * (uint64_t)oddState[k];
+                    v ^= randVal;
+                    randVal += v >> 32;
+                }
+
+                // Hash 32 bytes of memory
+                for(uint32_t k = 0; k < 8; k++) {
+                    state[k] = (state[k] + *p++) ^ *f++;
+                    state[k] = (state[k] >> 24) | (state[k] << 8);
+                }
+            }
+        }
+    }
+    uint32_t *f = mem + fromAddr;
+    uint32_t *t = mem + toAddr;
+    for(uint32_t i = 0; i < numSubBlocks; i++) {
+        uint32_t randVal = *f;
+        uint32_t *p = mem + prevAddr + subBlocklen*(randVal & (numSubBlocks - 1));
+        for(uint32_t j = 0; j < subBlocklen/8; j++) {
+
+            // Compute the multiplication chain
+            for(uint32_t k = 0; k < multiplies; k++) {
+                v = (uint32_t)v * (uint64_t)oddState[k];
+                v ^= randVal;
+                randVal += v >> 32;
+            }
+
+            // Hash 32 bytes of memory
+            for(uint32_t k = 0; k < 8; k++) {
+                state[k] = (state[k] + *p++) ^ *f++;
+                state[k] = (state[k] >> 24) | (state[k] << 8);
+                *t++ = state[k];
+            }
+        }
+    }
 #endif
     hashWithSalt(state, state, v);
 }

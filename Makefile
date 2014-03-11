@@ -24,37 +24,31 @@ all: obj/blake2 obj/hkdf tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerp
 -include $(OBJS:.o=.d)
 
 tigerphs-ref: $(DEPS) $(OBJS) obj/main.o obj/tigerphs-ref.o
-	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) $(OBJS) obj/main.o obj/tigerphs-ref.o -o tigerphs-ref
+	$(CC) $(CFLAGS) $(OBJS) obj/main.o obj/tigerphs-ref.o -o tigerphs-ref
 
 tigerphs: $(DEPS) $(OBJS) obj/main.o obj/tigerphs.o
-	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -pthread $(OBJS) obj/main.o obj/tigerphs.o -o tigerphs
+	$(CC) $(CFLAGS) -pthread $(OBJS) obj/main.o obj/tigerphs.o -o tigerphs
 
 tigerphs-test: $(DEPS) $(OBJS) obj/tigerphs-test.o obj/tigerphs-ref.o
-	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) $(OBJS) obj/tigerphs-test.o obj/tigerphs-ref.o -o tigerphs-test
+	$(CC) $(CFLAGS) $(OBJS) obj/tigerphs-test.o obj/tigerphs-ref.o -o tigerphs-test
 
 tigerphs-phs: $(DEPS) $(OBJS) obj/tigerphs-phs.o obj/tigerphs.o
-	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-phs.o obj/tigerphs.o -o tigerphs-phs
+	$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-phs.o obj/tigerphs.o -o tigerphs-phs
 
 tigerphs-enc: $(DEPS) $(OBJS) obj/tigerphs-enc.o obj/tigerphs.o
-	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-enc.o obj/tigerphs.o -o tigerphs-enc -lssl -lcrypto
+	$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-enc.o obj/tigerphs.o -o tigerphs-enc -lssl -lcrypto
 
 tigerphs-dec: $(DEPS) $(OBJS) obj/tigerphs-dec.o obj/tigerphs.o
-	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-dec.o obj/tigerphs.o -o tigerphs-dec -lssl -lcrypto
+	$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-dec.o obj/tigerphs.o -o tigerphs-dec -lssl -lcrypto
 
 clean:
 	rm -rf obj tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerphs-enc tigerphs-dec
 
 obj/blake2:
-	@mkdir -p obj/blake2
+	mkdir -p obj/blake2
 
 obj/hkdf:
-	@mkdir -p obj/hkdf
+	mkdir -p obj/hkdf
 
 depend: clean
 	@echo "* Making dependencies for $(OBJS)"
@@ -62,8 +56,7 @@ depend: clean
 	@echo "* Making dependencies - done"
 
 obj/%.o: %.c
-	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 	@$(CC) -MM $(CFLAGS) $< > obj/$*.d
 	@cp -f obj/$*.d $*.d.tmp
 	@sed -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
