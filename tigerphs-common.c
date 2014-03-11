@@ -115,7 +115,7 @@ void TigerPHS_hkdf(uint8_t *hash, uint32_t hashSize) {
 }
 
 // Verify that parameters are valid for password hashing.
-static bool verifyParameters(uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
+static bool verifyParameters(uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
         uint8_t timeCost, uint8_t multiplies, uint8_t parallelism) {
     if(hashSize == 0 || hashSize > 255*32) {
         fprintf(stderr, "Invalid hash size: the range is 1 through 255*32\n");
@@ -148,9 +148,9 @@ static bool verifyParameters(uint8_t hashSize, uint8_t startMemCost, uint8_t sto
 bool TigerPHS_SimpleHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
         const uint8_t *salt, uint32_t saltSize, uint8_t memCost, uint8_t timeCost) {
     uint8_t multiplies = 3; // Decent match for Intel Sandy Bridge through Haswell
-    if(memCost <= 16*1024) {
+    if(memCost <= 4) {
         multiplies = 1; // Assume it fits in L1 cache
-    } else if(memCost < 1024*1024) {
+    } else if(memCost < 10) {
         multiplies = 2; // Assume it fits in L2 or L3 cache
     }
     return TigerPHS_HashPassword(hash, hashSize, password, passwordSize, salt, saltSize, NULL, 0, memCost,
@@ -318,7 +318,7 @@ void TigerPHS_FindCostParameters(uint32_t milliseconds, uint32_t maxMem, uint8_t
         *timeCost += 1;
         prevRuntime = runtime;
         runtime = findRuntime(*memCost, *timeCost, 0);
-        printf("Increasing timeCost: %u\n", runtime);
+        //printf("Increasing timeCost: %u\n", runtime);
     } while(runtime < 1.05*initialRuntime);
     *timeCost -= 1;
     initialRuntime = prevRuntime;
@@ -326,17 +326,17 @@ void TigerPHS_FindCostParameters(uint32_t milliseconds, uint32_t maxMem, uint8_t
     do {
         *multiplies += 1;
         runtime = findRuntime(*memCost, *timeCost, *multiplies);
-        printf("New multiply runtime: %u\n", runtime);
+        //printf("New multiply runtime: %u\n", runtime);
     } while(runtime < 1.05*initialRuntime && *multiplies < 8);
     // Now scale up the memory
     while(runtime < milliseconds && (1 << *memCost) < maxMem) {
-        printf("Adding 1 to memCost, runtime:%u memCost:%u\n", runtime, *memCost);
+        //printf("Adding 1 to memCost, runtime:%u memCost:%u\n", runtime, *memCost);
         *memCost += 1;
         runtime *= 1.75;
     }
     // Increase timeCost if still needed
     while(runtime < milliseconds) {
-        printf("Adding 1 to timecost\n");
+        //printf("Adding 1 to timecost\n");
         *timeCost += 1;
         runtime *= 1.75;
     }
