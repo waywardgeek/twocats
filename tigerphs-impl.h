@@ -22,7 +22,7 @@
 #define TIGERPHS_SUBBLOCKLEN (64/sizeof(uint32_t))
 #define TIGERPHS_TIMECOST 0
 #define TIGERPHS_MULTIPLIES 3
-#define TIGERPHS_SLICES 16
+#define TIGERPHS_SLICES 4
 #define TIGERPHS_MINBLOCKS 256
 
 // The TigerPHS password hashing function.  Return false if there is a memory allocation error.
