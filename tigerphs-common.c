@@ -310,7 +310,7 @@ static uint8_t findMemCost(uint32_t milliseconds, uint32_t maxMem, clock_t *fina
 void TigerPHS_FindCostParameters(uint32_t milliseconds, uint32_t maxMem, uint8_t *memCost,
         uint8_t *timeCost, uint8_t *multiplies) {
     clock_t runtime;
-    *memCost = findMemCost(milliseconds/16, maxMem/16, &runtime);
+    *memCost = findMemCost(milliseconds/8, maxMem/8, &runtime);
     // Now increase timeCost until we see it beginning to work
     clock_t initialRuntime = findRuntime(*memCost, 0, *multiplies);
     clock_t prevRuntime;
@@ -319,7 +319,7 @@ void TigerPHS_FindCostParameters(uint32_t milliseconds, uint32_t maxMem, uint8_t
         *timeCost += 1;
         prevRuntime = runtime;
         runtime = findRuntime(*memCost, *timeCost, 0);
-        //printf("Increasing timeCost: %u\n", runtime);
+        printf("Increasing timeCost: %u\n", runtime);
     } while(runtime < 1.05*initialRuntime);
     *timeCost -= 1;
     initialRuntime = prevRuntime;
@@ -327,18 +327,18 @@ void TigerPHS_FindCostParameters(uint32_t milliseconds, uint32_t maxMem, uint8_t
     do {
         *multiplies += 1;
         runtime = findRuntime(*memCost, *timeCost, *multiplies);
-        //printf("New multiply runtime: %u\n", runtime);
+        printf("New multiply runtime: %u\n", runtime);
     } while(runtime < 1.05*initialRuntime && *multiplies < 8);
     // Now scale up the memory
-    for(uint32_t i = 0; i < 4; i++) {
-        if(runtime < milliseconds) {
-            *memCost += 1;
-            runtime <<= 1;
-        }
+    while(runtime < milliseconds && (1 << *memCost) < maxMem) {
+        printf("Adding 1 to memCost, runtime:%u memCost:%u\n", runtime, *memCost);
+        *memCost += 1;
+        runtime *= 1.5;
     }
     // Increase timeCost if still needed
     while(runtime < milliseconds) {
+        printf("Adding 1 to timecost\n");
         *timeCost += 1;
-        runtime <<= 1;
+        runtime *= 1.5;
     }
 }

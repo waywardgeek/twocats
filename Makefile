@@ -19,39 +19,42 @@ tigerphs-common.c
 
 OBJS=$(patsubst %.c,obj/%.o,$(SOURCE))
 
-all: tigerphs-ref tigerphs tigerphs-test tigerphs-phs
-all: tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerphs-enc tigerphs-dec
+all: obj/blake2 obj/hkdf tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerphs-enc tigerphs-dec
 
 -include $(OBJS:.o=.d)
 
-tigerphs-ref: $(DEPS) $(OBJS) main.c tigerphs-ref.c tigerphs-impl.h tigerphs.h
+tigerphs-ref: $(DEPS) $(OBJS) obj/main.o obj/tigerphs-ref.o
 	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) $(OBJS) main.c tigerphs-ref.c -o tigerphs-ref
+	@$(CC) $(CFLAGS) $(OBJS) obj/main.o obj/tigerphs-ref.o -o tigerphs-ref
 
-tigerphs: $(DEP) $(OBJS) main.c tigerphs.c tigerphs.h tigerphs-impl.h
+tigerphs: $(DEPS) $(OBJS) obj/main.o obj/tigerphs.o
 	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -pthread $(OBJS) main.c tigerphs.c -o tigerphs
+	@$(CC) $(CFLAGS) -pthread $(OBJS) obj/main.o obj/tigerphs.o -o tigerphs
 
-tigerphs-test: $(DEPS) $(OBJS) tigerphs-test.c tigerphs-ref.c tigerphs.h tigerphs-impl.h
+tigerphs-test: $(DEPS) $(OBJS) obj/tigerphs-test.o obj/tigerphs-ref.o
 	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) $(OBJS) tigerphs-test.c tigerphs-ref.c -o tigerphs-test
+	@$(CC) $(CFLAGS) $(OBJS) obj/tigerphs-test.o obj/tigerphs-ref.o -o tigerphs-test
 
-tigerphs-phs: $(DEPS) $(OBJS) tigerphs-phs.c tigerphs.c tigerphs.h tigerphs-impl.h
+tigerphs-phs: $(DEPS) $(OBJS) obj/tigerphs-phs.o obj/tigerphs.o
 	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -pthread $(OBJS) tigerphs-phs.c tigerphs.c -o tigerphs-phs
+	@$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-phs.o obj/tigerphs.o -o tigerphs-phs
 
-tigerphs-enc: $(DEPS) $(OBJS) tigerphs-enc.c tigerphs.c tigerphs.h tigerphs-impl.h
+tigerphs-enc: $(DEPS) $(OBJS) obj/tigerphs-enc.o obj/tigerphs.o
 	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -pthread $(OBJS) tigerphs-enc.c tigerphs.c -o tigerphs-enc -lssl -lcrypto
+	@$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-enc.o obj/tigerphs.o -o tigerphs-enc -lssl -lcrypto
 
-tigerphs-dec: $(DEPS) $(OBJS) tigerphs-dec.c tigerphs.c tigerphs.h tigerphs-impl.h
+tigerphs-dec: $(DEPS) $(OBJS) obj/tigerphs-dec.o obj/tigerphs.o
 	@echo "* Compiling $@";
-	@$(CC) $(CFLAGS) -pthread $(OBJS) tigerphs-dec.c tigerphs.c -o tigerphs-dec -lssl -lcrypto
+	@$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-dec.o obj/tigerphs.o -o tigerphs-dec -lssl -lcrypto
 
 clean:
 	rm -rf obj tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerphs-enc tigerphs-dec
-	mkdir -p obj/blake2
-	mkdir -p obj/hkdf
+
+obj/blake2:
+	@mkdir -p obj/blake2
+
+obj/hkdf:
+	@mkdir -p obj/hkdf
 
 depend: clean
 	@echo "* Making dependencies for $(OBJS)"
