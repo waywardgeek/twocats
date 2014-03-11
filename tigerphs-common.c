@@ -333,12 +333,12 @@ void TigerPHS_FindCostParameters(uint32_t milliseconds, uint32_t maxMem, uint8_t
     while(runtime < milliseconds && (1 << *memCost) < maxMem) {
         printf("Adding 1 to memCost, runtime:%u memCost:%u\n", runtime, *memCost);
         *memCost += 1;
-        runtime *= 1.5;
+        runtime *= 1.75;
     }
     // Increase timeCost if still needed
     while(runtime < milliseconds) {
         printf("Adding 1 to timecost\n");
         *timeCost += 1;
-        runtime *= 1.5;
+        runtime *= 1.75;
     }
 }
