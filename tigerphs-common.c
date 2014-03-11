@@ -236,7 +236,6 @@ bool TigerPHS_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *pass
             !addInput(&context, data, dataSize) || !addUint8Input(&context, startMemCost) ||
             !addUint8Input(&context, timeCost) || !addUint8Input(&context, multiplies) ||
             !addUint8Input(&context, parallelism)) {
-        fprintf(stderr, "Unable to add input to hkdf\n");
         return false;
     }
     // Now clear the password and data if allowed
