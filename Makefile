@@ -17,29 +17,42 @@ hkdf/sha384-512.c \
 hkdf/usha.c \
 twocats-common.c
 
+REF_SOURCE=main.c twocats-ref.c
+TWOCATS_SOURCE=main.c twocats.c
+TEST_SOURCE=twocats-test.c twocats-ref.c
+PHS_SOURCE=twocats-phs.c twocats.c
+ENC_SOURCE=twocats-enc.c twocats.c
+DEC_SOURCE=twocats-dec.c twocats.c
+
 OBJS=$(patsubst %.c,obj/%.o,$(SOURCE))
+REF_OBJS=$(patsubst %.c,obj/%.o,$(REF_SOURCE))
+TWOCATS_OBJS=$(patsubst %.c,obj/%.o,$(TWOCATS_SOURCE))
+TEST_OBJS=$(patsubst %.c,obj/%.o,$(TEST_SOURCE))
+PHS_OBJS=$(patsubst %.c,obj/%.o,$(PHS_SOURCE))
+ENC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
+DEC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
 
 all: obj/blake2 obj/hkdf twocats-ref twocats twocats-test twocats-phs twocats-enc twocats-dec
 
--include $(OBJS:.o=.d)
+-include $(OBJS:.o=.d) $(REF_OBJS:.o=.d) $(TWOCATS_OBJS:.o=.d) $(PHS_OBJS:.o=.d) $(ENC_OBJS:.o=.d) $(DEC_OBJS:.o=.d)
 
-twocats-ref: $(DEPS) $(OBJS) obj/main.o obj/twocats-ref.o
-	$(CC) $(CFLAGS) $(OBJS) obj/main.o obj/twocats-ref.o -o twocats-ref
+twocats-ref: $(DEPS) $(OBJS) $(REF_OBJS)
+	$(CC) $(CFLAGS) $(OBJS) $(REF_OBJS) -o twocats-ref
 
-twocats: $(DEPS) $(OBJS) obj/main.o obj/twocats.o
-	$(CC) $(CFLAGS) -pthread $(OBJS) obj/main.o obj/twocats.o -o twocats
+twocats: $(DEPS) $(OBJS) $(TWOCATS_OBJS)
+	$(CC) $(CFLAGS) -pthread $(OBJS) $(TWOCATS_OBJS) -o twocats
 
-twocats-test: $(DEPS) $(OBJS) obj/twocats-test.o obj/twocats-ref.o
-	$(CC) $(CFLAGS) $(OBJS) obj/twocats-test.o obj/twocats-ref.o -o twocats-test
+twocats-test: $(DEPS) $(OBJS) $(TEST_OBJS)
+	$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -o twocats-test
 
-twocats-phs: $(DEPS) $(OBJS) obj/twocats-phs.o obj/twocats.o
-	$(CC) $(CFLAGS) -pthread $(OBJS) obj/twocats-phs.o obj/twocats.o -o twocats-phs
+twocats-phs: $(DEPS) $(OBJS) $(PHS_OBJS)
+	$(CC) $(CFLAGS) -pthread $(OBJS) $(PHS_OBJS) -o twocats-phs
 
-twocats-enc: $(DEPS) $(OBJS) obj/twocats-enc.o obj/twocats.o
-	$(CC) $(CFLAGS) -pthread $(OBJS) obj/twocats-enc.o obj/twocats.o -o twocats-enc -lssl -lcrypto
+twocats-enc: $(DEPS) $(OBJS) $(ENC_OBJS)
+	$(CC) $(CFLAGS) -pthread $(OBJS) $(ENC_OBJS) -o twocats-enc -lssl -lcrypto
 
-twocats-dec: $(DEPS) $(OBJS) obj/twocats-dec.o obj/twocats.o
-	$(CC) $(CFLAGS) -pthread $(OBJS) obj/twocats-dec.o obj/twocats.o -o twocats-dec -lssl -lcrypto
+twocats-dec: $(DEPS) $(OBJS) $(DEC_OBJS)
+	$(CC) $(CFLAGS) -pthread $(OBJS) $(DEC_OBJS) -o twocats-dec -lssl -lcrypto
 
 clean:
 	rm -rf obj twocats-ref twocats twocats-test twocats-phs twocats-enc twocats-dec
@@ -50,16 +63,7 @@ obj/blake2:
 obj/hkdf:
 	mkdir -p obj/hkdf
 
-depend: clean
-	@echo "* Making dependencies for $(OBJS)"
-	@$(MAKE) -s $(OBJS)
-	@echo "* Making dependencies - done"
-
 obj/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-	@$(CC) -MM $(CFLAGS) $< > obj/$*.d
-	@cp -f obj/$*.d $*.d.tmp
-	@sed -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
-	  sed -e 's/^ *//' -e 's/$$/:/' >> obj/$*.d
-	@rm -f $*.d.tmp
+	@$(CC) -MM $(CFLAGS) $< | sed 's|^.*:|$@:|' > $(patsubst %.o,%.d,$@)
 
