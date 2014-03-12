@@ -26,12 +26,12 @@ static void usage(char *format, ...) {
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
     fprintf(stderr, "\nUsage: twocats [OPTIONS]\n"
-        "    -h hashSize     -- The output derived key length in bytes\n"
+        "    -h hashSize     -- The output derived key length in bytes, must be from 1 to 8160\n"
         "    -p password     -- Set the password to hash\n"
         "    -s salt         -- Set the salt.  Salt must be in hexidecimal\n"
-        "    -m memCost      -- The amount of memory to use in KB\n"
-        "    -t timeCost     -- Parallelism parameter, typically the number of threads\n"
-        "    -M multiplies   -- The number of multiplies per 32 bytes of hashing\n"
+        "    -m memCost      -- The amount of memory to use = 2^memCost KiB\n"
+        "    -t timeCost     -- Repetitions for each block hash, computed as 2^timeCost\n"
+        "    -M multiplies   -- The number of multiplies per 32 bytes of hashing, from 0 to 8\n"
         "    -P parallelism  -- Parallelism parameter, typically the number of threads\n");
     exit(1);
 }
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
             parallelism = readuint32_t(c, optarg);
             break;
         default:
-            usage("Invalid argumet");
+            usage("Invalid argument");
         }
     }
     if(optind != argc) {
