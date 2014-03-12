@@ -1,5 +1,5 @@
 /*
-   TigerPHS reference C implementation
+   TwoCats reference C implementation
 
    Written in 2014 by Bill Cox <waywardgeek@gmail.com>
 
@@ -15,8 +15,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "hkdf/sha.h"
-#include "tigerphs.h"
-#include "tigerphs-impl.h"
+#include "twocats.h"
+#include "twocats-impl.h"
 
 // Add the last hashed data into the result.
 static void addIntoHash(uint32_t *hash256, uint32_t *mem, uint32_t parallelism, uint32_t blocklen,
@@ -95,7 +95,7 @@ static void hashWithoutPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint
 
     // Hash one "slice" worth of memory hashing
     uint32_t numBits = 1; // The number of bits in i
-    for(uint32_t i = firstBlock; i < completedBlocks + blocksPerThread/TIGERPHS_SLICES; i++) {
+    for(uint32_t i = firstBlock; i < completedBlocks + blocksPerThread/TWOCATS_SLICES; i++) {
         while(1 << numBits <= i) {
             numBits++;
         }
@@ -128,7 +128,7 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
     uint64_t start = blocklen*blocksPerThread*p;
 
     // Hash one "slice" worth of memory hashing
-    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TIGERPHS_SLICES; i++) {
+    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TWOCATS_SLICES; i++) {
 
         // Compute rand()^3 distance distribution
         uint64_t v = state[0];
@@ -148,7 +148,7 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, TIGERPHS_SUBBLOCKLEN, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(state, mem, blocklen, TWOCATS_SUBBLOCKLEN, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
 }
 
@@ -159,11 +159,11 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     uint32_t blocklen, blocksPerThread, repetitions = 1 << timeCost;
 
     // Determine parameters that meet the memory goal
-    TigerPHS_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread);
+    TwoCats_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
-    TigerPHS_hkdfExtract(hash256, hash, hashSize);
+    TwoCats_hkdfExtract(hash256, hash, hashSize);
     secureZeroMemory(hash, hashSize);
 
     // Initialize thread states
@@ -172,25 +172,25 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
         hashWithSalt(states + 8*p, hash256, p);
     }
 
-    for(uint32_t slice = 0; slice < TIGERPHS_SLICES; slice++) {
+    for(uint32_t slice = 0; slice < TWOCATS_SLICES; slice++) {
         for(uint32_t p = 0; p < parallelism; p++) {
             if(slice < resistantSlices) {
                 hashWithoutPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
-                    parallelism, slice*blocksPerThread/TIGERPHS_SLICES);
+                    parallelism, slice*blocksPerThread/TWOCATS_SLICES);
             } else {
                 hashWithPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
-                    parallelism, slice*blocksPerThread/TIGERPHS_SLICES);
+                    parallelism, slice*blocksPerThread/TWOCATS_SLICES);
             }
         }
     }
 
     // Apply a crypto-strength hash
     addIntoHash(hash256, mem, parallelism, blocklen, blocksPerThread);
-    TigerPHS_hkdfExpand(hash, hashSize, hash256);
+    TwoCats_hkdfExpand(hash, hashSize, hash256);
 }
 
-// The TigerPHS password hashing function.  Return false if there is a memory allocation error.
-bool TigerPHS(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+// The TwoCats password hashing function.  Return false if there is a memory allocation error.
+bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
         uint8_t multiplies, uint8_t parallelism, bool updateMemCostMode) {
 
     // Allocate memory
@@ -204,14 +204,14 @@ bool TigerPHS(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t st
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if(i >= startMemCost || (!updateMemCostMode && i + 6 < startMemCost)) {
-            uint32_t resistantSlices = TIGERPHS_SLICES/2;
+            uint32_t resistantSlices = TWOCATS_SLICES/2;
             if(i < startMemCost) {
-                resistantSlices = TIGERPHS_SLICES;
+                resistantSlices = TWOCATS_SLICES;
             }
             hashMemory(hash, hashSize, mem, i, timeCost, multiplies, parallelism, resistantSlices);
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
-                TigerPHS_hkdf(hash, hashSize);
+                TwoCats_hkdf(hash, hashSize);
             }
         }
     }

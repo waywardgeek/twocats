@@ -1,5 +1,5 @@
 /*
-   TigerPHS main wrapper.
+   TwoCats main wrapper.
 
    Written in 2014 by Bill Cox <waywardgeek@gmail.com>
 
@@ -17,15 +17,15 @@
 #include <ctype.h>
 #include <string.h>
 #include <getopt.h>
-#include "tigerphs.h"
-#include "tigerphs-impl.h"
+#include "twocats.h"
+#include "twocats-impl.h"
 
 static void usage(char *format, ...) {
     va_list ap;
     va_start(ap, format);
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
-    fprintf(stderr, "\nUsage: tigerphs-phs hashlen password salt t_cost m_cost\n");
+    fprintf(stderr, "\nUsage: twocats-phs hashlen password salt t_cost m_cost\n");
     exit(1);
 }
 

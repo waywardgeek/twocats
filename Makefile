@@ -1,4 +1,4 @@
-# Makefile for TigerPHS code examples
+# Makefile for twocats
 
 DEPS = Makefile
 
@@ -15,34 +15,34 @@ hkdf/sha1.c \
 hkdf/sha224-256.c \
 hkdf/sha384-512.c \
 hkdf/usha.c \
-tigerphs-common.c
+twocats-common.c
 
 OBJS=$(patsubst %.c,obj/%.o,$(SOURCE))
 
-all: obj/blake2 obj/hkdf tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerphs-enc tigerphs-dec
+all: obj/blake2 obj/hkdf twocats-ref twocats twocats-test twocats-phs twocats-enc twocats-dec
 
 -include $(OBJS:.o=.d)
 
-tigerphs-ref: $(DEPS) $(OBJS) obj/main.o obj/tigerphs-ref.o
-	$(CC) $(CFLAGS) $(OBJS) obj/main.o obj/tigerphs-ref.o -o tigerphs-ref
+twocats-ref: $(DEPS) $(OBJS) obj/main.o obj/twocats-ref.o
+	$(CC) $(CFLAGS) $(OBJS) obj/main.o obj/twocats-ref.o -o twocats-ref
 
-tigerphs: $(DEPS) $(OBJS) obj/main.o obj/tigerphs.o
-	$(CC) $(CFLAGS) -pthread $(OBJS) obj/main.o obj/tigerphs.o -o tigerphs
+twocats: $(DEPS) $(OBJS) obj/main.o obj/twocats.o
+	$(CC) $(CFLAGS) -pthread $(OBJS) obj/main.o obj/twocats.o -o twocats
 
-tigerphs-test: $(DEPS) $(OBJS) obj/tigerphs-test.o obj/tigerphs-ref.o
-	$(CC) $(CFLAGS) $(OBJS) obj/tigerphs-test.o obj/tigerphs-ref.o -o tigerphs-test
+twocats-test: $(DEPS) $(OBJS) obj/twocats-test.o obj/twocats-ref.o
+	$(CC) $(CFLAGS) $(OBJS) obj/twocats-test.o obj/twocats-ref.o -o twocats-test
 
-tigerphs-phs: $(DEPS) $(OBJS) obj/tigerphs-phs.o obj/tigerphs.o
-	$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-phs.o obj/tigerphs.o -o tigerphs-phs
+twocats-phs: $(DEPS) $(OBJS) obj/twocats-phs.o obj/twocats.o
+	$(CC) $(CFLAGS) -pthread $(OBJS) obj/twocats-phs.o obj/twocats.o -o twocats-phs
 
-tigerphs-enc: $(DEPS) $(OBJS) obj/tigerphs-enc.o obj/tigerphs.o
-	$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-enc.o obj/tigerphs.o -o tigerphs-enc -lssl -lcrypto
+twocats-enc: $(DEPS) $(OBJS) obj/twocats-enc.o obj/twocats.o
+	$(CC) $(CFLAGS) -pthread $(OBJS) obj/twocats-enc.o obj/twocats.o -o twocats-enc -lssl -lcrypto
 
-tigerphs-dec: $(DEPS) $(OBJS) obj/tigerphs-dec.o obj/tigerphs.o
-	$(CC) $(CFLAGS) -pthread $(OBJS) obj/tigerphs-dec.o obj/tigerphs.o -o tigerphs-dec -lssl -lcrypto
+twocats-dec: $(DEPS) $(OBJS) obj/twocats-dec.o obj/twocats.o
+	$(CC) $(CFLAGS) -pthread $(OBJS) obj/twocats-dec.o obj/twocats.o -o twocats-dec -lssl -lcrypto
 
 clean:
-	rm -rf obj tigerphs-ref tigerphs tigerphs-test tigerphs-phs tigerphs-enc tigerphs-dec
+	rm -rf obj twocats-ref twocats twocats-test twocats-phs twocats-enc twocats-dec
 
 obj/blake2:
 	mkdir -p obj/blake2

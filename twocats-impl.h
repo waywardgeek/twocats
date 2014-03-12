@@ -1,5 +1,5 @@
 /*
-   TigerPHS internal header file
+   TwoCats internal header file
 
    Written in 2014 by Bill Cox <waywardgeek@gmail.com>
 
@@ -15,18 +15,18 @@
 #include <stdlib.h>
 #include "blake2/blake2.h"
 
-#define TIGERPHS_KEYSIZE 32
-#define TIGERPHS_MEMCOST 20 // 1 GiB
-#define TIGERPHS_PARALLELISM 2
-#define TIGERPHS_BLOCKLEN (16384/sizeof(uint32_t))
-#define TIGERPHS_SUBBLOCKLEN (64/sizeof(uint32_t))
-#define TIGERPHS_TIMECOST 0
-#define TIGERPHS_MULTIPLIES 3
-#define TIGERPHS_SLICES 4
-#define TIGERPHS_MINBLOCKS 256
+#define TWOCATS_KEYSIZE 32
+#define TWOCATS_MEMCOST 20 // 1 GiB
+#define TWOCATS_PARALLELISM 2
+#define TWOCATS_BLOCKLEN (16384/sizeof(uint32_t))
+#define TWOCATS_SUBBLOCKLEN (64/sizeof(uint32_t))
+#define TWOCATS_TIMECOST 0
+#define TWOCATS_MULTIPLIES 3
+#define TWOCATS_SLICES 4
+#define TWOCATS_MINBLOCKS 256
 
-// The TigerPHS password hashing function.  Return false if there is a memory allocation error.
-bool TigerPHS(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+// The TwoCats password hashing function.  Return false if there is a memory allocation error.
+bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
     uint8_t parallelism, uint8_t multiplies, bool updateMemCostMode);
 
 // Change these next two functions to use a different cryptographic hash function thank Blake2s.
@@ -113,11 +113,11 @@ static inline void secureZeroMemory(void *v, size_t n) {
     }
 }
 
-void TigerPHS_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
+void TwoCats_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
     uint32_t *blocksPerThread);
-void TigerPHS_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize);
-void TigerPHS_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]);
-void TigerPHS_hkdf(uint8_t *hash, uint32_t hashSize);
+void TwoCats_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize);
+void TwoCats_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]);
+void TwoCats_hkdf(uint8_t *hash, uint32_t hashSize);
 void printHex(char *message, uint8_t *x, int len);
 void printState(char *message, uint32_t state[8]);
 void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);

@@ -1,5 +1,5 @@
 /*
-   TigerPHS main wrapper.
+   TwoCats main wrapper.
 
    Written in 2014 by Bill Cox <waywardgeek@gmail.com>
 
@@ -17,15 +17,15 @@
 #include <ctype.h>
 #include <string.h>
 #include <getopt.h>
-#include "tigerphs.h"
-#include "tigerphs-impl.h"
+#include "twocats.h"
+#include "twocats-impl.h"
 
 static void usage(char *format, ...) {
     va_list ap;
     va_start(ap, format);
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
-    fprintf(stderr, "\nUsage: tigerphs [OPTIONS]\n"
+    fprintf(stderr, "\nUsage: twocats [OPTIONS]\n"
         "    -h hashSize     -- The output derived key length in bytes\n"
         "    -p password     -- Set the password to hash\n"
         "    -s salt         -- Set the salt.  Salt must be in hexidecimal\n"
@@ -88,15 +88,15 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 }
 
 int main(int argc, char **argv) {
-    uint32_t derivedKeySize = TIGERPHS_KEYSIZE;
-    uint8_t parallelism = TIGERPHS_PARALLELISM;
-    uint8_t memCost = TIGERPHS_MEMCOST;
+    uint32_t derivedKeySize = TWOCATS_KEYSIZE;
+    uint8_t parallelism = TWOCATS_PARALLELISM;
+    uint8_t memCost = TWOCATS_MEMCOST;
     uint8_t *salt = (uint8_t *)"salt";
     uint32_t saltSize = 4;
     uint8_t *password = (uint8_t *)"password";
     uint32_t passwordSize = 8;
-    uint8_t timeCost = TIGERPHS_TIMECOST;
-    uint8_t multiplies = TIGERPHS_MULTIPLIES;
+    uint8_t timeCost = TWOCATS_TIMECOST;
+    uint8_t multiplies = TWOCATS_MULTIPLIES;
 
     char c;
     while((c = getopt(argc, argv, "h:p:s:m:M:t:P:b:B:")) != -1) {
@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
     printf("memCost:%u timeCost:%u multiplies:%u parallelism:%u password:%s salt:%s\n",
         memCost, timeCost, multiplies, parallelism, password, salt);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
-    if(!TigerPHS_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
+    if(!TwoCats_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
             NULL, 0, memCost, memCost, timeCost, multiplies, parallelism, false, false)) {
         fprintf(stderr, "Key stretching failed.\n");
         return 1;
