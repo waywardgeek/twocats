@@ -607,11 +607,12 @@ static void usage(void) {
         "    -c                -- compute average recomputation penalty\n"
         "    -d minDegree      -- fix pebbles on nodes with in degree >= minDegree\n"
         "    -g                -- dump graph\n"
+        "    -m memLength      -- size of DAG size to use (defaults to 512)\n"
         "    -l maxLength      -- fix pebbles pointed to by edge <= maxLength\n"
         "    -L lambda         -- set Catena lambda\n"
         "    -p numPebbles     -- pebble the graph using at most numPebbles pebbles\n"
-        "    -r                -- enable sub-Catena7 graph in Catena first row\n"
-        "    -s spacing        -- fix pebbles every spacing pebels\n"
+        "    -r                -- enable sub-Catena3 graph in Catena first row\n"
+        "    -s spacing        -- fix pebbles every spacing pebbles\n"
         "    -t startSpacing   -- Start pebble spacing at startSpacing node\n"
         "    -v                -- verbose mode\n");
     fprintf(stderr, "graph types:");
@@ -631,7 +632,7 @@ int main(int argc, char **argv) {
     bool computePenalty = false;
 
     char c;
-    while((c = getopt(argc, argv, "cd:gm:l:L:Mp:rs:t:v")) != -1) {
+    while((c = getopt(argc, argv, "cd:gm:l:L:p:rs:t:v")) != -1) {
         switch (c) {
         case 'c':
             computePenalty = true;
