@@ -270,12 +270,12 @@ bool TwoCats_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *passw
     }
 
     // Add all the inputs, other than stopMemCost
-    if(!addUint32Input(&context, hashSize) || !addUint32Input(&context, passwordSize) ||
-            !addInput(&context, password, passwordSize) || !addUint32Input(&context, dataSize) ||
-            !addInput(&context, data, dataSize) || !addUint8Input(&context, startMemCost) ||
-            !addUint8Input(&context, timeCost) || !addUint8Input(&context, multiplies) ||
-            !addUint8Input(&context, parallelism) || !addUint32Input(&context, blockSize) ||
-            !addUint32Input(&context, subBlockSize)) {
+    if(!addUint32Input(&context, hashSize) || !addUint32Input(&context, saltSize) ||
+            !addUint32Input(&context, passwordSize) || !addInput(&context, password, passwordSize) ||
+            !addUint32Input(&context, dataSize) || !addInput(&context, data, dataSize) ||
+            !addUint8Input(&context, startMemCost) || !addUint8Input(&context, timeCost) ||
+            !addUint8Input(&context, multiplies) || !addUint8Input(&context, parallelism) ||
+            !addUint32Input(&context, blockSize) || !addUint32Input(&context, subBlockSize)) {
         return false;
     }
 
