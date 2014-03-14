@@ -71,6 +71,7 @@ struct TwoCatsCommonDataStruct {
     uint32_t *hash256;
     uint32_t parallelism;
     uint32_t blocklen;
+    uint32_t subBlocklen;
     uint32_t blocksPerThread;
     uint32_t repetitions;
     uint8_t multiplies;
@@ -422,6 +423,7 @@ static void *hashWithPassword(void *contextPtr) {
     uint32_t *mem = c->mem;
     uint32_t p = ctx->p;
     uint64_t blocklen = c->blocklen;
+    uint32_t subBlocklen = c->subBlocklen;
     uint32_t blocksPerThread = c->blocksPerThread;
     uint8_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
@@ -451,19 +453,23 @@ static void *hashWithPassword(void *contextPtr) {
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, TWOCATS_SUBBLOCKLEN, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
     pthread_exit(NULL);
 }
 
 // Hash memory for one level of garlic.
 static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t memCost, uint8_t timeCost,
-        uint8_t multiplies, uint8_t parallelism, uint32_t resistantSlices) {
+        uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
+        uint32_t resistantSlices) {
 
-    uint32_t blocklen, blocksPerThread, repetitions = 1 << timeCost;
+    uint32_t blocksPerThread;
+    uint32_t repetitions = 1 << timeCost;
+    uint32_t blocklen = blockSize/sizeof(uint32_t);
+    uint32_t subBlocklen = subBlockSize/sizeof(uint32_t);
 
     // Determine parameters that meet the memory goal
-    TwoCats_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread);
+    TwoCats_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &subBlocklen, &blocksPerThread);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
@@ -478,6 +484,7 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     common.mem = mem;
     common.hash256 = hash256;
     common.blocklen = blocklen;
+    common.subBlocklen = subBlocklen;
     common.blocksPerThread = blocksPerThread;
     common.parallelism = parallelism;
     common.repetitions = repetitions;
@@ -516,7 +523,7 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
 
 // The TwoCats password hashing function.  Return false if there is a memory allocation error.
 bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-        uint8_t multiplies, uint8_t parallelism, bool updateMemCostMode) {
+    uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize, bool updateMemCostMode) {
 
     // Allocate memory
     uint32_t *mem;
@@ -533,7 +540,8 @@ bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t sto
             if(i < startMemCost) {
                 resistantSlices = TWOCATS_SLICES;
             }
-            if(!hashMemory(hash, hashSize, mem, i, timeCost, multiplies, parallelism, resistantSlices)) {
+            if(!hashMemory(hash, hashSize, mem, i, timeCost, multiplies, parallelism, blockSize,
+                    subBlockSize, resistantSlices)) {
                 free(mem);
                 return false;
             }

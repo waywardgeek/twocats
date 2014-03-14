@@ -15,19 +15,14 @@
 #include <stdlib.h>
 #include "blake2/blake2.h"
 
-#define TWOCATS_KEYSIZE 32
 #define TWOCATS_MEMCOST 20 // 1 GiB
-#define TWOCATS_PARALLELISM 2
-#define TWOCATS_BLOCKLEN (16384/sizeof(uint32_t))
-#define TWOCATS_SUBBLOCKLEN (64/sizeof(uint32_t))
-#define TWOCATS_TIMECOST 0
-#define TWOCATS_MULTIPLIES 3
-#define TWOCATS_SLICES 4
 #define TWOCATS_MINBLOCKS 256
+#define TWOCATS_SLICES 4
+
 
 // The TwoCats password hashing function.  Return false if there is a memory allocation error.
 bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-    uint8_t parallelism, uint8_t multiplies, bool updateMemCostMode);
+    uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize, bool updateMemCostMode);
 
 // Change these next two functions to use a different cryptographic hash function thank Blake2s.
 
@@ -113,8 +108,8 @@ static inline void secureZeroMemory(void *v, size_t n) {
     }
 }
 
-void TwoCats_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism, uint32_t *blocklen,
-    uint32_t *blocksPerThread);
+void TwoCats_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism,
+        uint32_t *blocklen, uint32_t *subBlocklen, uint32_t *blocksPerThread);
 void TwoCats_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize);
 void TwoCats_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]);
 void TwoCats_hkdf(uint8_t *hash, uint32_t hashSize);

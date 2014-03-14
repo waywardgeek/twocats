@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     printf("Encrypting with memCost=%u timeCost=%u multiplies=%u\n", memCost, timeCost, multiplies);
 
     genSalt(salt);
-    if(!TwoCats_SimpleHashPassword(key, KEY_SIZE, (uint8_t *)password, strlen(password),
+    if(!TwoCats_HashPassword(key, (uint8_t *)password, strlen(password),
             salt, SALT_SIZE, memCost, timeCost)) {
         fprintf(stderr, "Unable to hash password - memory allocation failed\n");
         return 1;

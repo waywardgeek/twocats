@@ -32,7 +32,9 @@ static void usage(char *format, ...) {
         "    -m memCost      -- The amount of memory to use = 2^memCost KiB\n"
         "    -t timeCost     -- Repetitions for each block hash, computed as 2^timeCost\n"
         "    -M multiplies   -- The number of multiplies per 32 bytes of hashing, from 0 to 8\n"
-        "    -P parallelism  -- Parallelism parameter, typically the number of threads\n");
+        "    -P parallelism  -- Parallelism parameter, typically the number of threads\n"
+        "    -b blockSize    -- BlockSize, defaults to 16384\n"
+        "    -B subBlockSize -- SubBlockSize, defaults to 64\n");
     exit(1);
 }
 
@@ -97,6 +99,8 @@ int main(int argc, char **argv) {
     uint32_t passwordSize = 8;
     uint8_t timeCost = TWOCATS_TIMECOST;
     uint8_t multiplies = TWOCATS_MULTIPLIES;
+    uint32_t blockSize = TWOCATS_BLOCKSIZE;
+    uint32_t subBlockSize = TWOCATS_SUBBLOCKSIZE;
 
     char c;
     while((c = getopt(argc, argv, "h:p:s:m:M:t:P:b:B:")) != -1) {
@@ -123,6 +127,12 @@ int main(int argc, char **argv) {
         case 'P':
             parallelism = readuint32_t(c, optarg);
             break;
+        case 'b':
+            blockSize = readuint32_t(c, optarg);
+            break;
+        case 'B':
+            subBlockSize = readuint32_t(c, optarg);
+            break;
         default:
             usage("Invalid argument");
         }
@@ -131,11 +141,12 @@ int main(int argc, char **argv) {
         usage("Extra parameters not recognised\n");
     }
 
-    printf("memCost:%u timeCost:%u multiplies:%u parallelism:%u password:%s salt:%s\n",
-        memCost, timeCost, multiplies, parallelism, password, salt);
+    printf("memCost:%u timeCost:%u multiplies:%u parallelism:%u password:%s salt:%s blockSize:%u subBlockSize:%u\n",
+        memCost, timeCost, multiplies, parallelism, password, salt, blockSize, subBlockSize);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
-    if(!TwoCats_HashPassword(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize,
-            NULL, 0, memCost, memCost, timeCost, multiplies, parallelism, false, false)) {
+    if(!TwoCats_HashPasswordExtended(derivedKey, derivedKeySize, password, passwordSize,
+            salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, parallelism,
+            blockSize, subBlockSize, false, false)) {
         fprintf(stderr, "Key stretching failed.\n");
         return 1;
     }
