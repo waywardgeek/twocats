@@ -122,8 +122,8 @@ static void hashWithoutPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint
 
 // Hash memory with password dependent addressing.
 static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_t blocklen,
-        uint32_t blocksPerThread, uint32_t multiplies, uint32_t repetitions, uint32_t parallelism,
-        uint32_t completedBlocks) {
+        uint32_t subBlocklen, uint32_t blocksPerThread, uint32_t multiplies, uint32_t repetitions,
+        uint32_t parallelism, uint32_t completedBlocks) {
 
     uint64_t start = blocklen*blocksPerThread*p;
 
@@ -148,18 +148,22 @@ static void hashWithPassword(uint32_t *state, uint32_t *mem, uint32_t p, uint64_
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, TWOCATS_SUBBLOCKLEN, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
 }
 
 // Hash memory for one level of garlic.
 static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t memCost, uint8_t timeCost,
-        uint8_t multiplies, uint8_t parallelism, uint32_t resistantSlices) {
+        uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
+        uint32_t resistantSlices) {
 
-    uint32_t blocklen, blocksPerThread, repetitions = 1 << timeCost;
+    uint32_t blocksPerThread;
+    uint32_t repetitions = 1 << timeCost;
+    uint32_t blocklen = blockSize/sizeof(uint32_t);
+    uint32_t subBlocklen = subBlockSize/sizeof(uint32_t);
 
     // Determine parameters that meet the memory goal
-    TwoCats_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &blocksPerThread);
+    TwoCats_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &subBlocklen, &blocksPerThread);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash256[8];
@@ -175,11 +179,11 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     for(uint32_t slice = 0; slice < TWOCATS_SLICES; slice++) {
         for(uint32_t p = 0; p < parallelism; p++) {
             if(slice < resistantSlices) {
-                hashWithoutPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
-                    parallelism, slice*blocksPerThread/TWOCATS_SLICES);
+                hashWithoutPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies,
+                    repetitions, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
             } else {
-                hashWithPassword(states + 8*p, mem, p, blocklen, blocksPerThread, multiplies, repetitions,
-                    parallelism, slice*blocksPerThread/TWOCATS_SLICES);
+                hashWithPassword(states + 8*p, mem, p, blocklen, subBlocklen, blocksPerThread, multiplies,
+                    repetitions, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
             }
         }
     }
@@ -191,7 +195,7 @@ static void hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
 
 // The TwoCats password hashing function.  Return false if there is a memory allocation error.
 bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-        uint8_t multiplies, uint8_t parallelism, bool updateMemCostMode) {
+    uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize, bool updateMemCostMode) {
 
     // Allocate memory
     uint32_t *mem = malloc((uint64_t)1024 << stopMemCost);
@@ -208,7 +212,8 @@ bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t sto
             if(i < startMemCost) {
                 resistantSlices = TWOCATS_SLICES;
             }
-            hashMemory(hash, hashSize, mem, i, timeCost, multiplies, parallelism, resistantSlices);
+            hashMemory(hash, hashSize, mem, i, timeCost, multiplies, parallelism, blockSize,
+                subBlockSize, resistantSlices);
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
                 TwoCats_hkdf(hash, hashSize);
