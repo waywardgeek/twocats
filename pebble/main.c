@@ -142,7 +142,11 @@ static uint32 findCatenaPos(uint32 pos) {
         return (row-1)*rowLength + bitReverse(rowPos, rowLength);
     }
     uint32 rowPos = pos - row*rowLength;
-    return (row-1)*rowLength + bitReverse(rowPos, rowLength);
+    uint32 dest = (row-1)*rowLength + bitReverse(rowPos, rowLength);
+    //if(dest + rowLength + 1 < pos) {
+        //return dest + rowLength;
+    //}
+    return dest;
 }
 
 // Find the previous position using Alexander's sliding power-of-two window, with Catena
