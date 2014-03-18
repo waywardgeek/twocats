@@ -90,6 +90,8 @@ bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
 #define TWOCATS_SUBBLOCKSIZE 64
 #define TWOCATS_TIMECOST 0
 #define TWOCATS_MULTIPLIES 3
+#define TWOCATS_HASHTYPE TWOCATS_BLAKE2S
+#define TWOCATS_LANES 8
 
 /*
    This is the extended password hashing interface for those who know what they are doing.
@@ -137,20 +139,20 @@ bool TwoCats_HashPasswordExtended( TwoCats_HashType hashType,
                                    uint8_t *data,        uint32_t dataSize,
                                    uint8_t startMemCost, uint8_t stopMemCost,
                                    uint8_t timeCost,     uint8_t multiplies,
-                                   uint8_t parallelism,
+                                   uint8_t lanes,        uint8_t parallelism,
                                    uint32_t blockSize,   uint32_t subBlockSize,
-                                   bool clearPassword, bool clearData);
+                                   bool clearPassword,   bool clearData);
 
 // Update an existing password hash to a more difficult level of memCost.
 bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t hashSize,
-    uint8_t oldMemCost, uint8_t newMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
-    uint32_t blockSize, uint32_t subBlockSize);
+    uint8_t oldMemCost, uint8_t newMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes,
+    uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize);
 
 // Client-side portion of work for server-relief mode.  hashSize must be <= 255*32
 bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t hashSize,
     uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
     uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-    uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
+    uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
     bool clearPassword, bool clearData);
 
 // Server portion of work for server-relief mode.

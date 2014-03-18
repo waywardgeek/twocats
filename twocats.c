@@ -74,6 +74,7 @@ struct TwoCatsCommonDataStruct {
     uint32_t blocksPerThread;
     uint32_t repetitions;
     uint8_t multiplies;
+    uint8_t lanes;
     uint32_t completedBlocks;
 };
 
@@ -139,7 +140,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
        
 static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         uint32_t blocklen, uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr,
-        uint64_t toAddr, uint8_t multiplies, uint32_t repetitions) {
+        uint64_t toAddr, uint8_t multiplies, uint32_t repetitions, uint8_t lanes) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
@@ -150,7 +151,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
     uint64_t v = 1;
 
     bool haveFastCode = false;
-    if(H->len == 8) {
+    if(lanes == 8) {
 #if defined(HAVE_AVX2)
         haveFastCode = true;
         __m256i s;
@@ -269,9 +270,9 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         }
         convStateFromM128iToUint32(&s1, &s2, state);
 #endif
-    } else if(H->len == 4) {
+    } else if(lanes == 4) {
         // TODO: write 4-lane code here using SSE2
-    } else if(H->len == 2) {
+    } else if(lanes == 2) {
         // TODO: write 2-lane code here using MMX
     }
     if(!haveFastCode) {
@@ -280,7 +281,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
             for(uint32_t i = 0; i < numSubBlocks; i++) {
                 uint32_t randVal = *f;
                 uint32_t *p = mem + prevAddr + subBlocklen*(randVal & (numSubBlocks - 1));
-                for(uint32_t j = 0; j < subBlocklen/H->len; j++) {
+                for(uint32_t j = 0; j < subBlocklen/lanes; j++) {
 
                     // Compute the multiplication chain
                     for(uint32_t k = 0; k < multiplies; k++) {
@@ -290,7 +291,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                     }
 
                     // Hash 32 bytes of memory
-                    for(uint32_t k = 0; k < H->len; k++) {
+                    for(uint32_t k = 0; k < lanes; k++) {
                         state[k] = (state[k] + *p++) ^ *f++;
                         state[k] = (state[k] >> 24) | (state[k] << 8);
                     }
@@ -302,7 +303,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         for(uint32_t i = 0; i < numSubBlocks; i++) {
             uint32_t randVal = *f;
             uint32_t *p = mem + prevAddr + subBlocklen*(randVal & (numSubBlocks - 1));
-            for(uint32_t j = 0; j < subBlocklen/H->len; j++) {
+            for(uint32_t j = 0; j < subBlocklen/lanes; j++) {
 
                 // Compute the multiplication chain
                 for(uint32_t k = 0; k < multiplies; k++) {
@@ -312,7 +313,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                 }
 
                 // Hash 32 bytes of memory
-                for(uint32_t k = 0; k < H->len; k++) {
+                for(uint32_t k = 0; k < lanes; k++) {
                     state[k] = (state[k] + *p++) ^ *f++;
                     state[k] = (state[k] >> 24) | (state[k] << 8);
                     *t++ = state[k];
@@ -327,34 +328,34 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 // It only was required for Haswell while running entirely in L1 cache.
 static inline void hashBlocks(TwoCats_H *H, uint32_t state[8], uint32_t *mem, uint32_t blocklen,
         uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
-        uint8_t multiplies, uint32_t repetitions) {
+        uint8_t multiplies, uint32_t repetitions, uint8_t lanes) {
     switch(multiplies) {
     case 0:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 0, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 0, repetitions, lanes);
         break;
     case 1:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 1, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 1, repetitions, lanes);
         break;
     case 2:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 2, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 2, repetitions, lanes);
         break;
     case 3:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 3, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 3, repetitions, lanes);
         break;
     case 4:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 4, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 4, repetitions, lanes);
         break;
     case 5:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 5, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 5, repetitions, lanes);
         break;
     case 6:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 6, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 6, repetitions, lanes);
         break;
     case 7:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 7, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 7, repetitions, lanes);
         break;
     case 8:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 8, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 8, repetitions, lanes);
         break;
     }
 }
@@ -386,6 +387,7 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t blocksPerThread = c->blocksPerThread;
     uint8_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
+    uint32_t lanes = c->lanes;
     uint32_t parallelism = c->parallelism;
     uint32_t completedBlocks = c->completedBlocks;
 
@@ -422,7 +424,8 @@ static void *hashWithoutPassword(void *contextPtr) {
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(H, state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(H, state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr,
+            multiplies, repetitions, lanes);
     }
     pthread_exit(NULL);
 }
@@ -441,6 +444,7 @@ static void *hashWithPassword(void *contextPtr) {
     uint32_t blocksPerThread = c->blocksPerThread;
     uint8_t multiplies = c->multiplies;
     uint32_t repetitions = c->repetitions;
+    uint8_t lanes = c->lanes;
     uint32_t parallelism = c->parallelism;
     uint32_t completedBlocks = c->completedBlocks;
 
@@ -467,15 +471,16 @@ static void *hashWithPassword(void *contextPtr) {
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr,
+            multiplies, repetitions, lanes);
     }
     pthread_exit(NULL);
 }
 
 // Hash memory for one level of garlic.
 static bool hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *mem,
-        uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
-        uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
+        uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t
+        parallelism, uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
 
     uint32_t blocksPerThread;
     uint32_t repetitions = 1 << timeCost;
@@ -495,6 +500,7 @@ static bool hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
     struct TwoCatsContextStruct c[parallelism];
     struct TwoCatsCommonDataStruct common;
     common.multiplies = multiplies;
+    common.lanes = lanes;
     common.mem = mem;
     common.hash32 = hash32;
     common.blocklen = blocklen;
@@ -540,7 +546,7 @@ static bool hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
 
 // The TwoCats password hashing function.  Return false if there is a memory allocation error.
 bool TwoCats(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
-        uint8_t timeCost, uint8_t multiplies, uint8_t parallelism, uint32_t blockSize,
+        uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
         uint32_t subBlockSize, bool updateMemCostMode) {
 
     // Allocate memory
@@ -558,8 +564,8 @@ bool TwoCats(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, uint8_t startMemCos
             if(i < startMemCost) {
                 resistantSlices = TWOCATS_SLICES;
             }
-            if(!hashMemory(H, hash, hashSize, mem, i, timeCost, multiplies, parallelism, blockSize,
-                    subBlockSize, resistantSlices)) {
+            if(!hashMemory(H, hash, hashSize, mem, i, timeCost, multiplies, lanes,
+                    parallelism, blockSize, subBlockSize, resistantSlices)) {
                 free(mem);
                 return false;
             }

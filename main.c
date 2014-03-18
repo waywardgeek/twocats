@@ -32,6 +32,7 @@ static void usage(char *format, ...) {
         "    -m memCost      -- The amount of memory to use = 2^memCost KiB\n"
         "    -t timeCost     -- Repetitions for each block hash, computed as 2^timeCost\n"
         "    -M multiplies   -- The number of multiplies per 32 bytes of hashing, from 0 to 8\n"
+        "    -l lanes        -- The number of parallel data lanes to compute on a SIMD unit\n"
         "    -P parallelism  -- Parallelism parameter, typically the number of threads\n"
         "    -b blockSize    -- BlockSize, defaults to 16384\n"
         "    -B subBlockSize -- SubBlockSize, defaults to 64\n"
@@ -108,11 +109,12 @@ int main(int argc, char **argv) {
     uint8_t multiplies = TWOCATS_MULTIPLIES;
     uint32_t blockSize = TWOCATS_BLOCKSIZE;
     uint32_t subBlockSize = TWOCATS_SUBBLOCKSIZE;
+    uint32_t lanes = TWOCATS_LANES;
     TwoCats_HashType hashType = TWOCATS_BLAKE2S;
     char *hashName = "blake2s";
 
     char c;
-    while((c = getopt(argc, argv, "h:p:s:m:M:t:P:b:B:")) != -1) {
+    while((c = getopt(argc, argv, "h:p:s:m:M:t:l:P:b:B:")) != -1) {
         switch (c) {
         case 'h':
             derivedKeySize = readuint32_t(c, optarg);
@@ -132,6 +134,9 @@ int main(int argc, char **argv) {
             break;
         case 't':
             timeCost = readuint32_t(c, optarg);
+            break;
+        case 'l':
+            lanes = readuint32_t(c, optarg);
             break;
         case 'P':
             parallelism = readuint32_t(c, optarg);
@@ -157,11 +162,13 @@ int main(int argc, char **argv) {
         usage("Too many arguments\n");
     }
 
-    printf("hash:%s memCost:%u timeCost:%u multiplies:%u parallelism:%u password:%s salt:%s blockSize:%u subBlockSize:%u\n",
-        hashName, memCost, timeCost, multiplies, parallelism, password, salt, blockSize, subBlockSize);
+    printf("hash:%s memCost:%u timeCost:%u multiplies:%u lanes:%u parallelism:%u\n",
+        hashName, memCost, timeCost, multiplies, lanes, parallelism);
+    printf("password:%s salt:%s blockSize:%u subBlockSize:%u\n",
+        password, salt, blockSize, subBlockSize);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
     if(!TwoCats_HashPasswordExtended(hashType, derivedKey, derivedKeySize, password, passwordSize,
-            salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, parallelism,
+            salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, lanes, parallelism,
             blockSize, subBlockSize, false, false)) {
         fprintf(stderr, "Key stretching failed.\n");
         return 1;

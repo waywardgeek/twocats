@@ -228,9 +228,15 @@ TwoCats_HashType TwoCats_FindHashType(char *name) {
 
 
 // Verify that parameters are valid for password hashing.
-static bool verifyParameters(uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
-        uint8_t timeCost, uint8_t multiplies, uint8_t parallelism, uint32_t blockSize,
-        uint32_t subBlockSize) {
+static bool verifyParameters(TwoCats_H *H, uint32_t hashSize, uint8_t startMemCost,
+        uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
+        uint32_t blockSize, uint32_t subBlockSize) {
+
+    if(H->len < lanes || lanes == 0) {
+        fprintf(stderr, "Invalid lanes size: the range is 1 through %u for %s\n", H->len,
+            TwoCats_GetHashTypeName(H->type));
+        return false;
+    }
     if(hashSize == 0 || hashSize > blockSize) {
         fprintf(stderr, "Invalid hash size: the range is 1 through blockSize\n");
         return false;
@@ -300,20 +306,20 @@ bool TwoCats_HashPasswordFull(TwoCats_HashType hashType, uint8_t *hash, uint32_t
         multiplies = 2; // Assume it fits in L2 or L3 cache
     }
     return TwoCats_HashPasswordExtended(hashType, hash, hashSize, password, passwordSize,
-        salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, parallelism,
-        TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, clearPassword, false);
+        salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, TWOCATS_LANES,
+        parallelism, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, clearPassword, false);
 }
 
 // The extended password hashing interface.  
 bool TwoCats_HashPasswordExtended(TwoCats_HashType hashType, uint8_t *hash, uint32_t
-        hashSize, uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t
-        saltSize, uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t
-        stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism, uint32_t
-        blockSize, uint32_t subBlocksize, bool clearPassword, bool clearData) {
+        hashSize, uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
+        uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost,
+        uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
+        uint32_t blockSize, uint32_t subBlocksize, bool clearPassword, bool clearData) {
 
     if(!TwoCats_ClientHashPassword(hashType, hash, hashSize, password, passwordSize, salt,
             saltSize, data, dataSize, startMemCost, stopMemCost, timeCost, multiplies,
-            parallelism, blockSize, subBlocksize, clearPassword, clearData)) {
+            lanes, parallelism, blockSize, subBlocksize, clearPassword, clearData)) {
         return false;
     }
     TwoCats_ServerHashPassword(hashType, hash, hashSize);
@@ -323,16 +329,16 @@ bool TwoCats_HashPasswordExtended(TwoCats_HashType hashType, uint8_t *hash, uint
 // Update an existing password hash to a more difficult level of memory cost (garlic).
 bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t hashSize,
         uint8_t oldMemCost, uint8_t newMemCost, uint8_t timeCost, uint8_t multiplies,
-        uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize) {
+        uint8_t lanes, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize) {
 
-    if(!verifyParameters(hashSize, oldMemCost, newMemCost, timeCost, multiplies,
-            parallelism, blockSize, subBlockSize)) {
-        return false;
-    }
     TwoCats_H H;
     TwoCats_InitHash(&H, hashType);
-    if(!TwoCats(&H, hash, hashSize, oldMemCost, newMemCost, timeCost, multiplies, parallelism,
-            blockSize, subBlockSize, true)) {
+    if(!verifyParameters(&H, hashSize, oldMemCost, newMemCost, timeCost, multiplies,
+            lanes, parallelism, blockSize, subBlockSize)) {
+        return false;
+    }
+    if(!TwoCats(&H, hash, hashSize, oldMemCost, newMemCost, timeCost, multiplies, lanes,
+            parallelism, blockSize, subBlockSize, true)) {
         return false;
     }
     TwoCats_ServerHashPassword(hashType, hash, hashSize);
@@ -344,25 +350,26 @@ bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t h
 bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t hashSize,
         uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
         uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost,
-        uint8_t timeCost, uint8_t multiplies, uint8_t parallelism, uint32_t blockSize,
+        uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
         uint32_t subBlockSize, bool clearPassword, bool clearData) {
-    if(!verifyParameters(hashSize, startMemCost, stopMemCost, timeCost, multiplies, parallelism,
-            blockSize, subBlockSize)) {
+
+    TwoCats_H H;
+    TwoCats_InitHash(&H, hashType);
+    if(!verifyParameters(&H, hashSize, startMemCost, stopMemCost, timeCost, multiplies, lanes,
+            parallelism, blockSize, subBlockSize)) {
         return false;
     }
 
     // Add all the inputs, other than stopMemCost
-    TwoCats_H H;
-    TwoCats_InitHash(&H, hashType);
     uint32_t buf[H.len];
     if(!H.Init(&H) || !H.UpdateUint32(&H, hashSize) ||
             !H.UpdateUint32(&H, passwordSize) || !H.Update(&H, password, passwordSize) ||
             !H.UpdateUint32(&H, saltSize) || !H.Update(&H, salt, saltSize) ||
             !H.UpdateUint32(&H, dataSize) || !H.Update(&H, data, dataSize) ||
             !H.Update(&H, &startMemCost, 1) || !H.Update(&H, &timeCost, 1) ||
-            !H.Update(&H, &multiplies, 1) || !H.Update(&H, &parallelism, 1) ||
-            !H.UpdateUint32(&H, blockSize) || !H.UpdateUint32(&H, subBlockSize) ||
-            !H.FinalUint32(&H, buf)) {
+            !H.Update(&H, &multiplies, 1) || !H.Update(&H, &lanes, 1) ||
+            !H.Update(&H, &parallelism, 1) || !H.UpdateUint32(&H, blockSize) ||
+            !H.UpdateUint32(&H, subBlockSize) || !H.FinalUint32(&H, buf)) {
         return false;
     }
 
@@ -380,7 +387,7 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint32
     }
     secureZeroMemory(buf, H.size);
     return TwoCats(&H, hash, hashSize, startMemCost, stopMemCost, timeCost, multiplies,
-        parallelism, blockSize, subBlockSize, false);
+        lanes, parallelism, blockSize, subBlockSize, false);
 }
 
 // Server portion of work for server-relief mode.
@@ -395,7 +402,7 @@ void TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
 // If possible, call TwoCats_SimpleHashPassword instead so that the password can be cleared.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
         unsigned int t_cost, unsigned int m_cost) {
-    return !TwoCats_HashPasswordFull(TWOCATS_BLAKE2S, out, outlen, (uint8_t *)in, inlen,
+    return !TwoCats_HashPasswordFull(TWOCATS_HASHTYPE, out, outlen, (uint8_t *)in, inlen,
         salt, saltlen, m_cost, t_cost, TWOCATS_PARALLELISM, false);
 }
 

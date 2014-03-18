@@ -39,7 +39,7 @@ static uint32_t reverse(uint32_t v, uint32_t numBits) {
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
 static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t blocklen,
         uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
-        uint32_t multiplies, uint32_t repetitions) {
+        uint32_t multiplies, uint32_t repetitions, uint8_t lanes) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
@@ -55,7 +55,7 @@ static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
         for(uint32_t i = 0; i < numSubBlocks; i++) {
             uint32_t randVal = *f;
             uint32_t *p = mem + prevAddr + subBlocklen*(randVal & (numSubBlocks - 1));
-            for(uint32_t j = 0; j < subBlocklen/H->len; j++) {
+            for(uint32_t j = 0; j < subBlocklen/lanes; j++) {
 
                 // Compute the multiplication chain
                 for(uint32_t k = 0; k < multiplies; k++) {
@@ -65,7 +65,7 @@ static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
                 }
 
                 // Hash lanes of memory
-                for(uint32_t k = 0; k < H->len; k++) {
+                for(uint32_t k = 0; k < lanes; k++) {
                     state[k] = (state[k] + *p++) ^ *f++;
                     state[k] = (state[k] >> 24) | (state[k] << 8);
                     *t++ = state[k];
@@ -80,7 +80,7 @@ static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
 static void hashWithoutPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t p,
         uint64_t blocklen, uint32_t blocksPerThread, uint32_t multiplies, uint32_t repetitions,
-        uint32_t parallelism, uint32_t completedBlocks) {
+        uint8_t lanes, uint32_t parallelism, uint32_t completedBlocks) {
 
     uint64_t start = blocklen*blocksPerThread*p;
     uint32_t firstBlock = completedBlocks;
@@ -113,14 +113,15 @@ static void hashWithoutPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, ui
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(H, state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(H, state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr,
+            multiplies, repetitions, lanes);
     }
 }
 
 // Hash memory with password dependent addressing.
 static void hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t p,
         uint64_t blocklen, uint32_t subBlocklen, uint32_t blocksPerThread, uint32_t multiplies,
-        uint32_t repetitions, uint32_t parallelism, uint32_t completedBlocks) {
+        uint32_t repetitions, uint8_t lanes, uint32_t parallelism, uint32_t completedBlocks) {
 
     uint64_t start = blocklen*blocksPerThread*p;
 
@@ -145,13 +146,14 @@ static void hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint3
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr,
+            multiplies, repetitions, lanes);
     }
 }
 
 // Hash memory for one level of garlic.
 static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *mem,
-        uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
+        uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
         uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
 
     uint32_t blocksPerThread;
@@ -175,10 +177,10 @@ static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
         for(uint32_t p = 0; p < parallelism; p++) {
             if(slice < resistantSlices) {
                 hashWithoutPassword(H, states + p*H->len, mem, p, blocklen, blocksPerThread, multiplies,
-                    repetitions, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
+                    repetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
             } else {
                 hashWithPassword(H, states + p*H->len, mem, p, blocklen, subBlocklen, blocksPerThread,
-                    multiplies, repetitions, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
+                    multiplies, repetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
             }
         }
     }
@@ -190,7 +192,7 @@ static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
 
 // The TwoCats internal password hashing function.  Return false if there is a memory allocation error.
 bool TwoCats(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
-        uint8_t timeCost, uint8_t multiplies, uint8_t parallelism, uint32_t blockSize,
+        uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
         uint32_t subBlockSize, bool updateMemCostMode) {
 
     // Allocate memory
@@ -208,7 +210,7 @@ bool TwoCats(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, uint8_t startMemCos
             if(i < startMemCost) {
                 resistantSlices = TWOCATS_SLICES;
             }
-            hashMemory(H, hash, hashSize, mem, i, timeCost, multiplies, parallelism, blockSize,
+            hashMemory(H, hash, hashSize, mem, i, timeCost, multiplies, lanes, parallelism, blockSize,
                 subBlockSize, resistantSlices);
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
