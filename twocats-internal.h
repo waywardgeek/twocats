@@ -11,105 +11,90 @@
    this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <openssl/sha.h>
 #include "blake2/blake2.h"
+#include "twocats.h"
 
 #define TWOCATS_SLICES 4
 
+// The TwoCats_H wrapper class supports pluggable hash functions.
 
-// The TwoCats password hashing function.  Return false if there is a memory allocation error.
-bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-    uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize, bool updateMemCostMode);
+typedef struct TwoCats_HashStruct TwoCats_H;
 
-// Change these next two functions to use a different cryptographic hash function thank Blake2s.
+struct TwoCats_HashStruct {
+    // These three must be defined for each new hash function supported
+    bool (*Init)(TwoCats_H *H);
+    bool (*Update)(TwoCats_H *H, const uint8_t *data, uint32_t dataSize);
+    bool (*Final)(TwoCats_H *H, uint8_t *hash);
+    // These are common to all of them
+    bool (*UpdateUint32)(TwoCats_H *H, uint32_t value);
+    bool (*Hash)(TwoCats_H *H, uint8_t *hash, uint32_t hashSize);
+    bool (*HashState)(TwoCats_H *H, uint32_t *state, uint32_t value);
+    bool (*Extract)(TwoCats_H *H, uint32_t *hash32, const uint8_t *hash, uint32_t hashSize);
+    bool (*Expand)(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, const uint32_t *hash32);
+    bool (*ExpandUint32)(TwoCats_H *H, uint32_t *out, uint32_t outlen, const uint32_t *hash32);
+    bool (*FinalUint32)(TwoCats_H *H, uint32_t *hash32);
+    union {
+        blake2s_state blake2sState;
+        blake2b_state blake2bState;
+        SHA256_CTX sha256State;
+        SHA512_CTX sha512State;
+    } c;
+    TwoCats_HashType type;
+    uint8_t size, len; // Size is in bytes, len is in 32-bit ints
+};
 
-// This is the crytographically strong password hashing function based on Blake2s.
-static inline void H(uint8_t *out, uint32_t outlen, const uint8_t *in, uint32_t inlen, const uint8_t *key,
-        uint32_t keylen) {
-    if(blake2s(out, in, key, outlen, inlen, keylen)) {
-        fprintf(stderr, "Error calling blake2s\n");
-        exit(1);
-    }
-}
+// These must be provided to support a hash function
+void TwoCats_InitBlake2s(TwoCats_H *H);
+void TwoCats_InitSHA256(TwoCats_H *H);
+void TwoCats_InitBlake2b(TwoCats_H *H);
+void TwoCats_InitSHA512(TwoCats_H *H);
 
 // These big-endian encode/decode functions were copied from Script's sha.h
 
-static inline void
-be32enc(void *pp, uint32_t x)
-{
-        uint8_t * p = (uint8_t *)pp;
-
-        p[3] = x & 0xff;
-        p[2] = (x >> 8) & 0xff;
-        p[1] = (x >> 16) & 0xff;
-        p[0] = (x >> 24) & 0xff;
+// Encode a uint32_t as 4 uint8_t's in big-endian order.
+static inline void be32enc(uint8_t *p, uint32_t x) {
+        p[3] = x;
+        p[2] = x >> 8;
+        p[1] = x >> 16;
+        p[0] = x >> 24;
 }
 
-/*
- * Encode a length len/4 vector of (uint32_t) into a length len vector of
- * (unsigned char) in big-endian form.  Assumes len is a multiple of 4.
- */
-static inline void
-be32enc_vect(unsigned char *dst, const uint32_t *src, size_t len)
-{
-	size_t i;
-
-	for (i = 0; i < len / 4; i++)
-		be32enc(dst + i * 4, src[i]);
+// Encode a length len/4 vector of (uint32_t) into a length len vector of
+// (unsigned char) in big-endian form.  Assumes len is a multiple of 4.
+static inline void be32enc_vect(uint8_t *dst, const uint32_t *src, uint32_t len) {
+    for (uint32_t i = 0; i < len / 4; i++) {
+        be32enc(dst + i * 4, src[i]);
+    }
 }
 
-static inline uint32_t
-be32dec(const void *pp)
-{
-        const uint8_t *p = (uint8_t const *)pp;
-
-        return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
-            ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
+// Decode 4 uint8_t's in big-endian order to a uint32_t.
+static inline uint32_t be32dec(const uint8_t *p) {
+    return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
+        ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
 }
 
-/*
- * Decode a big-endian length len vector of (unsigned char) into a length
- * len/4 vector of (uint32_t).  Assumes len is a multiple of 4.
- */
-static inline void
-be32dec_vect(uint32_t *dst, const unsigned char *src, size_t len)
-{
-	size_t i;
-
-	for (i = 0; i < len / 4; i++)
-		dst[i] = be32dec(src + i * 4);
-}
-
-// Perform one crypto-strength hash on a 32-byte state, with a 32-bit salt.
-static inline void hashWithSalt(uint32_t out[8], uint32_t in[8], uint32_t salt) {
-    uint8_t s[4];
-    uint8_t buf[32];
-    be32enc(s, salt);
-    be32enc_vect(buf, in, 32);
-    H(buf, 32, buf, 32, s, 4);
-    be32dec_vect(out, buf, 32);
-}
-
-// Hash a variable length hash to a 256-bit hash.
-static inline void hashTo256(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize) {
-    uint8_t buf[32];
-    H(buf, 32, hash, hashSize, NULL, 0);
-    be32dec_vect(hash256, buf, 32);
+// Decode a big-endian length len vector of (unsigned char) into a length
+// len/4 vector of (uint32_t).  Assumes len is a multiple of 4.
+static inline void be32dec_vect(uint32_t *dst, const uint8_t *src, uint32_t len) {
+    for(uint32_t i = 0; i < len / 4; i++) {
+        dst[i] = be32dec(src + i * 4);
+    }
 }
 
 // Prevents compiler optimizing out memset() -- from blake2-impl.h
-static inline void secureZeroMemory(void *v, size_t n) {
+static inline void secureZeroMemory(void *v, uint32_t n) {
     volatile uint8_t *p = (volatile uint8_t *)v;
     while(n--) {
         *p++ = 0;
     }
 }
 
+// The TwoCats Internal password hashing function.  Return false if there is a memory allocation error.
+bool TwoCats(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
+    uint8_t timeCost, uint8_t multiplies, uint8_t parallelism, uint32_t blockSize,
+    uint32_t subBlockSize, bool updateMemCostMode);
 void TwoCats_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism,
         uint32_t *blocklen, uint32_t *subBlocklen, uint32_t *blocksPerThread);
-void TwoCats_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize);
-void TwoCats_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]);
-void TwoCats_hkdf(uint8_t *hash, uint32_t hashSize);
-void TwoCats_PrintState(char *message, uint32_t state[8]);
+void TwoCats_PrintState(char *message, uint32_t *state, uint32_t length);
 void TwoCats_DumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);

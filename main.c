@@ -16,6 +16,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <string.h>
+#include <strings.h>
 #include <getopt.h>
 #include "twocats.h"
 
@@ -24,7 +25,7 @@ static void usage(char *format, ...) {
     va_start(ap, format);
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
-    fprintf(stderr, "\nUsage: twocats [OPTIONS]\n"
+    fprintf(stderr, "\nUsage: twocats [OPTIONS] [hashType]\n"
         "    -h hashSize     -- The output derived key length in bytes, must be from 1 to 8160\n"
         "    -p password     -- Set the password to hash\n"
         "    -s salt         -- Set the salt.  Salt must be in hexidecimal\n"
@@ -33,7 +34,8 @@ static void usage(char *format, ...) {
         "    -M multiplies   -- The number of multiplies per 32 bytes of hashing, from 0 to 8\n"
         "    -P parallelism  -- Parallelism parameter, typically the number of threads\n"
         "    -b blockSize    -- BlockSize, defaults to 16384\n"
-        "    -B subBlockSize -- SubBlockSize, defaults to 64\n");
+        "    -B subBlockSize -- SubBlockSize, defaults to 64\n"
+        "Hash types are blake2s (the default), blake2b, sha256, and sha512\n");
     exit(1);
 }
 
@@ -100,6 +102,7 @@ int main(int argc, char **argv) {
     uint8_t multiplies = TWOCATS_MULTIPLIES;
     uint32_t blockSize = TWOCATS_BLOCKSIZE;
     uint32_t subBlockSize = TWOCATS_SUBBLOCKSIZE;
+    TwoCats_HashType hashType = TWOCATS_BLAKE2S;
 
     char c;
     while((c = getopt(argc, argv, "h:p:s:m:M:t:P:b:B:")) != -1) {
@@ -136,14 +139,27 @@ int main(int argc, char **argv) {
             usage("Invalid argument");
         }
     }
-    if(optind != argc) {
-        usage("Extra parameters not recognised\n");
+    if(optind + 1 == argc) {
+        // Must have supplied a hash type
+        if(!strcasecmp(argv[optind], "blake2s")) {
+            hashType = TWOCATS_BLAKE2S;
+        } else if(!strcasecmp(argv[optind], "blake2b")) {
+            hashType = TWOCATS_BLAKE2B;
+        } else if(!strcasecmp(argv[optind], "sha256")) {
+            hashType = TWOCATS_SHA256;
+        } else if(!strcasecmp(argv[optind], "sha512")) {
+            hashType = TWOCATS_SHA512;
+        } else {
+            usage("Unsupported hash type: %s\n", argv[optind]);
+        }
+    } else if(optind != argc) {
+        usage("Too many arguments\n");
     }
 
     printf("memCost:%u timeCost:%u multiplies:%u parallelism:%u password:%s salt:%s blockSize:%u subBlockSize:%u\n",
         memCost, timeCost, multiplies, parallelism, password, salt, blockSize, subBlockSize);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
-    if(!TwoCats_HashPasswordExtended(derivedKey, derivedKeySize, password, passwordSize,
+    if(!TwoCats_HashPasswordExtended(hashType, derivedKey, derivedKeySize, password, passwordSize,
             salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, parallelism,
             blockSize, subBlockSize, false, false)) {
         fprintf(stderr, "Key stretching failed.\n");

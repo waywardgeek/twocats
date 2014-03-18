@@ -16,7 +16,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <byteswap.h>
-#include "twocats.h"
 #include "twocats-internal.h"
 
 // This include code copied from blake2s.c

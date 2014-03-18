@@ -40,13 +40,24 @@
     with 0's at the beginning of hashing rather than by the user afterward.
 */
 
+// These are the primitive hash functions that can be plugged into TwoCats.  To add
+// another, add it's type here, declare it's init function in twocats-internal.h, copy
+// twocats-sha256.c to twocats-<yourhash>.c and edit it.  Finally, modify TwoCats_InitH in
+// twocats-common.c to call your initialization function.
+typedef enum {
+    TWOCATS_BLAKE2S,
+    TWOCATS_BLAKE2B,
+    TWOCATS_SHA256,
+    TWOCATS_SHA512
+} TwoCats_HashType;
 
 // The default password hashing interface.  On success, a 32-byte password hash is written,
 // and true is returned.  otherwise false is returned, and hash and password are unchanged.
 // Each increment of memCost doubles difficulty.  The memory hashed = 2^memCost KiB.
 // If clearPassword is set, the password buffer is set to 0's early during the hashing.
 
-bool TwoCats_HashPassword( uint8_t hash[32],
+bool TwoCats_HashPassword( TwoCats_HashType hashType,
+                           uint8_t *hash,       uint32_t hashSize,
                            uint8_t *password,   uint32_t passwordSize,
                            const uint8_t *salt, uint32_t saltSize,
                            uint8_t memCost,     bool clearPassword);
@@ -57,7 +68,8 @@ bool TwoCats_HashPassword( uint8_t hash[32],
 // threads used = parallelism.  The password buffer is set to 0's early during the
 // hashing if clearPassword is set.
 
-bool TwoCats_HashPasswordFull( uint8_t *hash,       uint32_t hashSize,
+bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
+                               uint8_t *hash,       uint32_t hashSize,
                                uint8_t *password,   uint32_t passwordSize,
                                const uint8_t *salt, uint32_t saltSize,
                                uint8_t memCost,     uint8_t timeCost,
@@ -114,7 +126,8 @@ bool TwoCats_HashPasswordFull( uint8_t *hash,       uint32_t hashSize,
    clearData is set, the data input is set to 0's early in hashing.
 */
 
-bool TwoCats_HashPasswordExtended( uint8_t *hash,        uint32_t hashSize,
+bool TwoCats_HashPasswordExtended( TwoCats_HashType hashType,
+                                   uint8_t *hash,        uint32_t hashSize,
                                    uint8_t *password,    uint32_t passwordSize,
                                    const uint8_t *salt,  uint32_t saltSize,
                                    uint8_t *data,        uint32_t dataSize,
@@ -125,25 +138,26 @@ bool TwoCats_HashPasswordExtended( uint8_t *hash,        uint32_t hashSize,
                                    bool clearPassword, bool clearData);
 
 // Update an existing password hash to a more difficult level of memCost.
-bool TwoCats_UpdatePassword(uint8_t *hash, uint32_t hashSize, uint8_t oldMemCost,
-        uint8_t newMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
-        uint32_t blockSize, uint32_t subBlockSize);
+bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t hashSize,
+    uint8_t oldMemCost, uint8_t newMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
+    uint32_t blockSize, uint32_t subBlockSize);
 
 // Client-side portion of work for server-relief mode.  hashSize must be <= 255*32
-bool TwoCats_ClientHashPassword(uint8_t *hash, uint32_t hashSize, uint8_t *password, uint32_t passwordSize,
-    const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize, uint8_t startMemCost,
-    uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
-    uint32_t blockSize, uint32_t subBlockSize, bool clearPassword, bool clearData);
+bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t hashSize,
+    uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
+    uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+    uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
+    bool clearPassword, bool clearData);
 
 // Server portion of work for server-relief mode.
-void TwoCats_ServerHashPassword(uint8_t *hash, uint8_t hashSize);
+void TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize);
 
 // Find parameter settings on this machine for a given desired runtime and maximum memory
 // usage.  maxMem is in KiB.  Runtime with be typically +/- 50% and memory will be <= maxMem.
-void TwoCats_FindCostParameters(uint32_t milliSeconds, uint32_t maxMem, uint8_t *memCost,
-    uint8_t *timeCost, uint8_t *multplies);
+void TwoCats_FindCostParameters(TwoCats_HashType hashType, uint32_t milliSeconds, uint32_t maxMem,
+    uint8_t *memCost, uint8_t *timeCost, uint8_t *multplies);
 
-// This is the prototype required for the password hashing competition.
+// This is the prototype required for the password hashing competition.  It uses Blake2s.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
     unsigned int t_cost, unsigned int m_cost);
 
