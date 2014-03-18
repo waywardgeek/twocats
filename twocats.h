@@ -48,8 +48,12 @@ typedef enum {
     TWOCATS_BLAKE2S,
     TWOCATS_BLAKE2B,
     TWOCATS_SHA256,
-    TWOCATS_SHA512
+    TWOCATS_SHA512,
+    TWOCATS_NONE
 } TwoCats_HashType;
+
+char *TwoCats_GetHashTypeName(TwoCats_HashType hashType);
+TwoCats_HashType TwoCats_FindHashType(char *name);
 
 // The default password hashing interface.  On success, a 32-byte password hash is written,
 // and true is returned.  otherwise false is returned, and hash and password are unchanged.

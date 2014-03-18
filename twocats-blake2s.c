@@ -17,6 +17,7 @@ static bool final(TwoCats_H *H, uint8_t *hash) {
 
 // Initialize the hashing object for Blake2s hashing.
 void TwoCats_InitBlake2s(TwoCats_H *H) {
+    H->name = "blake2s";
     H->size = 32;
     H->Init = init;
     H->Update = update;

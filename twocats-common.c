@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include "twocats-internal.h"
 
@@ -197,6 +198,34 @@ void TwoCats_InitHash(TwoCats_H *H, TwoCats_HashType type) {
     }
     H->len = H->size/4;
 }
+
+// Just return the hash type's name.
+char *TwoCats_GetHashTypeName(TwoCats_HashType hashType) {
+    switch(hashType) {
+    case TWOCATS_BLAKE2S: return "blake2s";
+    case TWOCATS_BLAKE2B: return "blake2b";
+    case TWOCATS_SHA256: return "sha256";
+    case TWOCATS_SHA512: return "sha512";
+    default:
+        fprintf(stderr, "Unknown hash type\n");
+        exit(1);
+    }
+}
+
+// Find a hash type with the given name.
+TwoCats_HashType TwoCats_FindHashType(char *name) {
+    if(!strcasecmp(name, "blake2s")) {
+        return TWOCATS_BLAKE2S;
+    } else if(!strcasecmp(name, "blake2b")) {
+        return TWOCATS_BLAKE2B;
+    } else if(!strcasecmp(name, "sha256")) {
+        return TWOCATS_SHA256;
+    } else if(!strcasecmp(name, "sha512")) {
+        return TWOCATS_SHA512;
+    }
+    return TWOCATS_NONE;
+}
+
 
 // Verify that parameters are valid for password hashing.
 static bool verifyParameters(uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,

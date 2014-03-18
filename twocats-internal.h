@@ -23,6 +23,12 @@ typedef struct TwoCats_HashStruct TwoCats_H;
 
 struct TwoCats_HashStruct {
     // These three must be defined for each new hash function supported
+    union {
+        blake2s_state blake2sState;
+        blake2b_state blake2bState;
+        SHA256_CTX sha256State;
+        SHA512_CTX sha512State;
+    } c;
     bool (*Init)(TwoCats_H *H);
     bool (*Update)(TwoCats_H *H, const uint8_t *data, uint32_t dataSize);
     bool (*Final)(TwoCats_H *H, uint8_t *hash);
@@ -34,12 +40,7 @@ struct TwoCats_HashStruct {
     bool (*Expand)(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, const uint32_t *hash32);
     bool (*ExpandUint32)(TwoCats_H *H, uint32_t *out, uint32_t outlen, const uint32_t *hash32);
     bool (*FinalUint32)(TwoCats_H *H, uint32_t *hash32);
-    union {
-        blake2s_state blake2sState;
-        blake2b_state blake2bState;
-        SHA256_CTX sha256State;
-        SHA512_CTX sha512State;
-    } c;
+    char *name;
     TwoCats_HashType type;
     uint8_t size, len; // Size is in bytes, len is in 32-bit ints
 };

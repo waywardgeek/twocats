@@ -35,7 +35,13 @@ static void usage(char *format, ...) {
         "    -P parallelism  -- Parallelism parameter, typically the number of threads\n"
         "    -b blockSize    -- BlockSize, defaults to 16384\n"
         "    -B subBlockSize -- SubBlockSize, defaults to 64\n"
-        "Hash types are blake2s (the default), blake2b, sha256, and sha512\n");
+        "Hash types are");
+    
+    for(uint32_t i = 0; i < TWOCATS_NONE; i++) {
+        char *name = TwoCats_GetHashTypeName(i);
+        printf(" %s", name);
+    }
+    printf("\n");
     exit(1);
 }
 
@@ -143,16 +149,9 @@ int main(int argc, char **argv) {
     if(optind + 1 == argc) {
         // Must have supplied a hash type
         hashName = argv[optind];
-        if(!strcasecmp(argv[optind], "blake2s")) {
-            hashType = TWOCATS_BLAKE2S;
-        } else if(!strcasecmp(argv[optind], "blake2b")) {
-            hashType = TWOCATS_BLAKE2B;
-        } else if(!strcasecmp(argv[optind], "sha256")) {
-            hashType = TWOCATS_SHA256;
-        } else if(!strcasecmp(argv[optind], "sha512")) {
-            hashType = TWOCATS_SHA512;
-        } else {
-            usage("Unsupported hash type: %s\n", argv[optind]);
+        hashType = TwoCats_FindHashType(argv[optind]);
+        if(hashType == TWOCATS_NONE) {
+            usage("Unsupported hash type: %s\n", hashName);
         }
     } else if(optind != argc) {
         usage("Too many arguments\n");

@@ -17,6 +17,7 @@ static bool final(TwoCats_H *H, uint8_t *hash) {
 
 // Initialize the hashing object for sha256 hashing.
 void TwoCats_InitSHA256(TwoCats_H *H) {
+    H->name = "sha256";
     H->size = 32;
     H->Init = init;
     H->Update = update;

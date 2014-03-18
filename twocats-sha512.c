@@ -17,6 +17,7 @@ static bool final(TwoCats_H *H, uint8_t *hash) {
 
 // Initialize the hashing object for sha512 hashing.
 void TwoCats_InitSHA512(TwoCats_H *H) {
+    H->name = "sha512";
     H->size = 64;
     H->Init = init;
     H->Update = update;
