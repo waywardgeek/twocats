@@ -85,6 +85,7 @@ static void hashWithoutPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, ui
     uint64_t start = blocklen*blocksPerThread*p;
     uint32_t firstBlock = completedBlocks;
     if(completedBlocks == 0) {
+        // Initialize the first block of memory
         H->ExpandUint32(H, mem + start, blocklen, state);
         firstBlock = 1;
     }
@@ -173,10 +174,10 @@ static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
     for(uint32_t slice = 0; slice < TWOCATS_SLICES; slice++) {
         for(uint32_t p = 0; p < parallelism; p++) {
             if(slice < resistantSlices) {
-                hashWithoutPassword(H, states + H->len*p, mem, p, blocklen, blocksPerThread, multiplies,
+                hashWithoutPassword(H, states + p*H->len, mem, p, blocklen, blocksPerThread, multiplies,
                     repetitions, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
             } else {
-                hashWithPassword(H, states + H->len*p, mem, p, blocklen, subBlocklen, blocksPerThread,
+                hashWithPassword(H, states + p*H->len, mem, p, blocklen, subBlocklen, blocksPerThread,
                     multiplies, repetitions, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
             }
         }

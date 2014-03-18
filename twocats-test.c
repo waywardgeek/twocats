@@ -44,7 +44,6 @@ void PHC_test(TwoCats_HashType hashType) {
 
     int i;
 
-    printf("****************************************** Testing hash type %s\n", TwoCats_GetHashTypeName(hashType));
     printf("****************************************** Test passwords\n");
     for(i=0; i < 256; i++) {
         test_output(hashType, TWOCATS_KEYSIZE, (uint8_t *) &i, 1, NULL, 0, NULL, 0, TEST_MEMCOST, TWOCATS_TIMECOST,
@@ -146,9 +145,10 @@ void verifyClientServer(TwoCats_HashType hashType) {
 int main()
 {
     for(uint32_t hashType = 0; hashType < TWOCATS_NONE; hashType++) {
+        printf("****************************************** Testing hash type %s\n", TwoCats_GetHashTypeName(hashType));
+        PHC_test(hashType);
         verifyClientServer(hashType);
         verifyPasswordUpdate(hashType);
-        PHC_test(hashType);
     }
     return 0;
 }

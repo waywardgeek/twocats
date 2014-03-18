@@ -67,7 +67,7 @@
 // This structure is shared among all threads.
 struct TwoCatsCommonDataStruct {
     uint32_t *mem;
-    uint32_t *hash256;
+    uint32_t *hash32;
     uint32_t parallelism;
     uint32_t blocklen;
     uint32_t subBlocklen;
@@ -79,17 +79,18 @@ struct TwoCatsCommonDataStruct {
 
 // This structure is unique to each memory-hashing thread
 struct TwoCatsContextStruct {
+    TwoCats_H H;
     struct TwoCatsCommonDataStruct *common;
-    uint32_t state[8];
+    uint32_t *state;
     uint32_t p; // This is the memory-thread number
 };
 
 // Add the last hashed data into the result.
-static void addIntoHash(uint32_t *hash256, uint32_t *mem, uint32_t parallelism, uint32_t blocklen,
-        uint32_t blocksPerThread) {
+static void addIntoHash(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint32_t parallelism,
+        uint32_t blocklen, uint32_t blocksPerThread) {
     for(uint32_t p = 0; p < parallelism; p++) {
-        for(uint32_t i = 0; i < 8; i++) {
-            hash256[i] += mem[(p+1)*(uint64_t)blocklen*blocksPerThread + i - 8];
+        for(uint32_t i = 0; i < H->len; i++) {
+            hash32[i] += mem[(p+1)*(uint64_t)blocklen*blocksPerThread + i - H->len];
         }
     }
 }
@@ -128,33 +129,60 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t state[
 }
 #endif
 
-// Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
-// Basically, it does for every 8 words:
-//     for(i = 0; i < 8; i++) {
-//         state[i] = ROTATE_LEFT((state[i] + *p++) ^ *f++, 8);
-//         *t++ = state[i];
-//     
-static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
-        uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint8_t multiplies, uint32_t repetitions) {
+/* Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
+   Basically, it does for every 8 words:
+       for(i = 0; i < 8; i++) {
+           state[i] = ROTATE_LEFT((state[i] + *p++) ^ *f++, 8);
+           *t++ = state[i];
+  
+   TODO: Optimizations for ARM, and widths other than 8 should be written as well. */
+       
+static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
+        uint32_t blocklen, uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr,
+        uint64_t toAddr, uint8_t multiplies, uint32_t repetitions) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
-    uint32_t oddState[8];
-    for(uint32_t i = 0; i < 8; i++) {
+    uint32_t oddState[H->len];
+    for(uint32_t i = 0; i < H->len; i++) {
         oddState[i] = state[i] | 1;
     }
     uint64_t v = 1;
 
+    bool haveFastCode = false;
+    if(H->len == 8) {
 #if defined(HAVE_AVX2)
-    __m256i s;
-    convStateFromUint32ToM256i(state, &s);
-    __m256i *m = (__m256i *)mem;
-    DECLARE_ROTATE_CONSTS
-    __m256i *f;
-    __m256i *t;
-    __m256i *p;
-    for(uint32_t r = 0; r < repetitions-1; r++) {
+        haveFastCode = true;
+        __m256i s;
+        convStateFromUint32ToM256i(state, &s);
+        __m256i *m = (__m256i *)mem;
+        DECLARE_ROTATE_CONSTS
+        __m256i *f;
+        __m256i *t;
+        __m256i *p;
+        for(uint32_t r = 0; r < repetitions-1; r++) {
+            f = m + fromAddr/8;
+            for(uint32_t i = 0; i < numSubBlocks; i++) {
+                uint32_t randVal = *(uint32_t *)f;
+                p = m + prevAddr/8 + (subBlocklen/8)*(randVal & (numSubBlocks - 1));
+                for(uint32_t j = 0; j < subBlocklen/8; j++) {
+
+                    // Compute the multiplication chain
+                    for(uint8_t k = 0; k < multiplies; k++) {
+                        v = (uint32_t)v * (uint64_t)oddState[k];
+                        v ^= randVal;
+                        //randVal += v >> 32;
+                    }
+
+                    // Hash 32 bytes of memory
+                    s = _mm256_add_epi32(s, *p++);
+                    s = _mm256_xor_si256(s, *f++);
+                    s = ROTATE_LEFT8(s);
+                }
+            }
+        }
         f = m + fromAddr/8;
+        t = m + toAddr/8;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
             uint32_t randVal = *(uint32_t *)f;
             p = m + prevAddr/8 + (subBlocklen/8)*(randVal & (numSubBlocks - 1));
@@ -171,48 +199,55 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
                 s = _mm256_add_epi32(s, *p++);
                 s = _mm256_xor_si256(s, *f++);
                 s = ROTATE_LEFT8(s);
+                *t++ = s;
             }
         }
-    }
-    f = m + fromAddr/8;
-    t = m + toAddr/8;
-    for(uint32_t i = 0; i < numSubBlocks; i++) {
-        uint32_t randVal = *(uint32_t *)f;
-        p = m + prevAddr/8 + (subBlocklen/8)*(randVal & (numSubBlocks - 1));
-        for(uint32_t j = 0; j < subBlocklen/8; j++) {
-
-            // Compute the multiplication chain
-            for(uint8_t k = 0; k < multiplies; k++) {
-                v = (uint32_t)v * (uint64_t)oddState[k];
-                v ^= randVal;
-                //randVal += v >> 32;
-            }
-
-            // Hash 32 bytes of memory
-            s = _mm256_add_epi32(s, *p++);
-            s = _mm256_xor_si256(s, *f++);
-            s = ROTATE_LEFT8(s);
-            *t++ = s;
-        }
-    }
-    convStateFromM256iToUint32(&s, state);
+        convStateFromM256iToUint32(&s, state);
 #elif defined(HAVE_SSE2)
-    __m128i s1;
-    __m128i s2;
-    convStateFromUint32ToM128i(state, &s1, &s2);
-    __m128i *m = (__m128i *)mem;
-    DECLARE_ROTATE_CONSTS
-    __m128i *f;
-    __m128i *t;
-    __m128i *p;
-    for(uint32_t r = 0; r < repetitions-1; r++) {
+        haveFastCode = true;
+        __m128i s1;
+        __m128i s2;
+        convStateFromUint32ToM128i(state, &s1, &s2);
+        __m128i *m = (__m128i *)mem;
+        DECLARE_ROTATE_CONSTS
+        __m128i *f;
+        __m128i *t;
+        __m128i *p;
+        for(uint32_t r = 0; r < repetitions-1; r++) {
+            f = m + fromAddr/4;
+            for(uint32_t i = 0; i < numSubBlocks; i++) {
+                uint32_t randVal = *(uint32_t *)f;
+                p = m + prevAddr/4 + (subBlocklen/4)*(randVal & (numSubBlocks - 1));
+                for(uint32_t j = 0; j < subBlocklen/8; j++) {
+
+                    // Compute the multiplication chain
+                    for(uint8_t k = 0; k < multiplies; k++) {
+                        v = (uint32_t)v * (uint64_t)oddState[k];
+                        v ^= randVal;
+                        randVal += v >> 32;
+                    }
+
+                    // Hash 32 bytes of memory
+                    s1 = _mm_add_epi32(s1, *p++);
+                    s1 = _mm_xor_si128(s1, *f++);
+                    // Rotate left 8
+                    s1 = ROTATE_LEFT8(s1);
+                    s2 = _mm_add_epi32(s2, *p++);
+                    s2 = _mm_xor_si128(s2, *f++);
+                    // Rotate left 8
+                    s2 = ROTATE_LEFT8(s2);
+                }
+            }
+        }
         f = m + fromAddr/4;
+        t = m + toAddr/4;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
             uint32_t randVal = *(uint32_t *)f;
             p = m + prevAddr/4 + (subBlocklen/4)*(randVal & (numSubBlocks - 1));
             for(uint32_t j = 0; j < subBlocklen/8; j++) {
 
                 // Compute the multiplication chain
+
                 for(uint8_t k = 0; k < multiplies; k++) {
                     v = (uint32_t)v * (uint64_t)oddState[k];
                     v ^= randVal;
@@ -224,49 +259,50 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
                 s1 = _mm_xor_si128(s1, *f++);
                 // Rotate left 8
                 s1 = ROTATE_LEFT8(s1);
+                *t++ = s1;
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
                 // Rotate left 8
                 s2 = ROTATE_LEFT8(s2);
+                *t++ = s2;
             }
         }
+        convStateFromM128iToUint32(&s1, &s2, state);
+#endif
+    } else if(H->len == 4) {
+        // TODO: write 4-lane code here using SSE2
+    } else if(H->len == 2) {
+        // TODO: write 2-lane code here using MMX
     }
-    f = m + fromAddr/4;
-    t = m + toAddr/4;
-    for(uint32_t i = 0; i < numSubBlocks; i++) {
-        uint32_t randVal = *(uint32_t *)f;
-        p = m + prevAddr/4 + (subBlocklen/4)*(randVal & (numSubBlocks - 1));
-        for(uint32_t j = 0; j < subBlocklen/8; j++) {
+    if(!haveFastCode) {
+        for(uint32_t r = 0; r < repetitions-1; r++) {
+            uint32_t *f = mem + fromAddr;
+            for(uint32_t i = 0; i < numSubBlocks; i++) {
+                uint32_t randVal = *f;
+                uint32_t *p = mem + prevAddr + subBlocklen*(randVal & (numSubBlocks - 1));
+                for(uint32_t j = 0; j < subBlocklen/H->len; j++) {
 
-            // Compute the multiplication chain
+                    // Compute the multiplication chain
+                    for(uint32_t k = 0; k < multiplies; k++) {
+                        v = (uint32_t)v * (uint64_t)oddState[k];
+                        v ^= randVal;
+                        randVal += v >> 32;
+                    }
 
-            for(uint8_t k = 0; k < multiplies; k++) {
-                v = (uint32_t)v * (uint64_t)oddState[k];
-                v ^= randVal;
-                randVal += v >> 32;
+                    // Hash 32 bytes of memory
+                    for(uint32_t k = 0; k < H->len; k++) {
+                        state[k] = (state[k] + *p++) ^ *f++;
+                        state[k] = (state[k] >> 24) | (state[k] << 8);
+                    }
+                }
             }
-
-            // Hash 32 bytes of memory
-            s1 = _mm_add_epi32(s1, *p++);
-            s1 = _mm_xor_si128(s1, *f++);
-            // Rotate left 8
-            s1 = ROTATE_LEFT8(s1);
-            *t++ = s1;
-            s2 = _mm_add_epi32(s2, *p++);
-            s2 = _mm_xor_si128(s2, *f++);
-            // Rotate left 8
-            s2 = ROTATE_LEFT8(s2);
-            *t++ = s2;
         }
-    }
-    convStateFromM128iToUint32(&s1, &s2, state);
-#else
-    for(uint32_t r = 0; r < repetitions-1; r++) {
         uint32_t *f = mem + fromAddr;
         uint32_t *t = mem + toAddr;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
             uint32_t randVal = *f;
-            for(uint32_t j = 0; j < subBlocklen/8; j++) {
+            uint32_t *p = mem + prevAddr + subBlocklen*(randVal & (numSubBlocks - 1));
+            for(uint32_t j = 0; j < subBlocklen/H->len; j++) {
 
                 // Compute the multiplication chain
                 for(uint32_t k = 0; k < multiplies; k++) {
@@ -276,70 +312,49 @@ static inline void hashBlocksInner(uint32_t state[8], uint32_t *mem, uint32_t bl
                 }
 
                 // Hash 32 bytes of memory
-                for(uint32_t k = 0; k < 8; k++) {
+                for(uint32_t k = 0; k < H->len; k++) {
                     state[k] = (state[k] + *p++) ^ *f++;
                     state[k] = (state[k] >> 24) | (state[k] << 8);
+                    *t++ = state[k];
                 }
             }
         }
     }
-    uint32_t *f = mem + fromAddr;
-    uint32_t *t = mem + toAddr;
-    for(uint32_t i = 0; i < numSubBlocks; i++) {
-        uint32_t randVal = *f;
-        uint32_t *p = mem + prevAddr + subBlocklen*(randVal & (numSubBlocks - 1));
-        for(uint32_t j = 0; j < subBlocklen/8; j++) {
-
-            // Compute the multiplication chain
-            for(uint32_t k = 0; k < multiplies; k++) {
-                v = (uint32_t)v * (uint64_t)oddState[k];
-                v ^= randVal;
-                randVal += v >> 32;
-            }
-
-            // Hash 32 bytes of memory
-            for(uint32_t k = 0; k < 8; k++) {
-                state[k] = (state[k] + *p++) ^ *f++;
-                state[k] = (state[k] >> 24) | (state[k] << 8);
-                *t++ = state[k];
-            }
-        }
-    }
-#endif
-    hashWithSalt(state, state, v);
+    H->HashState(H, state, v);
 }
 
 // This crazy wrapper is simply to force to optimizer to unroll the multiplication loop.
 // It only was required for Haswell while running entirely in L1 cache.
-static inline void hashBlocks(uint32_t state[8], uint32_t *mem, uint32_t blocklen, uint32_t subBlocklen,
-        uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr, uint8_t multiplies, uint32_t repetitions) {
+static inline void hashBlocks(TwoCats_H *H, uint32_t state[8], uint32_t *mem, uint32_t blocklen,
+        uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
+        uint8_t multiplies, uint32_t repetitions) {
     switch(multiplies) {
     case 0:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 0, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 0, repetitions);
         break;
     case 1:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 1, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 1, repetitions);
         break;
     case 2:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 2, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 2, repetitions);
         break;
     case 3:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 3, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 3, repetitions);
         break;
     case 4:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 4, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 4, repetitions);
         break;
     case 5:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 5, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 5, repetitions);
         break;
     case 6:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 6, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 6, repetitions);
         break;
     case 7:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 7, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 7, repetitions);
         break;
     case 8:
-        hashBlocksInner(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 8, repetitions);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 8, repetitions);
         break;
     }
 }
@@ -363,6 +378,7 @@ static void *hashWithoutPassword(void *contextPtr) {
     struct TwoCatsContextStruct *ctx = (struct TwoCatsContextStruct *)contextPtr;
     struct TwoCatsCommonDataStruct *c = ctx->common;
 
+    TwoCats_H *H = &(ctx->H);
     uint32_t *state = ctx->state;
     uint32_t *mem = c->mem;
     uint32_t p = ctx->p;
@@ -377,9 +393,7 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t firstBlock = completedBlocks;
     if(completedBlocks == 0) {
         // Initialize the first block of memory
-        for(uint32_t i = 0; i < blocklen/8; i++) {
-            hashWithSalt(mem + start + 8*i, state, i);
-        }
+        H->ExpandUint32(H, mem + start, blocklen, state);
         firstBlock = 1;
     }
 
@@ -408,7 +422,7 @@ static void *hashWithoutPassword(void *contextPtr) {
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(H, state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
     pthread_exit(NULL);
 }
@@ -418,6 +432,7 @@ static void *hashWithPassword(void *contextPtr) {
     struct TwoCatsContextStruct *ctx = (struct TwoCatsContextStruct *)contextPtr;
     struct TwoCatsCommonDataStruct *c = ctx->common;
 
+    TwoCats_H *H = &(ctx->H);
     uint32_t *state = ctx->state;
     uint32_t *mem = c->mem;
     uint32_t p = ctx->p;
@@ -452,15 +467,15 @@ static void *hashWithPassword(void *contextPtr) {
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
+        hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions);
     }
     pthread_exit(NULL);
 }
 
 // Hash memory for one level of garlic.
-static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t memCost, uint8_t timeCost,
-        uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
-        uint32_t resistantSlices) {
+static bool hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *mem,
+        uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t parallelism,
+        uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
 
     uint32_t blocksPerThread;
     uint32_t repetitions = 1 << timeCost;
@@ -471,8 +486,8 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     TwoCats_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &subBlocklen, &blocksPerThread);
 
     // Convert hash to 8 32-bit ints.
-    uint32_t hash256[8];
-    TwoCats_hkdfExtract(hash256, hash, hashSize);
+    uint32_t hash32[H->len];
+    H->Extract(H, hash32, hash, hashSize);
     secureZeroMemory(hash, hashSize);
 
     // Fill out the common constant data used in all threads
@@ -481,7 +496,7 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     struct TwoCatsCommonDataStruct common;
     common.multiplies = multiplies;
     common.mem = mem;
-    common.hash256 = hash256;
+    common.hash32 = hash32;
     common.blocklen = blocklen;
     common.subBlocklen = subBlocklen;
     common.blocksPerThread = blocksPerThread;
@@ -489,10 +504,13 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     common.repetitions = repetitions;
 
     // Initialize thread states
+    uint32_t states[H->len*parallelism];
+    H->ExpandUint32(H, states, H->len*parallelism, hash32);
     for(uint32_t p = 0; p < parallelism; p++) {
-        hashWithSalt(c[p].state, hash256, p);
         c[p].common = &common;
         c[p].p = p;
+        c[p].state = states + p*H->len;
+        TwoCats_InitHash(&(c[p].H), H->type);
     }
 
     for(uint32_t slice = 0; slice < TWOCATS_SLICES; slice++) {
@@ -515,18 +533,19 @@ static bool hashMemory(uint8_t *hash, uint8_t hashSize, uint32_t *mem, uint8_t m
     }
 
     // Apply a crypto-strength hash
-    addIntoHash(hash256, mem, parallelism, blocklen, blocksPerThread);
-    TwoCats_hkdfExpand(hash, hashSize, hash256);
+    addIntoHash(H, hash32, mem, parallelism, blocklen, blocksPerThread);
+    H->Expand(H, hash, hashSize, hash32);
     return true;
 }
 
 // The TwoCats password hashing function.  Return false if there is a memory allocation error.
-bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-    uint8_t multiplies, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize, bool updateMemCostMode) {
+bool TwoCats(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
+        uint8_t timeCost, uint8_t multiplies, uint8_t parallelism, uint32_t blockSize,
+        uint32_t subBlockSize, bool updateMemCostMode) {
 
     // Allocate memory
     uint32_t *mem;
-    if(posix_memalign((void *)&mem,  32, (uint64_t)1024 << stopMemCost)) {
+    if(posix_memalign((void *)&mem,  64, (uint64_t)1024 << stopMemCost)) {
         fprintf(stderr, "Unable to allocate memory\n");
         return false;
     }
@@ -539,14 +558,14 @@ bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t sto
             if(i < startMemCost) {
                 resistantSlices = TWOCATS_SLICES;
             }
-            if(!hashMemory(hash, hashSize, mem, i, timeCost, multiplies, parallelism, blockSize,
+            if(!hashMemory(H, hash, hashSize, mem, i, timeCost, multiplies, parallelism, blockSize,
                     subBlockSize, resistantSlices)) {
                 free(mem);
                 return false;
             }
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
-                TwoCats_hkdf(hash, hashSize);
+                H->Hash(H, hash, hashSize);
             }
         }
     }

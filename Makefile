@@ -3,8 +3,8 @@
 DEPS = Makefile
 
 CC=gcc
-CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
-#CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=native -funroll-loops
+#CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
+CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=native -funroll-loops
 #CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -msse4.2 -funroll-loops
 LIBS=-lcrypto
 
@@ -20,6 +20,7 @@ twocats-sha512.c
 REF_SOURCE=main.c twocats-ref.c
 TWOCATS_SOURCE=main.c twocats.c
 TEST_SOURCE=twocats-test.c twocats-ref.c
+#TEST_SOURCE=twocats-test.c twocats.c
 PHS_SOURCE=twocats-phs.c twocats.c
 ENC_SOURCE=twocats-enc.c twocats.c
 DEC_SOURCE=twocats-dec.c twocats.c
@@ -33,7 +34,7 @@ ENC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
 DEC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
 
 #all: obj/blake2 twocats-ref twocats twocats-test twocats-phs twocats-enc twocats-dec
-all: obj/blake2 twocats-ref twocats-test
+all: obj/blake2 twocats-ref twocats twocats-test
 
 -include $(OBJS:.o=.d) $(REF_OBJS:.o=.d) $(TWOCATS_OBJS:.o=.d) $(PHS_OBJS:.o=.d) $(ENC_OBJS:.o=.d) $(DEC_OBJS:.o=.d)
 

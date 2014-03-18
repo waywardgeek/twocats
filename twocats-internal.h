@@ -51,6 +51,8 @@ void TwoCats_InitSHA256(TwoCats_H *H);
 void TwoCats_InitBlake2b(TwoCats_H *H);
 void TwoCats_InitSHA512(TwoCats_H *H);
 
+void TwoCats_InitHash(TwoCats_H *H, TwoCats_HashType type);
+
 // These big-endian encode/decode functions were copied from Script's sha.h
 
 // Encode a uint32_t as 4 uint8_t's in big-endian order.
