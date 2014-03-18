@@ -17,10 +17,10 @@
 #include <time.h>
 #include "hkdf/sha.h"
 #include "twocats.h"
-#include "twocats-impl.h"
+#include "twocats-internal.h"
 
 // Print the state.
-void printState(char *message, uint32_t state[8]) {
+void TwoCats_PrintState(char *message, uint32_t state[8]) {
     printf("%s\n", message);
     for(uint32_t i = 0; i < 8; i++) {
         printf("%u ", state[i]);
@@ -29,7 +29,7 @@ void printState(char *message, uint32_t state[8]) {
 }
 
 // Print a value out in hex - from Catena.
-void printHex(char *message, uint8_t *x, int len) {
+void TwoCats_PrintHex(char *message, uint8_t *x, int len) {
     puts(message);
     for(uint32_t i = 0; i < len; i++) {
         if(i != 0 && i % 8 == 0) {
@@ -42,7 +42,7 @@ void printHex(char *message, uint8_t *x, int len) {
 
 // Just dump memory in a format that can be passed to the dieharder tests with:
 //   dieharder -a -g 202 -f dieharder_data
-void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
+void TwoCats_DumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
     FILE *file = fopen(fileName, "w");
     if(file == NULL) {
         fprintf(stderr, "Unable to open file %s for writing\n", fileName);

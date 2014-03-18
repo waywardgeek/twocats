@@ -18,7 +18,6 @@
 #include <string.h>
 #include <getopt.h>
 #include "twocats.h"
-#include "twocats-impl.h"
 
 static void usage(char *format, ...) {
     va_list ap;
@@ -58,6 +57,6 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Hashing failed.  Are the input parameters too big or small?\n");
         return 1;
     }
-    printHex("", hash, hashSize);
+    TwoCats_PrintHex("", hash, hashSize);
     return 0;
 }

@@ -15,8 +15,6 @@
 #include <stdlib.h>
 #include "blake2/blake2.h"
 
-#define TWOCATS_MEMCOST 20 // 1 GiB
-#define TWOCATS_MINBLOCKS 256
 #define TWOCATS_SLICES 4
 
 
@@ -113,6 +111,5 @@ void TwoCats_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelis
 void TwoCats_hkdfExtract(uint32_t hash256[8], uint8_t *hash, uint32_t hashSize);
 void TwoCats_hkdfExpand(uint8_t *hash, uint32_t hashSize, uint32_t hash256[8]);
 void TwoCats_hkdf(uint8_t *hash, uint32_t hashSize);
-void printHex(char *message, uint8_t *x, int len);
-void printState(char *message, uint32_t state[8]);
-void dumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);
+void TwoCats_PrintState(char *message, uint32_t state[8]);
+void TwoCats_DumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);

@@ -8,7 +8,6 @@
 #include <string.h>
 
 #include "twocats.h"
-#include "twocats-impl.h"
 
 #define TEST_MEMCOST 10
 
@@ -23,9 +22,9 @@ void test_output(uint8_t hashlen,
 {
     uint8_t hash[hashlen];
 
-    printHex("Password: ",pwd, pwdlen);
-    printHex("Salt: ",salt, saltlen);
-    printHex("Associated data:", data, datalen);
+    TwoCats_PrintHex("Password: ",pwd, pwdlen);
+    TwoCats_PrintHex("Salt: ",salt, saltlen);
+    TwoCats_PrintHex("Associated data:", data, datalen);
     printf("memCost:%u timeCost:%u multiplies:%u parallelism:%u\n", memCost, timeCost, multiplies, parallelism);
 
     if(!TwoCats_HashPasswordExtended(hash, hashlen, pwd, pwdlen, salt, saltlen, data,
@@ -35,7 +34,7 @@ void test_output(uint8_t hashlen,
         exit(1);
     }
 
-    printHex("\nOutput: ", hash, hashlen);
+    TwoCats_PrintHex("\nOutput: ", hash, hashlen);
     printf("\n");
 }
 

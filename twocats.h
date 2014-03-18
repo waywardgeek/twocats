@@ -66,6 +66,8 @@ bool TwoCats_HashPasswordFull( uint8_t *hash,       uint32_t hashSize,
 
 /* These values make reasonable defaults when using the extended interface */
 
+#define TWOCATS_MEMCOST 20 // 1 GiB
+#define TWOCATS_MINBLOCKS 256
 #define TWOCATS_KEYSIZE 32
 #define TWOCATS_PARALLELISM 2
 #define TWOCATS_BLOCKSIZE 16384
@@ -144,3 +146,6 @@ void TwoCats_FindCostParameters(uint32_t milliSeconds, uint32_t maxMem, uint8_t 
 // This is the prototype required for the password hashing competition.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
     unsigned int t_cost, unsigned int m_cost);
+
+// Print binary data in hexidecimal format.
+void TwoCats_PrintHex(char *message, uint8_t *x, int len);

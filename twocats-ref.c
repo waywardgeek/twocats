@@ -16,7 +16,7 @@
 #include <string.h>
 #include "hkdf/sha.h"
 #include "twocats.h"
-#include "twocats-impl.h"
+#include "twocats-internal.h"
 
 // Add the last hashed data into the result.
 static void addIntoHash(uint32_t *hash256, uint32_t *mem, uint32_t parallelism, uint32_t blocklen,
@@ -222,7 +222,7 @@ bool TwoCats(uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t sto
     }
 
     // The light is green, the trap is clean
-    //dumpMemory("dieharder_data", mem, ((uint64_t)1024 << stopMemCost)/4);
+    //TwoCats_DumpMemory("dieharder_data", mem, ((uint64_t)1024 << stopMemCost)/4);
     free(mem);
     return true;
 }
