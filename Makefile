@@ -31,10 +31,9 @@ TWOCATS_OBJS=$(patsubst %.c,obj/%.o,$(TWOCATS_SOURCE))
 TEST_OBJS=$(patsubst %.c,obj/%.o,$(TEST_SOURCE))
 PHS_OBJS=$(patsubst %.c,obj/%.o,$(PHS_SOURCE))
 ENC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
-DEC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
+DEC_OBJS=$(patsubst %.c,obj/%.o,$(DEC_SOURCE))
 
-#all: obj/blake2 twocats-ref twocats twocats-test twocats-phs twocats-enc twocats-dec
-all: obj/blake2 twocats-ref twocats twocats-test
+all: obj/blake2 twocats-ref twocats twocats-test twocats-phs twocats-enc twocats-dec
 
 -include $(OBJS:.o=.d) $(REF_OBJS:.o=.d) $(TWOCATS_OBJS:.o=.d) $(PHS_OBJS:.o=.d) $(ENC_OBJS:.o=.d) $(DEC_OBJS:.o=.d)
 

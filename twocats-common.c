@@ -301,7 +301,7 @@ bool TwoCats_HashPasswordFull(TwoCats_HashType hashType, uint8_t *hash, uint32_t
     }
     return TwoCats_HashPasswordExtended(hashType, hash, hashSize, password, passwordSize,
         salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, parallelism,
-        clearPassword, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, false);
+        TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, clearPassword, false);
 }
 
 // The extended password hashing interface.  

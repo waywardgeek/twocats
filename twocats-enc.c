@@ -58,11 +58,11 @@ int main(int argc, char **argv) {
     // Find out how much memory to use to have 0.5 second of hashing.  Max out at 2GiB.
     // 1000 means 1000 milliseconds, and 20 means 2^21 KiB max memory == 2 GiB.
     uint8_t memCost, timeCost, multiplies;
-    TwoCats_FindCostParameters(1000, 2*1024*1024, &memCost, &timeCost, &multiplies);
+    TwoCats_FindCostParameters(TWOCATS_BLAKE2S, 1000, 2*1024*1024, &memCost, &timeCost, &multiplies);
     printf("Encrypting with memCost=%u timeCost=%u multiplies=%u\n", memCost, timeCost, multiplies);
 
     genSalt(salt);
-    if(!TwoCats_HashPassword(key, (uint8_t *)password, strlen(password),
+    if(!TwoCats_HashPassword(TWOCATS_BLAKE2S, key, 32, (uint8_t *)password, strlen(password),
             salt, SALT_SIZE, memCost, timeCost)) {
         fprintf(stderr, "Unable to hash password - memory allocation failed\n");
         return 1;

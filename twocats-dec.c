@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if(!TwoCats_SimpleHashPassword(key, KEY_SIZE, (uint8_t *)password, strlen(password),
+    if(!TwoCats_HashPassword(TWOCATS_BLAKE2S, key, KEY_SIZE, (uint8_t *)password, strlen(password),
             salt, SALT_SIZE, memCost, timeCost)) {
         fprintf(stderr, "Unable to hash password - memory allocation failed\n");
         return 1;
