@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "twocats.h"
+#include "twocats-internal.h"
 
 #define TEST_MEMCOST 10
 
@@ -45,6 +45,8 @@ void test_output(TwoCats_HashType hashType, uint8_t hashlen,
 void PHC_test(TwoCats_HashType hashType) {
 
     int i;
+    TwoCats_H H;
+    TwoCats_InitHash(&H, hashType); // To gain access to length
 
     printf("****************************************** Test passwords\n");
     for(i=0; i < 256; i++) {
@@ -80,6 +82,11 @@ void PHC_test(TwoCats_HashType hashType) {
     for(i=1; i < 10; i++) {
         test_output(hashType, TWOCATS_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, TEST_MEMCOST, TWOCATS_TIMECOST,
             TWOCATS_MULTIPLIES, TWOCATS_LANES, i);
+    }
+    printf("****************************************** Test lanes\n");
+    for(i=1; i <= H.len; i <<= 1) {
+        test_output(hashType, TWOCATS_KEYSIZE, NULL, 0, NULL, 0, NULL, 0, TEST_MEMCOST, TWOCATS_TIMECOST,
+            TWOCATS_MULTIPLIES, i, TWOCATS_PARALLELISM);
     }
     printf("****************************************** Test hashlen\n");
     for(i=4; i < 256; i += 4) {
