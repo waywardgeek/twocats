@@ -13,6 +13,7 @@ peRoot peTheRoot;
 peLocationArray peVisitedLocations;
 peGroup peTheGroup;
 bool peVerbose;
+bool peDumpGraphs;
 uint32 peMaxDegree;
 uint32 peCurrentPos;
 uint32 peCatenaLambda;
@@ -24,6 +25,7 @@ typedef enum {
     RAND,
     CATENA,
     SLIDING_REVERSE,
+    SLIDING_CATENA,
     REVERSE
 } peGraphType;
 
@@ -37,6 +39,7 @@ char *getTypeName(peGraphType type) {
     case RAND: return "rand";
     case CATENA: return "catena";
     case SLIDING_REVERSE: return "sliding_reverse";
+    case SLIDING_CATENA: return "sliding_catena";
     case REVERSE: return "reverse";
     default:
         utExit("Unknown graph type");
@@ -63,6 +66,9 @@ static peGraphType parseType(char *name) {
     }
     if(!strcasecmp(name, "sliding_reverse")) {
         return SLIDING_REVERSE;
+    }
+    if(!strcasecmp(name, "sliding_catena")) {
+        return SLIDING_CATENA;
     }
     if(!strcasecmp(name, "reverse")) {
         return REVERSE;
@@ -136,7 +142,11 @@ static uint32 findCatenaPos(uint32 pos) {
         return (row-1)*rowLength + bitReverse(rowPos, rowLength);
     }
     uint32 rowPos = pos - row*rowLength;
-    return (row-1)*rowLength + bitReverse(rowPos, rowLength);
+    uint32 dest = (row-1)*rowLength + bitReverse(rowPos, rowLength);
+    //if(dest + rowLength + 1 < pos) {
+        //return dest + rowLength;
+    //}
+    return dest;
 }
 
 // Find the previous position using Alexander's sliding power-of-two window, with Catena
@@ -156,6 +166,28 @@ static uint32 findSlidingReversePos(uint32 pos) {
         return reversePos;
     }
     return reversePos + mask;
+}
+
+// Find the previous position using Alexander's sliding power-of-two window, with Catena
+// bit-reversal, but with the sliding window 1/2 as big.
+static uint32 findSlidingCatenaPos(uint32 pos) {
+    // This is a sliding window which is the largest power of 2 < i.
+    if(pos < 2) {
+        return UINT32_MAX;
+    }
+    uint32 mask = 1;
+    while(mask <= pos) {
+        mask <<= 1;
+    }
+    mask = mask >> 2; // Mask is greatest power of 2 <= pos/2
+    uint32 reversePos = mask + bitReverse((pos) & (mask-1), mask);
+    if(reversePos + 1 + 2*mask < pos) {
+        return reversePos + 2*mask;
+    }
+    if(reversePos + 1 + mask < pos) {
+        return reversePos + mask;
+    }
+    return reversePos;
 }
 
 // Find the previous position using a simple rule: dest = pow2 - i, where pow2 is the
@@ -189,6 +221,7 @@ static void setPrevLocation(uint32 pos, peGraphType type) {
     case RAND: prevPos = findRandPos(pos); break;
     case CATENA: prevPos = findCatenaPos(pos); break;
     case SLIDING_REVERSE: prevPos = findSlidingReversePos(pos); break;
+    case SLIDING_CATENA: prevPos = findSlidingCatenaPos(pos); break;
     case REVERSE: prevPos = findReversePos(pos); break;
     default:
         utExit("Unknown graph type\n");
@@ -300,6 +333,9 @@ static pePebble findLeastBadPebble(void) {
         }
     }
     if(bestPebble == pePebbleNull) {
+        if(peDumpGraphs) {
+            dumpGraph();
+        }
         utExit("Where did all the pebbles go?");
     }
     return bestPebble;
@@ -574,7 +610,7 @@ static void computeAveragePenalty(void) {
 }
 
 // Test the type of graph.
-static void runTest(peGraphType type, bool dumpGraphs, bool computePenalty) {
+static void runTest(peGraphType type, bool computePenalty) {
     peTheRoot = peRootAlloc();
     peVisitedLocations = peLocationArrayAlloc();
     peRootAllocLocations(peTheRoot, peMemLength);
@@ -593,7 +629,7 @@ static void runTest(peGraphType type, bool dumpGraphs, bool computePenalty) {
         distributePebbles();
         pebbleGraph();
     }
-    if(dumpGraphs) {
+    if(peDumpGraphs) {
         dumpGraph();
     }
     computeCut();
@@ -625,7 +661,7 @@ static void usage(void) {
 }
 
 int main(int argc, char **argv) {
-    bool dumpGraphs = false;
+    peDumpGraphs = false;
     peVerbose = false;
     peCatenaLambda = 3;
     peCatena3InFirstRow = false;
@@ -637,10 +673,10 @@ int main(int argc, char **argv) {
         case 'c':
             computePenalty = true;
         case 'g':
-            dumpGraphs = true;
+            peDumpGraphs = true;
             break;
         case 'v':
-            dumpGraphs = true;
+            peDumpGraphs = true;
             peVerbose = true;
             break;
         case 'm':
@@ -683,11 +719,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Too many parameters\n");
         usage();
     } else if(optind + 1 == argc) {
-        runTest(parseType(argv[optind]), dumpGraphs, computePenalty);
+        runTest(parseType(argv[optind]), computePenalty);
     } else {
         uint32 type;
         for(type = 0; type <= REVERSE; type++) {
-            runTest(type, dumpGraphs, computePenalty);
+            runTest(type, computePenalty);
         }
     }
     peDatabaseStop();
