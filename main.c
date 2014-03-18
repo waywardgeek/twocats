@@ -103,6 +103,7 @@ int main(int argc, char **argv) {
     uint32_t blockSize = TWOCATS_BLOCKSIZE;
     uint32_t subBlockSize = TWOCATS_SUBBLOCKSIZE;
     TwoCats_HashType hashType = TWOCATS_BLAKE2S;
+    char *hashName = "blake2s";
 
     char c;
     while((c = getopt(argc, argv, "h:p:s:m:M:t:P:b:B:")) != -1) {
@@ -141,6 +142,7 @@ int main(int argc, char **argv) {
     }
     if(optind + 1 == argc) {
         // Must have supplied a hash type
+        hashName = argv[optind];
         if(!strcasecmp(argv[optind], "blake2s")) {
             hashType = TWOCATS_BLAKE2S;
         } else if(!strcasecmp(argv[optind], "blake2b")) {
@@ -156,8 +158,8 @@ int main(int argc, char **argv) {
         usage("Too many arguments\n");
     }
 
-    printf("memCost:%u timeCost:%u multiplies:%u parallelism:%u password:%s salt:%s blockSize:%u subBlockSize:%u\n",
-        memCost, timeCost, multiplies, parallelism, password, salt, blockSize, subBlockSize);
+    printf("hash:%s memCost:%u timeCost:%u multiplies:%u parallelism:%u password:%s salt:%s blockSize:%u subBlockSize:%u\n",
+        hashName, memCost, timeCost, multiplies, parallelism, password, salt, blockSize, subBlockSize);
     uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
     if(!TwoCats_HashPasswordExtended(hashType, derivedKey, derivedKeySize, password, passwordSize,
             salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, parallelism,

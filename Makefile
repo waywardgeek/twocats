@@ -3,8 +3,8 @@
 DEPS = Makefile
 
 CC=gcc
-#CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
-CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=native -funroll-loops
+CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
+#CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=native -funroll-loops
 #CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -msse4.2 -funroll-loops
 LIBS=-lcrypto
 

@@ -134,11 +134,11 @@ static bool extract(TwoCats_H *H, uint32_t *hash32, const uint8_t *hash, uint32_
 // Expand a fixed length hash to a variable length hash.
 static bool expand(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, const uint32_t *hash32) { 
 
+    uint8_t key[H->size];
+    be32enc_vect(key, hash32, H->size);
     uint8_t buf[H->size];
-    be32enc_vect(buf, hash32, H->size);
     for(uint32_t i = 0; i < (hashSize + H->size - 1)/H->size; i++) {
-        uint8_t buf[H->size];
-        if(!H->Init(H) || !H->Update(H, buf, H->size) || !H->UpdateUint32(H, i) || !H->Final(H, buf)) {
+        if(!H->Init(H) || !H->Update(H, key, H->size) || !H->UpdateUint32(H, i) || !H->Final(H, buf)) {
             secureZeroMemory(buf, H->size);
             return false;
         }
@@ -148,6 +148,8 @@ static bool expand(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, const uint32_
             memcpy(hash + i*H->size, buf, hashSize - i*H->size);
         }
     }
+    secureZeroMemory(buf, H->size);
+    secureZeroMemory(key, H->size);
     return true;
 }
 
@@ -175,6 +177,7 @@ static bool finalUint32(TwoCats_H *H, uint32_t *hash32) {
 
 // Initialize a hashing object.
 void TwoCats_InitHash(TwoCats_H *H, TwoCats_HashType type) {
+    memset(H, 0, sizeof(TwoCats_H));
     H->type = type;
     H->UpdateUint32 = updateUint32;
     H->Hash = scrambleHash;
@@ -333,7 +336,7 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint32
             !H.FinalUint32(&H, buf)) {
         return false;
     }
-    
+
     // Now clear the password and data if allowed
     if(clearPassword && passwordSize != 0) {
         secureZeroMemory(password, passwordSize);
