@@ -3,7 +3,7 @@
 #if defined(__AVX2__) || defined(__SSE2__)
 #include "blake2-sse/blake2b.c"
 #else
-#include "blake2-ref/blake2b.c"
+#include "blake2-ref/blake2b-ref.c"
 #endif
 
 // Initilized the state.
