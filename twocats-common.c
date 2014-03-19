@@ -455,7 +455,7 @@ void TwoCats_FindCostParameters(TwoCats_HashType hashType, uint32_t milliseconds
     clock_t runtime;
     *memCost = findMemCost(hashType, milliseconds/8, maxMem/8, &runtime, *lanes);
     // Now increase timeCost until we see it beginning to work
-    clock_t initialRuntime = findRuntime(hashType, *memCost, 0, *multiplies, *lanes);
+    clock_t initialRuntime = findRuntime(hashType, *memCost, 0, 0, *lanes);
     clock_t prevRuntime;
     *timeCost = 0;
     do {
