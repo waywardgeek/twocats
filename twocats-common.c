@@ -408,11 +408,12 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
 
 // Just measure the time for a given memCost and timeCost.  Return -1 if memory allocation fails.
 static clock_t findRuntime(TwoCats_HashType hashType, uint8_t memCost, uint8_t timeCost,
-        uint8_t multiplies) {
+        uint8_t multiplies, uint8_t lanes) {
     uint8_t buf[TWOCATS_KEYSIZE];
     clock_t start = clock();
-    if(!TwoCats_HashPasswordFull(hashType, buf, TWOCATS_KEYSIZE, NULL, 0, NULL, 0, memCost, timeCost,
-            TWOCATS_PARALLELISM, false)) {
+    if(!TwoCats_HashPasswordExtended(hashType, buf, TWOCATS_KEYSIZE, NULL, 0, NULL, 0,
+            NULL, 0, memCost, memCost, timeCost, multiplies, lanes, TWOCATS_PARALLELISM,
+            TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, false, false)) {
         fprintf(stderr, "Memory hashing failed\n");
         return -1;
     }
@@ -423,16 +424,16 @@ static clock_t findRuntime(TwoCats_HashType hashType, uint8_t memCost, uint8_t t
 // Find a good memCost for a given time on this machine.  This just finds the largest
 // memCost that runs in less than milliseconds ms.  Return 255 on failure to allocate memory.
 static uint8_t findMemCost(TwoCats_HashType hashType, uint32_t milliseconds, uint32_t
-        maxMem, clock_t *finalTime) {
+        maxMem, clock_t *finalTime, uint8_t lanes) {
     // First, find a decent memCost
     uint8_t memCost = 0;
-    clock_t runtime = findRuntime(hashType, 0, 0, 0);
+    clock_t runtime = findRuntime(hashType, 0, 0, 0, lanes);
     while(runtime < milliseconds && (1 << memCost) <= maxMem) {
         memCost++;
         if(runtime < milliseconds/8) {
             memCost++;
         }
-        runtime = findRuntime(hashType, memCost, 0, 0);
+        runtime = findRuntime(hashType, memCost, 0, 0, lanes);
         //printf("New findMemCost runtime: %u\n", runtime);
     }
     *finalTime = runtime;
@@ -442,33 +443,44 @@ static uint8_t findMemCost(TwoCats_HashType hashType, uint32_t milliseconds, uin
 // Find parameter settings on this machine for a given desired runtime and maximum memory
 // usage.  maxMem is in KiB.  Runtime with be typically +/- 50% and memory will be <= maxMem.
 void TwoCats_FindCostParameters(TwoCats_HashType hashType, uint32_t milliseconds, uint32_t
-        maxMem, uint8_t *memCost, uint8_t *timeCost, uint8_t *multiplies) {
+        maxMem, uint8_t *memCost, uint8_t *timeCost, uint8_t *multiplies, uint8_t *lanes) {
+
+// Lanes is simplest to pick.  If we have good custom code for it, use it.
+#if defined(__AVX2__) || defined(__SSE2__)
+    *lanes = 8;
+#else
+    *lanes = 1;
+#endif
+
     clock_t runtime;
-    *memCost = findMemCost(hashType, milliseconds/8, maxMem/8, &runtime);
+    *memCost = findMemCost(hashType, milliseconds/8, maxMem/8, &runtime, *lanes);
     // Now increase timeCost until we see it beginning to work
-    clock_t initialRuntime = findRuntime(hashType, *memCost, 0, *multiplies);
+    clock_t initialRuntime = findRuntime(hashType, *memCost, 0, *multiplies, *lanes);
     clock_t prevRuntime;
     *timeCost = 0;
     do {
         *timeCost += 1;
         prevRuntime = runtime;
-        runtime = findRuntime(hashType, *memCost, *timeCost, 0);
+        runtime = findRuntime(hashType, *memCost, *timeCost, 0, *lanes);
         //printf("Increasing timeCost: %u\n", runtime);
     } while(runtime < 1.05*initialRuntime);
     *timeCost -= 1;
     initialRuntime = prevRuntime;
+
     *multiplies = 0;
     do {
         *multiplies += 1;
-        runtime = findRuntime(hashType, *memCost, *timeCost, *multiplies);
+        runtime = findRuntime(hashType, *memCost, *timeCost, *multiplies, *lanes);
         //printf("New multiply runtime: %u\n", runtime);
     } while(runtime < 1.05*initialRuntime && *multiplies < 8);
+
     // Now scale up the memory
     while(runtime < milliseconds && (1 << *memCost) < maxMem) {
         //printf("Adding 1 to memCost, runtime:%u memCost:%u\n", runtime, *memCost);
         *memCost += 1;
         runtime *= 1.75;
     }
+
     // Increase timeCost if still needed
     while(runtime < milliseconds) {
         //printf("Adding 1 to timecost\n");

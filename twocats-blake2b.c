@@ -1,5 +1,11 @@
 #include "twocats-internal.h"
 
+#if defined(__AVX2__) || defined(__SSE2__)
+#include "blake2-sse/blake2b.c"
+#else
+#include "blake2-ref/blake2b.c"
+#endif
+
 // Initilized the state.
 static bool init(TwoCats_H *H) {
     return !blake2b_init(&(H->c.blake2bState), 64);

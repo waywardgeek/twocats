@@ -12,7 +12,13 @@
 */
 
 #include <openssl/sha.h>
-#include "blake2/blake2.h"
+
+#if defined(__AVX2__) || defined(__SSE2__)
+#include "blake2-sse/blake2.h"
+#else
+#include "blake2-ref/blake2.h"
+#endif
+
 #include "twocats.h"
 
 #define TWOCATS_SLICES 4

@@ -21,7 +21,7 @@
 // This include code copied from blake2s.c
 #ifdef __SSE2__
 
-#include "blake2/blake2-config.h"
+#include "blake2-sse/blake2-config.h"
 
 #include <emmintrin.h>
 #if defined(HAVE_SSSE3)

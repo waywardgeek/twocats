@@ -161,7 +161,7 @@ void TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
 // Find parameter settings on this machine for a given desired runtime and maximum memory
 // usage.  maxMem is in KiB.  Runtime with be typically +/- 50% and memory will be <= maxMem.
 void TwoCats_FindCostParameters(TwoCats_HashType hashType, uint32_t milliSeconds, uint32_t maxMem,
-    uint8_t *memCost, uint8_t *timeCost, uint8_t *multplies);
+    uint8_t *memCost, uint8_t *timeCost, uint8_t *multplies, uint8_t *lanes);
 
 // This is the prototype required for the password hashing competition.  It uses Blake2s.
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
