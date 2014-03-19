@@ -1,7 +1,7 @@
 TwoCats
 =======
 
-TwoCats is a sequential memory and compute time hard key derivation function that
+TwoCats is a sequential memory and compute time hard password hashing scheme that
 maximizes an attackers time*memory cost for guessing passwords.  Christian Forler and
 Alexander Peslyak (aka SolarDesigner) provided most of the ideas that I have combined in
 TwoCats.  While they may not want credit for this work, it belongs to them more than me.
