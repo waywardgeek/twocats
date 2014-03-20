@@ -226,7 +226,6 @@ TwoCats_HashType TwoCats_FindHashType(char *name) {
     return TWOCATS_NONE;
 }
 
-
 // Verify that parameters are valid for password hashing.
 static bool verifyParameters(TwoCats_H *H, uint32_t hashSize, uint8_t startMemCost,
         uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
@@ -446,8 +445,10 @@ void TwoCats_FindCostParameters(TwoCats_HashType hashType, uint32_t milliseconds
         maxMem, uint8_t *memCost, uint8_t *timeCost, uint8_t *multiplies, uint8_t *lanes) {
 
 // Lanes is simplest to pick.  If we have good custom code for it, use it.
-#if defined(__AVX2__) || defined(__SSE2__)
+#if defined(__AVX2__)
     *lanes = 8;
+#elif defined(__SSE2__)
+    *lanes = 4;
 #else
     *lanes = 1;
 #endif

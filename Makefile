@@ -3,9 +3,12 @@
 DEPS = Makefile
 
 CC=gcc
-#CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
+# Use this for the normal release, unless you must support older machines
 CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=native -funroll-loops
-#CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -msse4.2 -funroll-loops
+# Use this for debugging
+#CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
+# Use this for older machines that don't support SSE
+#CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=i686 -m32 -funroll-loops
 LIBS=-lcrypto
 
 SOURCE= \
