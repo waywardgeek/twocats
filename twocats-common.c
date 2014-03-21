@@ -57,7 +57,7 @@ void TwoCats_DumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
 }
 
 // This is used to determine block length and other parameters for each level of garlic (memCost)
-void TwoCats_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelism,
+void TwoCats_ComputeSizes(TwoCats_H *H, uint8_t memCost, uint8_t timeCost, uint8_t *parallelism,
         uint32_t *blocklen, uint32_t *subBlocklen, uint32_t *blocksPerThread) {
     // We really want a decent number of blocks per thread, so if it's < TWOCATS_MINBLOCKS, then reduce blocklen,
     // and if needed, parallelism
@@ -66,7 +66,7 @@ void TwoCats_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelis
     if(*blocksPerThread < TWOCATS_MINBLOCKS) {
         *blocksPerThread = TWOCATS_MINBLOCKS;
         while(*parallelism * *blocksPerThread * *blocklen > memlen) {
-            if(*blocklen > TWOCATS_SUBBLOCKSIZE/sizeof(uint32_t)) {
+            if(*blocklen > H->len) {
                 *blocklen >>= 1;
             } else if(*parallelism > 1) {
                 *parallelism = memlen/(*blocksPerThread * *blocklen);
@@ -78,7 +78,7 @@ void TwoCats_ComputeSizes(uint8_t memCost, uint8_t timeCost, uint8_t *parallelis
             }
         }
     }
-    if(*blocklen > *subBlocklen) {
+    if(*blocklen < *subBlocklen) {
         *subBlocklen = *blocklen;
     }
     //printf("For memCost %u -  parallelism:%u blocklen:%u blocksPerThread:%u repetitions:%u multiplies:%u\n",

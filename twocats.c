@@ -569,7 +569,7 @@ static bool hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
     uint32_t subBlocklen = subBlockSize/sizeof(uint32_t);
 
     // Determine parameters that meet the memory goal
-    TwoCats_ComputeSizes(memCost, timeCost, &parallelism, &blocklen, &subBlocklen, &blocksPerThread);
+    TwoCats_ComputeSizes(H, memCost, timeCost, &parallelism, &blocklen, &subBlocklen, &blocksPerThread);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash32[H->len];
