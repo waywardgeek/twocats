@@ -20,8 +20,8 @@ twocats-sha512.c
 
 REF_SOURCE=main.c twocats-ref.c
 TWOCATS_SOURCE=main.c twocats.c
-TEST_SOURCE=twocats-test.c twocats-ref.c
-#TEST_SOURCE=twocats-test.c twocats.c
+#TEST_SOURCE=twocats-test.c twocats-ref.c
+TEST_SOURCE=twocats-test.c twocats.c
 PHS_SOURCE=twocats-phs.c twocats.c
 ENC_SOURCE=twocats-enc.c twocats.c
 DEC_SOURCE=twocats-dec.c twocats.c
