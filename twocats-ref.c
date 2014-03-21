@@ -17,11 +17,10 @@
 #include "twocats-internal.h"
 
 // Add the last hashed data into the result.
-static void addIntoHash(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint32_t parallelism,
-        uint32_t blocklen, uint32_t blocksPerThread) {
+static void addIntoHash(TwoCats_H *H, uint32_t *hash32, uint32_t parallelism, uint32_t *states) {
     for(uint32_t p = 0; p < parallelism; p++) {
         for(uint32_t i = 0; i < H->len; i++) {
-            hash32[i] += mem[(p+1)*(uint64_t)blocklen*blocksPerThread + i - H->len];
+            hash32[i] += states[p*H->len + i];
         }
     }
 }
@@ -186,7 +185,7 @@ static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
     }
 
     // Apply a crypto-strength hash
-    addIntoHash(H, hash32, mem, parallelism, blocklen, blocksPerThread);
+    addIntoHash(H, hash32, parallelism, states);
     H->Expand(H, hash, hashSize, hash32);
 }
 
