@@ -44,7 +44,7 @@ struct TwoCats_HashStruct {
     bool (*Hash)(TwoCats_H *H, uint8_t *hash, uint8_t hashSize);
     bool (*HashState)(TwoCats_H *H, uint32_t *state, uint32_t value);
     bool (*Extract)(TwoCats_H *H, uint32_t *hash32, const uint8_t *hash, uint8_t hashSize);
-    bool (*Expand)(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, const uint32_t *hash32);
+    bool (*Expand)(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, const uint32_t *hash32);
     bool (*ExpandUint32)(TwoCats_H *H, uint32_t *out, uint32_t outlen, const uint32_t *hash32);
     bool (*FinalUint32)(TwoCats_H *H, uint32_t *hash32);
     char *name;

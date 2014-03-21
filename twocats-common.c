@@ -98,7 +98,7 @@ static bool updateUint32(TwoCats_H *H, uint32_t value) {
 // Scramble the hash value.
 static bool scrambleHash(TwoCats_H *H, uint8_t *hash, uint8_t hashSize) {
     uint32_t buf[H->size];
-    if(!H->Extract(H, buf, hash, hashSize) || H->Expand(H, hash, hashSize, buf)) {
+    if(!H->Extract(H, buf, hash, hashSize) || !H->Expand(H, hash, hashSize, buf)) {
         secureZeroMemory(buf, H->size);
         return false;
     }
@@ -133,7 +133,7 @@ static bool extract(TwoCats_H *H, uint32_t *hash32, const uint8_t *hash, uint8_t
 }
 
 // Expand a fixed length hash to a variable length hash.
-static bool expand(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, const uint32_t *hash32) { 
+static bool expand(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, const uint32_t *hash32) { 
 
     uint8_t key[H->size];
     be32enc_vect(key, hash32, H->size);
