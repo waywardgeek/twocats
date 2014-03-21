@@ -22,7 +22,7 @@
 
     For all of these functions, these are the restrictions on sizes:
 
-    1 <= hashSize <= min(8160, blockSize) -- blockSize defaults to 16384
+    1 <= hashSize <= 255
     memCost <= 30
     timeCost <= 30
     multiplies <= 8
@@ -61,7 +61,7 @@ TwoCats_HashType TwoCats_FindHashType(char *name);
 // If clearPassword is set, the password buffer is set to 0's early during the hashing.
 
 bool TwoCats_HashPassword( TwoCats_HashType hashType,
-                           uint8_t *hash,       uint32_t hashSize,
+                           uint8_t *hash,       uint8_t hashSize,
                            uint8_t *password,   uint32_t passwordSize,
                            const uint8_t *salt, uint32_t saltSize,
                            uint8_t memCost,     bool clearPassword);
@@ -73,7 +73,7 @@ bool TwoCats_HashPassword( TwoCats_HashType hashType,
 // hashing if clearPassword is set.
 
 bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
-                               uint8_t *hash,       uint32_t hashSize,
+                               uint8_t *hash,       uint8_t hashSize,
                                uint8_t *password,   uint32_t passwordSize,
                                const uint8_t *salt, uint32_t saltSize,
                                uint8_t memCost,     uint8_t timeCost,
@@ -133,7 +133,7 @@ bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
 */
 
 bool TwoCats_HashPasswordExtended( TwoCats_HashType hashType,
-                                   uint8_t *hash,        uint32_t hashSize,
+                                   uint8_t *hash,        uint8_t hashSize,
                                    uint8_t *password,    uint32_t passwordSize,
                                    const uint8_t *salt,  uint32_t saltSize,
                                    uint8_t *data,        uint32_t dataSize,
@@ -144,12 +144,12 @@ bool TwoCats_HashPasswordExtended( TwoCats_HashType hashType,
                                    bool clearPassword,   bool clearData);
 
 // Update an existing password hash to a more difficult level of memCost.
-bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t hashSize,
+bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize,
     uint8_t oldMemCost, uint8_t newMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes,
     uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize);
 
-// Client-side portion of work for server-relief mode.  hashSize must be <= 255*32
-bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t hashSize,
+// Client-side portion of work for server-relief mode.
+bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize,
     uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
     uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
     uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,

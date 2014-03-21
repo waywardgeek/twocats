@@ -191,7 +191,7 @@ static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
 }
 
 // The TwoCats internal password hashing function.  Return false if there is a memory allocation error.
-bool TwoCats(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
+bool TwoCats(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
         uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
         uint32_t subBlockSize, bool updateMemCostMode) {
 

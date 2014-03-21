@@ -155,9 +155,9 @@ int main()
 {
     for(uint32_t hashType = 0; hashType < TWOCATS_NONE; hashType++) {
         printf("****************************************** Testing hash type %s\n", TwoCats_GetHashTypeName(hashType));
+        PHC_test(hashType);
         verifyPasswordUpdate(hashType);
         verifyClientServer(hashType);
-        PHC_test(hashType);
     }
     return 0;
 }
