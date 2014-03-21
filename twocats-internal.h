@@ -22,6 +22,7 @@
 #include "twocats.h"
 
 #define TWOCATS_SLICES 4
+#define TWOCATS_MINBLOCKS 256
 
 // The TwoCats_H wrapper class supports pluggable hash functions.
 
@@ -107,3 +108,4 @@ void TwoCats_ComputeSizes(TwoCats_H *H, uint8_t memCost, uint8_t timeCost, uint8
         uint32_t *blocklen, uint32_t *subBlocklen, uint32_t *blocksPerThread);
 void TwoCats_PrintState(char *message, uint32_t *state, uint32_t length);
 void TwoCats_DumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);
+void TwoCats_PrintHex(char *message, uint8_t *x, int len);

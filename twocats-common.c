@@ -78,7 +78,7 @@ void TwoCats_ComputeSizes(TwoCats_H *H, uint8_t memCost, uint8_t timeCost, uint8
             }
         }
     }
-    if(*blocklen < *subBlocklen) {
+    if(*subBlocklen > *blocklen) {
         *subBlocklen = *blocklen;
     }
     //printf("For memCost %u -  parallelism:%u blocklen:%u blocksPerThread:%u repetitions:%u multiplies:%u\n",
@@ -236,8 +236,8 @@ static bool verifyParameters(TwoCats_H *H, uint32_t hashSize, uint8_t startMemCo
             TwoCats_GetHashTypeName(H->type));
         return false;
     }
-    if(hashSize == 0 || hashSize > blockSize) {
-        fprintf(stderr, "Invalid hash size: the range is 1 through blockSize\n");
+    if(hashSize == 0 || hashSize > 1 << 30) {
+        fprintf(stderr, "Invalid hash size: the range is 1 through 2^30\n");
         return false;
     }
     if(startMemCost > stopMemCost) {
@@ -321,8 +321,7 @@ bool TwoCats_HashPasswordExtended(TwoCats_HashType hashType, uint8_t *hash, uint
             lanes, parallelism, blockSize, subBlocksize, clearPassword, clearData)) {
         return false;
     }
-    TwoCats_ServerHashPassword(hashType, hash, hashSize);
-    return true;
+    return TwoCats_ServerHashPassword(hashType, hash, hashSize);
 }
 
 // Update an existing password hash to a more difficult level of memory cost (garlic).
@@ -340,8 +339,7 @@ bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint32_t h
             parallelism, blockSize, subBlockSize, true)) {
         return false;
     }
-    TwoCats_ServerHashPassword(hashType, hash, hashSize);
-    return true;
+    return TwoCats_ServerHashPassword(hashType, hash, hashSize);
 }
 
 // Client-side portion of work for server-relief mode.  Return true if there are no memory
@@ -390,10 +388,10 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint32
 }
 
 // Server portion of work for server-relief mode.
-void TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize) {
+bool TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize) {
     TwoCats_H H;
     TwoCats_InitHash(&H, hashType);
-    H.Hash(&H, hash, hashSize);
+    return H.Hash(&H, hash, hashSize);
 }
 
 // This is the prototype required for the password hashing competition.

@@ -18,7 +18,7 @@
 #include <string.h>
 #include <strings.h>
 #include <getopt.h>
-#include "twocats.h"
+#include "twocats-internal.h" // For TwoCats_PrintHex
 
 static void usage(char *format, ...) {
     va_list ap;
