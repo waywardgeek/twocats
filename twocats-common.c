@@ -359,7 +359,7 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
 
     // Add all the inputs, other than stopMemCost
     uint32_t buf[H.len];
-    if(!H.Init(&H) || !H.UpdateUint32(&H, hashSize) ||
+    if(!H.Init(&H) || !H.UpdateUint32(&H, hashType) ||!H.UpdateUint32(&H, hashSize) ||
             !H.UpdateUint32(&H, passwordSize) || !H.Update(&H, password, passwordSize) ||
             !H.UpdateUint32(&H, saltSize) || !H.Update(&H, salt, saltSize) ||
             !H.UpdateUint32(&H, dataSize) || !H.Update(&H, data, dataSize) ||
