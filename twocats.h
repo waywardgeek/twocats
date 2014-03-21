@@ -22,7 +22,11 @@
 
     For all of these functions, these are the restrictions on sizes:
 
+<<<<<<< HEAD
     1 <= hashSize <= 255
+=======
+    1 <= hashSize <= 2^30
+>>>>>>> 6e76334f5e43bce41901e6a5f1a87839ed1b2947
     memCost <= 30
     timeCost <= 30
     multiplies <= 8
@@ -30,8 +34,10 @@
     startMemCost <= stopMemCost <= 30
     oldMemCost < newMemCost <= 30
     32 <= subBlockSize <= blockSize <= 2^20 -- both must be powers of 2
+    1 <= lanes <= hashType size/4 (for example, 8 for SHA256)
 
-    NULL values and 0 lengths are legal for all variable sized inputs.
+    NULL values and 0 lengths are legal for all variable sized inputs.  Lengths for NULL
+    values must be 0.
 
     Preferably, passwords and any other secret data are passed in fixed sized buffers.
     This insures that SHA256 can not leak length information.
@@ -83,7 +89,6 @@ bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
 /* These values make reasonable defaults when using the extended interface */
 
 #define TWOCATS_MEMCOST 20 // 1 GiB
-#define TWOCATS_MINBLOCKS 256
 #define TWOCATS_KEYSIZE 32
 #define TWOCATS_PARALLELISM 2
 #define TWOCATS_BLOCKSIZE 16384
@@ -122,6 +127,11 @@ bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
    enough to cause the runtime to increase significantly.  For CPUs without hardware
    multiplication or on-chip data cache, multiplies should be set to 0.
 
+   lanes is used to make use of SIMD parallelism available on the CPU, such as SSE2 and
+   AVX2.  Older CPUs without any SIMD unit should set lanes to 1.  Sandy Bridge and Ivy
+   Bridge Intel processors run best with lanes set to 4.  Haswell runs best with lanes set
+   to 8.
+
    parallelism is the number of threads used in parallel to hash the password.  A
    reasonable number is half the CPU cores you expect to have idle at any time, but it
    must be at least 1.  Each thread hashes memory so fast, you likely will maximize memory
@@ -156,7 +166,7 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
     bool clearPassword, bool clearData);
 
 // Server portion of work for server-relief mode.
-void TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize);
+bool TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize);
 
 // Find parameter settings on this machine for a given desired runtime and maximum memory
 // usage.  maxMem is in KiB.  Runtime with be typically +/- 50% and memory will be <= maxMem.
@@ -167,5 +177,4 @@ void TwoCats_FindCostParameters(TwoCats_HashType hashType, uint32_t milliSeconds
 int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
     unsigned int t_cost, unsigned int m_cost);
 
-// Print binary data in hexidecimal format.
 void TwoCats_PrintHex(char *message, uint8_t *x, int len);

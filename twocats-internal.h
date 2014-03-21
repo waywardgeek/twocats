@@ -22,6 +22,7 @@
 #include "twocats.h"
 
 #define TWOCATS_SLICES 4
+#define TWOCATS_MINBLOCKS 256
 
 // The TwoCats_H wrapper class supports pluggable hash functions.
 

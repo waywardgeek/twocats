@@ -4,9 +4,9 @@ DEPS = Makefile
 
 CC=gcc
 # Use this for the normal release, unless you must support older machines
-#CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=native -funroll-loops
+CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=native -funroll-loops
 # Use this for debugging
-CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
+#CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
 # Use this for older machines that don't support SSE
 #CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=i686 -m32 -funroll-loops
 LIBS=-lcrypto
@@ -20,8 +20,8 @@ twocats-sha512.c
 
 REF_SOURCE=main.c twocats-ref.c
 TWOCATS_SOURCE=main.c twocats.c
-TEST_SOURCE=twocats-test.c twocats-ref.c
-#TEST_SOURCE=twocats-test.c twocats.c
+#TEST_SOURCE=twocats-test.c twocats-ref.c
+TEST_SOURCE=twocats-test.c twocats.c
 PHS_SOURCE=twocats-phs.c twocats.c
 ENC_SOURCE=twocats-enc.c twocats.c
 DEC_SOURCE=twocats-dec.c twocats.c
