@@ -73,8 +73,8 @@ static uint32_t reverse(uint32_t v, uint32_t numBits) {
 // Find the sliding reverse position of the prior block.
 static uint32_t slidingReverse(uint32_t i) {
     uint32_t numBits = 1;
-    while((numBits << 1) <= i) {
-        numBits <<= 1;
+    while((1 << numBits) <= i) {
+        numBits++;
     }
     uint32_t reversePos = reverse(i, numBits-1);
     if(reversePos + (1 << (numBits-1)) < i) {
@@ -112,7 +112,7 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
         memset(password, 0, passwordSize);
     }
 
-    uint32_t memlen = (1024 << memCost)/sizeof(uint32_t);
+    uint64_t memlen = (1024ull << memCost)/sizeof(uint32_t);
     uint32_t *mem = malloc(memlen*sizeof(uint32_t));
     if(mem == NULL) {
         return false;
@@ -120,7 +120,7 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
     expand(hashType, mem, BLOCKLEN, state);
     uint32_t prevAddr = 0;
     uint32_t toAddr = BLOCKLEN;
-    for(uint32_t i = 1; i < memlen/2; i++) {
+    for(uint32_t i = 1; i < memlen/(2*BLOCKLEN); i++) {
         uint32_t a = state[0]; // For compatibility with TwoCats
         uint32_t fromAddr = slidingReverse(i)*BLOCKLEN;
         for(uint32_t j = 0; j < BLOCKLEN/8; j++) {
@@ -132,7 +132,7 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
         }
         hashState(hashType, state, state, a);
     }
-    for(uint32_t i = memlen/2; i < memlen; i++) {
+    for(uint32_t i = memlen/(2*BLOCKLEN); i < memlen/BLOCKLEN; i++) {
         uint32_t a = state[0]; // For compatibility with TwoCats
         uint32_t fromAddr = (i - distanceCubed(i, state[0]))*BLOCKLEN;
         for(uint32_t j = 0; j < BLOCKLEN/8; j++) {
