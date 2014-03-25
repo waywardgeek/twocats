@@ -42,11 +42,10 @@ static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
-    uint32_t oddState[H->len];
-    for(uint32_t i = 0; i < H->len; i++) {
-        oddState[i] = state[i] | 1;
-    }
-    uint64_t v = 1;
+    uint32_t a = state[0];
+    uint32_t b = state[1];
+    uint32_t c = state[2];
+    uint32_t d = state[3];
 
     for(uint32_t r = 0; r < repetitions; r++) {
         uint32_t *f = mem + fromAddr;
@@ -58,9 +57,10 @@ static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
 
                 // Compute the multiplication chain
                 for(uint32_t k = 0; k < multiplies; k++) {
-                    v = (uint32_t)v * (uint64_t)oddState[k];
-                    v ^= randVal;
-                    randVal += v >> 32;
+                    a ^= (uint64_t)b*c >> 32;
+                    b += c;
+                    c ^= (uint64_t)a*d >> 32;
+                    d += a;
                 }
 
                 // Hash lanes of memory
@@ -72,7 +72,7 @@ static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
             }
         }
     }
-    H->HashState(H, state, v);
+    H->HashState(H, state, a);
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.

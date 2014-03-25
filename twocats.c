@@ -147,11 +147,10 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
-    uint32_t oddState[H->len];
-    for(uint32_t i = 0; i < H->len; i++) {
-        oddState[i] = state[i] | 1;
-    }
-    uint64_t v = 1;
+    uint32_t a = state[0];
+    uint32_t b = state[1];
+    uint32_t c = state[2];
+    uint32_t d = state[3];
 
     bool haveFastCode = false;
     if(lanes == 8) {
@@ -173,9 +172,10 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 
                     // Compute the multiplication chain
                     for(uint8_t k = 0; k < multiplies; k++) {
-                        v = (uint32_t)v * (uint64_t)oddState[k];
-                        v ^= randVal;
-                        //randVal += v >> 32;
+                        a ^= (uint64_t)b*c >> 32;
+                        b += c;
+                        c ^= (uint64_t)a*d >> 32;
+                        d += a;
                     }
 
                     // Hash 32 bytes of memory
@@ -194,9 +194,10 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 
                 // Compute the multiplication chain
                 for(uint8_t k = 0; k < multiplies; k++) {
-                    v = (uint32_t)v * (uint64_t)oddState[k];
-                    v ^= randVal;
-                    //randVal += v >> 32;
+                    a ^= (uint64_t)b*c >> 32;
+                    b += c;
+                    c ^= (uint64_t)a*d >> 32;
+                    d += a;
                 }
 
                 // Hash 32 bytes of memory
@@ -226,9 +227,10 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 
                     // Compute the multiplication chain
                     for(uint8_t k = 0; k < multiplies; k++) {
-                        v = (uint32_t)v * (uint64_t)oddState[k];
-                        v ^= randVal;
-                        randVal += v >> 32;
+                        a ^= (uint64_t)b*c >> 32;
+                        b += c;
+                        c ^= (uint64_t)a*d >> 32;
+                        d += a;
                     }
 
                     // Hash 32 bytes of memory
@@ -252,9 +254,10 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 
                 // Compute the multiplication chain
                 for(uint8_t k = 0; k < multiplies; k++) {
-                    v = (uint32_t)v * (uint64_t)oddState[k];
-                    v ^= randVal;
-                    randVal += v >> 32;
+                    a ^= (uint64_t)b*c >> 32;
+                    b += c;
+                    c ^= (uint64_t)a*d >> 32;
+                    d += a;
                 }
 
                 // Hash 32 bytes of memory
@@ -291,9 +294,10 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 
                     // Compute the multiplication chain
                     for(uint8_t k = 0; k < multiplies; k++) {
-                        v = (uint32_t)v * (uint64_t)oddState[k];
-                        v ^= randVal;
-                        randVal += v >> 32;
+                        a ^= (uint64_t)b*c >> 32;
+                        b += c;
+                        c ^= (uint64_t)a*d >> 32;
+                        d += a;
                     }
 
                     // Hash 16 bytes of memory
@@ -312,13 +316,14 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
             for(uint32_t j = 0; j < subBlocklen/4; j++) {
 
                 // Compute the multiplication chain
-                for(uint8_t k = 0; k < multiplies; k++) {
-                    v = (uint32_t)v * (uint64_t)oddState[k];
-                    v ^= randVal;
-                    randVal += v >> 32;
+                for(uint8_t k = 0; k < (uint32_t)-1; k++) {
+                    a ^= (uint64_t)b*c >> 32;
+                    b += c;
+                    c ^= (uint64_t)a*d >> 32;
+                    d += a;
                 }
 
-                // Hash 32 bytes of memory
+                // Hash 16 bytes of memory
                 s = _mm_add_epi32(s, *p++);
                 s = _mm_xor_si128(s, *f++);
                 // Rotate left 8
@@ -341,12 +346,13 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 
                     // Compute the multiplication chain
                     for(uint32_t k = 0; k < multiplies; k++) {
-                        v = (uint32_t)v * (uint64_t)oddState[k];
-                        v ^= randVal;
-                        randVal += v >> 32;
+                        a ^= (uint64_t)b*c >> 32;
+                        b += c;
+                        c ^= (uint64_t)a*d >> 32;
+                        d += a;
                     }
 
-                    // Hash 32 bytes of memory
+                    // Hash lanes of memory
                     for(uint32_t k = 0; k < lanes; k++) {
                         state[k] = (state[k] + *p++) ^ *f++;
                         state[k] = (state[k] >> 24) | (state[k] << 8);
@@ -363,12 +369,13 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 
                 // Compute the multiplication chain
                 for(uint32_t k = 0; k < multiplies; k++) {
-                    v = (uint32_t)v * (uint64_t)oddState[k];
-                    v ^= randVal;
-                    randVal += v >> 32;
+                    a ^= (uint64_t)b*c >> 32;
+                    b += c;
+                    c ^= (uint64_t)a*d >> 32;
+                    d += a;
                 }
 
-                // Hash 32 bytes of memory
+                // Hash lanes of memory
                 for(uint32_t k = 0; k < lanes; k++) {
                     state[k] = (state[k] + *p++) ^ *f++;
                     state[k] = (state[k] >> 24) | (state[k] << 8);
@@ -377,7 +384,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
             }
         }
     }
-    H->HashState(H, state, v);
+    H->HashState(H, state, a);
 }
 
 // This crazy wrapper is simply to force to optimizer to unroll the lanes loop.

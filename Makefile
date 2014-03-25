@@ -4,11 +4,11 @@ DEPS = Makefile
 
 CC=gcc
 # Use this for the normal release, unless you must support older machines
-CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=native -funroll-loops
+CFLAGS=-std=c99 -Wall -pedantic -O3 -march=native -funroll-loops
 # Use this for debugging
-#CFLAGS=-std=c99 -Wall -pthread -pedantic -g -march=native
+#CFLAGS=-std=c99 -Wall -pedantic -g -march=native
 # Use this for older machines that don't support SSE
-#CFLAGS=-std=c99 -Wall -pthread -pedantic -O3 -march=i686 -m32 -funroll-loops
+#CFLAGS=-std=c99 -Wall -pedantic -O3 -march=i686 -m32 -funroll-loops
 LIBS=-lcrypto
 
 SOURCE= \
@@ -42,6 +42,7 @@ twocats-ref: $(DEPS) $(OBJS) $(REF_OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(REF_OBJS) -o twocats-ref $(LIBS)
 
 twocats: $(DEPS) $(OBJS) $(TWOCATS_OBJS)
+	#$(CC) $(CFLAGS) -pthread -S twocats.c
 	$(CC) $(CFLAGS) -pthread $(OBJS) $(TWOCATS_OBJS) -o twocats $(LIBS)
 
 twocats-test: $(DEPS) $(OBJS) $(TEST_OBJS)
@@ -62,7 +63,7 @@ clean:
 obj:
 	mkdir obj
 
-obj/%.o: %.c
+obj/%.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 	@$(CC) -MM $(CFLAGS) $< | sed 's|^.*:|$@:|' > $(patsubst %.o,%.d,$@)
 
