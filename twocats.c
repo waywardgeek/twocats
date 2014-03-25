@@ -316,7 +316,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
             for(uint32_t j = 0; j < subBlocklen/4; j++) {
 
                 // Compute the multiplication chain
-                for(uint8_t k = 0; k < (uint32_t)-1; k++) {
+                for(uint8_t k = 0; k < multiplies; k++) {
                     a ^= (uint64_t)b*c >> 32;
                     b += c;
                     c ^= (uint64_t)a*d >> 32;

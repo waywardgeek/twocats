@@ -3,12 +3,16 @@
 DEPS = Makefile
 
 CC=gcc
+
 # Use this for the normal release, unless you must support older machines
 CFLAGS=-std=c99 -Wall -pedantic -O3 -march=native -funroll-loops
+
 # Use this for debugging
 #CFLAGS=-std=c99 -Wall -pedantic -g -march=native
+
 # Use this for older machines that don't support SSE
 #CFLAGS=-std=c99 -Wall -pedantic -O3 -march=i686 -m32 -funroll-loops
+
 LIBS=-lcrypto
 
 SOURCE= \
@@ -42,11 +46,12 @@ twocats-ref: $(DEPS) $(OBJS) $(REF_OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(REF_OBJS) -o twocats-ref $(LIBS)
 
 twocats: $(DEPS) $(OBJS) $(TWOCATS_OBJS)
-	#$(CC) $(CFLAGS) -pthread -S twocats.c
+	@#$(CC) $(CFLAGS) -pthread -S twocats.c
 	$(CC) $(CFLAGS) -pthread $(OBJS) $(TWOCATS_OBJS) -o twocats $(LIBS)
 
 twocats-test: $(DEPS) $(OBJS) $(TEST_OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -o twocats-test $(LIBS)
+	@#$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -pthread -o twocats-test $(LIBS)
 
 twocats-phs: $(DEPS) $(OBJS) $(PHS_OBJS)
 	$(CC) $(CFLAGS) -pthread $(OBJS) $(PHS_OBJS) -o twocats-phs $(LIBS)
