@@ -31,7 +31,7 @@ void test_output(TwoCats_HashType hashType, uint8_t hashlen,
 
     if(!TwoCats_HashPasswordExtended(hashType, hash, hashlen, pwd, pwdlen, salt, saltlen, data,
             datalen, memCost, memCost, timeCost, multiplies, lanes, parallelism, TWOCATS_BLOCKSIZE,
-            TWOCATS_SUBBLOCKSIZE, false, false)) {
+            TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
@@ -100,14 +100,16 @@ void verifyPasswordUpdate(TwoCats_HashType hashType) {
     uint8_t hash1[TWOCATS_KEYSIZE], hash2[TWOCATS_KEYSIZE];
     if(!TwoCats_HashPasswordExtended(hashType, hash1, TWOCATS_KEYSIZE, (uint8_t *)"password", 8,
             (uint8_t *)"salt", 4, NULL, 0, 0, TEST_MEMCOST, TWOCATS_TIMECOST, TWOCATS_MULTIPLIES,
-            TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, false, false)) {
+            TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE,
+            TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
     for(uint8_t memCost = 0; memCost < TEST_MEMCOST; memCost++) {
         if(!TwoCats_HashPasswordExtended(hashType, hash2, TWOCATS_KEYSIZE, (uint8_t *)"password", 8,
                 (uint8_t *)"salt", 4, NULL, 0, 0, memCost, TWOCATS_TIMECOST, TWOCATS_MULTIPLIES,
-                TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, false, false)) {
+                TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
+                TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
             fprintf(stderr, "Password hashing failed!\n");
             exit(1);
         }
@@ -130,7 +132,7 @@ void verifyClientServer(TwoCats_HashType hashType) {
     if(!TwoCats_ClientHashPassword(hashType, hash1, TWOCATS_KEYSIZE, (uint8_t *)"password", 8,
             (uint8_t *)"salt", 4, (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST,
             TWOCATS_TIMECOST, TWOCATS_MULTIPLIES, TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
-            TWOCATS_SUBBLOCKSIZE, false, false)) {
+            TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
@@ -139,7 +141,7 @@ void verifyClientServer(TwoCats_HashType hashType) {
     if(!TwoCats_HashPasswordExtended(hashType, hash2, TWOCATS_KEYSIZE, (uint8_t *)"password", 8,
             (uint8_t *)"salt", 4, (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST,
             TWOCATS_TIMECOST, TWOCATS_MULTIPLIES, TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
-            TWOCATS_SUBBLOCKSIZE, false, false)) {
+            TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }

@@ -31,6 +31,6 @@ typedef enum {
 // difficulty.  The memory hashed = 2^memCost KiB.  If clearPassword is set, the password
 // is set to 0's early during the hashing.
 bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t hash[32],
-                           uint8_t *password,   uint32_t passwordSize,
-                           const uint8_t *salt, uint32_t saltSize,
+                           uint8_t *password,   uint8_t passwordSize,
+                           const uint8_t *salt, uint8_t saltSize,
                            uint8_t memCost,     bool clearPassword);

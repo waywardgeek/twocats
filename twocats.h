@@ -54,6 +54,9 @@ typedef enum {
     TWOCATS_NONE
 } TwoCats_HashType;
 
+// This has to be updated when we add a hash type
+#define TWOCATS_HASHTYPES 4
+
 char *TwoCats_GetHashTypeName(TwoCats_HashType hashType);
 TwoCats_HashType TwoCats_FindHashType(char *name);
 
@@ -104,6 +107,7 @@ bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
 #define TWOCATS_MULTIPLIES 3
 #define TWOCATS_HASHTYPE TWOCATS_BLAKE2S
 #define TWOCATS_LANES 8
+#define TWOCATS_OVERWRITECOST 6
 
 /*
    This is the extended password hashing interface for those who know what they are doing.
@@ -145,20 +149,25 @@ bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
    bandwidth with only 2 threads.  Higher values can be used on multi-CPU servers with
    more than two memory banks to increase password security.
 
+   startMemCost - overwriteCost is the cost used to throw away memory early, to provide
+   some protection in case memory is leaked to an attacker.  The default of 6 causes about
+   3% of the early memory to be overwritten.  Setting it to 0 will disable this feature.
+
    If clearPassword is true, the password is set to 0's  early in hashing, and if
    clearData is set, the data input is set to 0's early in hashing.
 */
 
 bool TwoCats_HashPasswordExtended( TwoCats_HashType hashType,
-                                   uint8_t *hash,        uint8_t hashSize,
-                                   uint8_t *password,    uint32_t passwordSize,
-                                   const uint8_t *salt,  uint32_t saltSize,
-                                   uint8_t *data,        uint32_t dataSize,
-                                   uint8_t startMemCost, uint8_t stopMemCost,
-                                   uint8_t timeCost,     uint8_t multiplies,
-                                   uint8_t lanes,        uint8_t parallelism,
-                                   uint32_t blockSize,   uint32_t subBlockSize,
-                                   bool clearPassword,   bool clearData);
+                                   uint8_t *hash,         uint8_t hashSize,
+                                   uint8_t *password,     uint32_t passwordSize,
+                                   const uint8_t *salt,   uint32_t saltSize,
+                                   uint8_t *data,         uint32_t dataSize,
+                                   uint8_t startMemCost,  uint8_t stopMemCost,
+                                   uint8_t timeCost,      uint8_t multiplies,
+                                   uint8_t lanes,         uint8_t parallelism,
+                                   uint32_t blockSize,    uint32_t subBlockSize,
+                                   uint8_t overwriteCost, bool clearPassword,
+                                   bool clearData);
 
 // Update an existing password hash to a more difficult level of memCost.
 bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize,
@@ -170,7 +179,7 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
     uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
     uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
     uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
-    bool clearPassword, bool clearData);
+    uint8_t overwriteCost, bool clearPassword, bool clearData);
 
 // Server portion of work for server-relief mode.
 bool TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize);

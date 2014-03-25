@@ -569,13 +569,12 @@ static bool hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
         uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t
         parallelism, uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
 
-    uint32_t blocksPerThread;
-    uint32_t repetitions = 1 << timeCost;
+    uint64_t memlen = (1024/sizeof(uint32_t)) << memCost;
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t subBlocklen = subBlockSize/sizeof(uint32_t);
+    uint32_t blocksPerThread = TWOCATS_SLICES*(memlen/(TWOCATS_SLICES * parallelism * blocklen));
+    uint32_t repetitions = 1 << timeCost;
 
-    // Determine parameters that meet the memory goal
-    TwoCats_ComputeSizes(H, memCost, timeCost, &parallelism, &blocklen, &subBlocklen, &blocksPerThread);
 
     // Convert hash to 8 32-bit ints.
     uint32_t hash32[H->len];
@@ -634,7 +633,7 @@ static bool hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
 // The TwoCats password hashing function.  Return false if there is a memory allocation error.
 bool TwoCats(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
         uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
-        uint32_t subBlockSize, bool updateMemCostMode) {
+        uint32_t subBlockSize, uint8_t overwriteCost) {
 
     // Allocate memory
     uint32_t *mem;
@@ -646,7 +645,7 @@ bool TwoCats(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint8_t startMemCost
     // Iterate through the levels of garlic.  Throw away some early memory to reduce the
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
-        if(i >= startMemCost || (!updateMemCostMode && i + 6 < startMemCost)) {
+        if(i >= startMemCost || i < overwriteCost) {
             uint32_t resistantSlices = TWOCATS_SLICES/2;
             if(i < startMemCost) {
                 resistantSlices = TWOCATS_SLICES;

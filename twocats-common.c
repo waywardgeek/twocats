@@ -56,39 +56,10 @@ void TwoCats_DumpMemory(char *fileName, uint32_t *mem, uint64_t memlen) {
     fclose(file);
 }
 
-// This is used to determine block length and other parameters for each level of garlic (memCost)
-void TwoCats_ComputeSizes(TwoCats_H *H, uint8_t memCost, uint8_t timeCost, uint8_t *parallelism,
-        uint32_t *blocklen, uint32_t *subBlocklen, uint32_t *blocksPerThread) {
-    // We really want a decent number of blocks per thread, so if it's < TWOCATS_MINBLOCKS, then reduce blocklen,
-    // and if needed, parallelism
-    uint64_t memlen = (1024/sizeof(uint32_t)) << memCost;
-    *blocksPerThread = TWOCATS_SLICES*(memlen/(TWOCATS_SLICES * *parallelism * *blocklen));
-    if(*blocksPerThread < TWOCATS_MINBLOCKS) {
-        *blocksPerThread = TWOCATS_MINBLOCKS;
-        while(*parallelism * *blocksPerThread * *blocklen > memlen) {
-            if(*blocklen > H->len) {
-                *blocklen >>= 1;
-            } else if(*parallelism > 1) {
-                *parallelism = memlen/(*blocksPerThread * *blocklen);
-                if(*parallelism == 0) {
-                    *parallelism = 1;
-                }
-            } else {
-                *blocksPerThread = memlen/(*parallelism * *blocklen);
-            }
-        }
-    }
-    if(*subBlocklen > *blocklen) {
-        *subBlocklen = *blocklen;
-    }
-    //printf("For memCost %u -  parallelism:%u blocklen:%u blocksPerThread:%u repetitions:%u multiplies:%u\n",
-        //memCost, *parallelism, *blocklen*4, *blocksPerThread, *repetitions, *multiplies);
-}
-
 // Hash a 32-bit value into the current state.
 static bool updateUint32(TwoCats_H *H, uint32_t value) {
     uint8_t buf[sizeof(uint32_t)];
-    be32enc(buf, value);
+    encodeLittleEndian(buf, &value, 4);
     if(!H->Update(H, buf, sizeof(uint32_t))) {
         return false;
     }
@@ -109,13 +80,13 @@ static bool scrambleHash(TwoCats_H *H, uint8_t *hash, uint8_t hashSize) {
 // Scramble the 32-bit hash state, including a single uint32_t value.
 static bool hashState(TwoCats_H *H, uint32_t *state, uint32_t value) {
     uint8_t buf[H->size];
-    be32enc_vect(buf, state, H->size);
+    encodeLittleEndian(buf, state, H->size);
     if(!H->Init(H) || !H->Update(H, buf, H->size) ||
             !H->UpdateUint32(H, value) || !H->Final(H, buf)) {
         secureZeroMemory(buf, H->size);
         return false;
     }
-    be32dec_vect(state, buf, H->size);
+    decodeLittleEndian(state, buf, H->size);
     secureZeroMemory(buf, H->size);
     return true;
 }
@@ -127,16 +98,22 @@ static bool extract(TwoCats_H *H, uint32_t *hash32, const uint8_t *hash, uint8_t
         secureZeroMemory(buf, H->size);
         return false;
     }
-    be32dec_vect(hash32, buf, H->size);
+    decodeLittleEndian(hash32, buf, H->size);
     secureZeroMemory(buf, H->size);
     return true;
 }
 
-// Expand a fixed length hash to a variable length hash.
+// Expand a fixed length hash to a variable length hash.  If it's the same size, just decode it.
 static bool expand(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, const uint32_t *hash32) { 
 
+    if(hashSize == H->size) {
+        // No expansion needed, so just encode it.
+        encodeLittleEndian(hash, hash32, H->size);
+        return true;
+    }
+
     uint8_t key[H->size];
-    be32enc_vect(key, hash32, H->size);
+    encodeLittleEndian(key, hash32, H->size);
     uint8_t buf[H->size];
     for(uint32_t i = 0; i < (hashSize + H->size - 1)/H->size; i++) {
         if(!H->Init(H) || !H->Update(H, key, H->size) || !H->UpdateUint32(H, i) || !H->Final(H, buf)) {
@@ -159,7 +136,7 @@ static bool expandUint32(TwoCats_H *H, uint32_t *out, uint32_t outlen, const uin
 
     uint8_t buf[outlen*sizeof(uint32_t)];
     H->Expand(H, buf, outlen*sizeof(uint32_t), hash32);
-    be32dec_vect(out, buf, outlen*sizeof(uint32_t));
+    decodeLittleEndian(out, buf, outlen*sizeof(uint32_t));
     secureZeroMemory(buf, outlen*sizeof(uint32_t));
     return true;
 }
@@ -171,7 +148,7 @@ static bool finalUint32(TwoCats_H *H, uint32_t *hash32) {
         secureZeroMemory(buf, H->size);
         return false;
     }
-    be32dec_vect(hash32, buf, H->size);
+    decodeLittleEndian(hash32, buf, H->size);
     secureZeroMemory(buf, H->size);
     return true;
 }
@@ -306,7 +283,8 @@ bool TwoCats_HashPasswordFull(TwoCats_HashType hashType, uint8_t *hash, uint8_t 
     }
     return TwoCats_HashPasswordExtended(hashType, hash, hashSize, password, passwordSize,
         salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, TWOCATS_LANES,
-        parallelism, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, clearPassword, false);
+        parallelism, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST,
+        clearPassword, false);
 }
 
 // The extended password hashing interface.  
@@ -314,11 +292,12 @@ bool TwoCats_HashPasswordExtended(TwoCats_HashType hashType, uint8_t *hash, uint
         uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
         uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost,
         uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
-        uint32_t blockSize, uint32_t subBlocksize, bool clearPassword, bool clearData) {
+        uint32_t blockSize, uint32_t subBlocksize, uint8_t overwriteCost, bool clearPassword,
+        bool clearData) {
 
     if(!TwoCats_ClientHashPassword(hashType, hash, hashSize, password, passwordSize, salt,
             saltSize, data, dataSize, startMemCost, stopMemCost, timeCost, multiplies,
-            lanes, parallelism, blockSize, subBlocksize, clearPassword, clearData)) {
+            lanes, parallelism, blockSize, subBlocksize, overwriteCost, clearPassword, clearData)) {
         return false;
     }
     return TwoCats_ServerHashPassword(hashType, hash, hashSize);
@@ -336,7 +315,7 @@ bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t ha
         return false;
     }
     if(!TwoCats(&H, hash, hashSize, oldMemCost, newMemCost, timeCost, multiplies, lanes,
-            parallelism, blockSize, subBlockSize, true)) {
+            parallelism, blockSize, subBlockSize, 0)) {
         return false;
     }
     return TwoCats_ServerHashPassword(hashType, hash, hashSize);
@@ -348,7 +327,15 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
         uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
         uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost,
         uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
-        uint32_t subBlockSize, bool clearPassword, bool clearData) {
+        uint32_t subBlockSize, uint8_t overwriteCost, bool clearPassword, bool clearData) {
+
+    // Adjust blockSize and subBlockSize to be sane for small memory
+    if(blockSize > 16 << startMemCost) {
+        blockSize = 16 << startMemCost;
+    }
+    if(subBlockSize > blockSize) {
+        subBlockSize = blockSize;
+    }
 
     TwoCats_H H;
     TwoCats_InitHash(&H, hashType);
@@ -370,11 +357,19 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
             !H.Update(&H, &multiplies, 1) ||
             !H.Update(&H, &lanes, 1) ||
             !H.Update(&H, &parallelism, 1) ||
+            !H.Update(&H, &overwriteCost, 1) ||
             !H.Update(&H, password, passwordSize) ||
             !H.Update(&H, salt, saltSize) ||
             !H.Update(&H, data, dataSize) ||
             !H.FinalUint32(&H, buf)) {
         return false;
+    }
+
+    // Convert overwiteCost from relative to startMemCost to absolute
+    if(overwriteCost >= startMemCost) {
+        overwriteCost = 0;
+    } else if(overwriteCost != 0) {
+        overwriteCost = startMemCost - overwriteCost;
     }
 
     // Now clear the password and data if allowed
@@ -391,7 +386,7 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
     }
     secureZeroMemory(buf, H.size);
     return TwoCats(&H, hash, hashSize, startMemCost, stopMemCost, timeCost, multiplies,
-        lanes, parallelism, blockSize, subBlockSize, false);
+        lanes, parallelism, blockSize, subBlockSize, overwriteCost);
 }
 
 // Server portion of work for server-relief mode.
@@ -399,6 +394,15 @@ bool TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
     TwoCats_H H;
     TwoCats_InitHash(&H, hashType);
     return H.Hash(&H, hash, hashSize);
+}
+
+// The SkinnyCat API.
+bool SkinnyCat_HashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t *password,
+        uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize, uint8_t memCost,
+        bool clearPassword) {
+    return TwoCats_HashPasswordExtended(hashType, hash, 32, password, passwordSize, salt, saltSize,
+        NULL, 0, memCost, memCost, 0, 0, TWOCATS_LANES, 1, TWOCATS_BLOCKSIZE,
+        TWOCATS_BLOCKSIZE, 0, clearPassword, false);
 }
 
 // This is the prototype required for the password hashing competition.
@@ -417,7 +421,7 @@ static clock_t findRuntime(TwoCats_HashType hashType, uint8_t memCost, uint8_t t
     clock_t start = clock();
     if(!TwoCats_HashPasswordExtended(hashType, buf, TWOCATS_KEYSIZE, NULL, 0, NULL, 0,
             NULL, 0, memCost, memCost, timeCost, multiplies, lanes, TWOCATS_PARALLELISM,
-            TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, false, false)) {
+            TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, 0, false, false)) {
         fprintf(stderr, "Memory hashing failed\n");
         return -1;
     }

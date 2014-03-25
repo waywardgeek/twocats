@@ -60,37 +60,29 @@ void TwoCats_InitSHA512(TwoCats_H *H);
 
 void TwoCats_InitHash(TwoCats_H *H, TwoCats_HashType type);
 
-// These big-endian encode/decode functions were copied from Script's sha.h
-
-// Encode a uint32_t as 4 uint8_t's in big-endian order.
-static inline void be32enc(uint8_t *p, uint32_t x) {
-        p[3] = x;
-        p[2] = x >> 8;
-        p[1] = x >> 16;
-        p[0] = x >> 24;
-}
-
 // Encode a length len/4 vector of (uint32_t) into a length len vector of
-// (unsigned char) in big-endian form.  Assumes len is a multiple of 4.
-static inline void be32enc_vect(uint8_t *dst, const uint32_t *src, uint32_t len) {
+// (unsigned char) in little-endian form.  Assumes len is a multiple of 4.
+static inline void encodeLittleEndian(uint8_t *dst, const uint32_t *src, uint32_t len) {
+    uint8_t *p = dst;
     for (uint32_t i = 0; i < len / 4; i++) {
-        be32enc(dst + i * 4, src[i]);
+        *p++ = *src;
+        *p++ = *src >> 8;
+        *p++ = *src >> 16;
+        *p++ = *src++ >> 24;
     }
 }
 
-// Decode 4 uint8_t's in big-endian order to a uint32_t.
-static inline uint32_t be32dec(const uint8_t *p) {
-    return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
-        ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
-}
-
-// Decode a big-endian length len vector of (unsigned char) into a length
+// Decode a little-endian length len vector of (unsigned char) into a length
 // len/4 vector of (uint32_t).  Assumes len is a multiple of 4.
-static inline void be32dec_vect(uint32_t *dst, const uint8_t *src, uint32_t len) {
+static inline void decodeLittleEndian(uint32_t *dst, const uint8_t *src, uint32_t len) {
+    const uint8_t *p = src;
     for(uint32_t i = 0; i < len / 4; i++) {
-        dst[i] = be32dec(src + i * 4);
+        dst[i] = ((uint32_t)(p[0]) + ((uint32_t)(p[1]) << 8) + ((uint32_t)(p[2]) << 16) +
+            ((uint32_t)(p[3]) << 24));
+        p += 4;
     }
 }
+
 
 // Prevents compiler optimizing out memset() -- from blake2-impl.h
 static inline void secureZeroMemory(void *v, uint32_t n) {
@@ -103,8 +95,6 @@ static inline void secureZeroMemory(void *v, uint32_t n) {
 // The TwoCats Internal password hashing function.  Return false if there is a memory allocation error.
 bool TwoCats(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
     uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
-    uint32_t subBlockSize, bool updateMemCostMode);
-void TwoCats_ComputeSizes(TwoCats_H *H, uint8_t memCost, uint8_t timeCost, uint8_t *parallelism,
-        uint32_t *blocklen, uint32_t *subBlocklen, uint32_t *blocksPerThread);
+    uint32_t subBlockSize, uint8_t overwriteCost);
 void TwoCats_PrintState(char *message, uint32_t *state, uint32_t length);
 void TwoCats_DumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);
