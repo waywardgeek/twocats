@@ -360,13 +360,20 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
     // Add all the inputs, other than stopMemCost
     uint32_t buf[H.len];
     if(!H.Init(&H) || !H.UpdateUint32(&H, hashSize) ||
-            !H.UpdateUint32(&H, passwordSize) || !H.Update(&H, password, passwordSize) ||
-            !H.UpdateUint32(&H, saltSize) || !H.Update(&H, salt, saltSize) ||
-            !H.UpdateUint32(&H, dataSize) || !H.Update(&H, data, dataSize) ||
-            !H.Update(&H, &startMemCost, 1) || !H.Update(&H, &timeCost, 1) ||
-            !H.Update(&H, &multiplies, 1) || !H.Update(&H, &lanes, 1) ||
-            !H.Update(&H, &parallelism, 1) || !H.UpdateUint32(&H, blockSize) ||
-            !H.UpdateUint32(&H, subBlockSize) || !H.FinalUint32(&H, buf)) {
+            !H.UpdateUint32(&H, passwordSize) ||
+            !H.UpdateUint32(&H, saltSize) ||
+            !H.UpdateUint32(&H, dataSize) ||
+            !H.UpdateUint32(&H, blockSize) ||
+            !H.UpdateUint32(&H, subBlockSize) ||
+            !H.Update(&H, &startMemCost, 1) ||
+            !H.Update(&H, &timeCost, 1) ||
+            !H.Update(&H, &multiplies, 1) ||
+            !H.Update(&H, &lanes, 1) ||
+            !H.Update(&H, &parallelism, 1) ||
+            !H.Update(&H, password, passwordSize) ||
+            !H.Update(&H, salt, saltSize) ||
+            !H.Update(&H, data, dataSize) ||
+            !H.FinalUint32(&H, buf)) {
         return false;
     }
 

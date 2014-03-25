@@ -22,11 +22,7 @@
 
     For all of these functions, these are the restrictions on sizes:
 
-<<<<<<< HEAD
     1 <= hashSize <= 255
-=======
-    1 <= hashSize <= 2^30
->>>>>>> 6e76334f5e43bce41901e6a5f1a87839ed1b2947
     memCost <= 30
     timeCost <= 30
     multiplies <= 8
@@ -42,7 +38,7 @@
     Preferably, passwords and any other secret data are passed in fixed sized buffers.
     This insures that SHA256 can not leak length information.
 
-    Preferably clearPassword is set to true so that the password buffer can be overwritten
+    Preferably clearPassword is set to true so that the password can be overwritten
     with 0's at the beginning of hashing rather than by the user afterward.
 */
 
@@ -61,10 +57,11 @@ typedef enum {
 char *TwoCats_GetHashTypeName(TwoCats_HashType hashType);
 TwoCats_HashType TwoCats_FindHashType(char *name);
 
-// The default password hashing interface.  On success, a 32-byte password hash is written,
-// and true is returned.  otherwise false is returned, and hash and password are unchanged.
-// Each increment of memCost doubles difficulty.  The memory hashed = 2^memCost KiB.
-// If clearPassword is set, the password buffer is set to 0's early during the hashing.
+// The default password hashing interface.  On success, a hashSize byte password hash is
+// written, and true is returned.  Otherwise false is returned, and hash and password are
+// unchanged.  Each increment of memCost doubles difficulty.  The memory hashed =
+// 2^memCost KiB.  If clearPassword is set, the password is set to 0's early during
+// the hashing.
 
 bool TwoCats_HashPassword( TwoCats_HashType hashType,
                            uint8_t *hash,       uint8_t hashSize,
@@ -72,10 +69,20 @@ bool TwoCats_HashPassword( TwoCats_HashType hashType,
                            const uint8_t *salt, uint32_t saltSize,
                            uint8_t memCost,     bool clearPassword);
 
+// The SkinnyCat API is a TwoCat compliant KISS password hashing scheme.  It differs from
+// TwoCats_HashPassword by disabling many of the more advanced features of TwoCats when
+// calling the extended TwoCats interface.  On success, a 32 or 64 byte (depending on
+// hashType) hash value is written, and true is returned.  The point of SkinnyCat is to
+// simplify creation of compatible implementations.
+
+bool SkinnyCat_HashPassword( TwoCats_HashType hashType, uint8_t *hash,
+                           uint8_t *password,   uint32_t passwordSize,
+                           const uint8_t *salt, uint32_t saltSize,
+                           uint8_t memCost,     bool clearPassword);
 
 // The full password hashing interface.  On success, true is returned, otherwise false.
 // Memory hashed = 2^memCost KiB.  Repetitions of hashing = 2^timeCost.  Number of
-// threads used = parallelism.  The password buffer is set to 0's early during the
+// threads used = parallelism.  The password is set to 0's early during the
 // hashing if clearPassword is set.
 
 bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
