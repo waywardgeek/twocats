@@ -185,6 +185,16 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
     return true;
 }
 
+// This is the prototype required for the password hashing competition.  It uses Blake2s.
+int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
+        unsigned int t_cost, unsigned int m_cost) {
+    if(outlen != 32) {
+        fprintf(stderr, "outlen must be 32\n");
+        return 1;
+    }
+    return !SkinnyCat_HashPassword(SKINNYCAT_BLAKE2S, out, (uint8_t *)in, inlen, salt, saltlen, m_cost, false);
+}
+
 #if defined(SKINNYCAT_TEST)
 
 // Print the hash value in hex.

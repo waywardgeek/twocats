@@ -34,3 +34,7 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t hash[32],
                            uint8_t *password,   uint8_t passwordSize,
                            const uint8_t *salt, uint8_t saltSize,
                            uint8_t memCost,     bool clearPassword);
+
+// This is the prototype required for the password hashing competition.  It uses Blake2s.
+int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt, size_t saltlen,
+    unsigned int t_cost, unsigned int m_cost);
