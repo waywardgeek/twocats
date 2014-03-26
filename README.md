@@ -1,15 +1,18 @@
-TwoCats
-=======
+TwoCats and SkinnyCat
+=====================
 
-TwoCats is a sequential memory and compute time hard password hashing scheme that
-maximizes an attackers time*memory cost for guessing passwords.  Christian Forler and
-Alexander Peslyak (aka SolarDesigner) provided most of the ideas that I have combined in
-TwoCats.  While they may not want credit for this work, it belongs to them more than me.
+TwoCats is sequential memory and compute time hard password hashing scheme that maximizes
+an attackers time*memory cost for guessing passwords.  Christian Forler and Alexander
+Peslyak (aka SolarDesigner) provided most of the ideas that I have combined in TwoCats.
+While they may not want credit for this work, it belongs to them more than me.
+
+SkinnyCat is a compatible stripped-down version of TwoCats supporting only a memory cost.
+It is meant to be simple to implement, yet provide fast memory-hard password security.
 
 Please read TwoCats.odt for a description of the algorithm and credits for ideas.
 
 License
 -------
 
-This stuff is free, as in freedom.  I place what I wrote into the public domain, and the
-bits that are borrowed are under BSD/MIT-like licenses.
+This stuff is free, as in freedom.  I place what I wrote into the public domain.
+Bits of twocats-tests.c are borrowed and are under BSD/MIT-like licenses.

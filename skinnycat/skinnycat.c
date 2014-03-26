@@ -106,18 +106,11 @@ static void addIntoHash(uint32_t *hash32, uint32_t *states) {
     }
 }
 
-bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t *password,
+// Derive pseudorandom key from password and salt
+static void deriveKey(SkinnyCat_HashType hashType, uint32_t *hash32, uint8_t *password,
         uint8_t passwordSize, const uint8_t *salt, uint8_t saltSize, uint8_t memCost,
-        bool clearPassword) {
-    uint64_t memlen = ((uint64_t)1024 << memCost)/sizeof(uint32_t);
-    uint32_t blocklen = BLOCKLEN;
-    while(blocklen > 8 && memlen/blocklen < 256) {
-        blocklen >>= 1;
-    }
-    printf("blockSize:%u\n", blocklen*4);
-    
-    // Derive pseudorandom key from password and salt
-    uint32_t hash32[8];
+        uint32_t blocklen) {
+    uint8_t hash[32];
     uint32_t tweakSize = 5*sizeof(uint32_t) + 6 + saltSize + passwordSize;
     uint32_t data32[5] = {passwordSize, saltSize, 0, blocklen*4, blocklen*4};
     uint8_t data8[6] = {memCost, 0, 0, 8, 1, 0};
@@ -128,19 +121,40 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
     memcpy(tweak + 26 + passwordSize, salt, saltSize);
     H(hashType, hash, tweak, tweakSize); // Same as Twocat's extract
     decodeLittleEndian(hash32, hash, 32);
+}
+
+bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t *password,
+        uint8_t passwordSize, const uint8_t *salt, uint8_t saltSize, uint8_t memCost,
+        bool clearPassword) {
+
+    // Adjust blocklen for small memCost
+    uint64_t memlen = ((uint64_t)1024 << memCost)/sizeof(uint32_t);
+    uint32_t blocklen = BLOCKLEN;
+    while(blocklen > 8 && memlen/blocklen < 256) {
+        blocklen >>= 1;
+    }
+    
+    // Derive the initial pseudorandom key
+    uint32_t hash32[8];
+    deriveKey(hashType, hash32, password, passwordSize, salt, saltSize, memCost, blocklen);
 
     if(clearPassword) {
         memset(password, 0, passwordSize);
     }
 
-    uint32_t state[8];
-    hashState(hashType, state, hash32, 0);
     uint32_t *mem = malloc(memlen*sizeof(uint32_t));
     if(mem == NULL) {
         return false;
     }
 
+    // Initialize state
+    uint32_t state[8];
+    hashState(hashType, state, hash32, 0);
+
+    // Initialize first block of memory
     expand(hashType, mem, blocklen, state);
+
+    // Hash without password dependent addressing
     uint64_t prevAddr = 0;
     uint64_t toAddr = blocklen;
     for(uint32_t i = 1; i < memlen/(2*blocklen); i++) {
@@ -155,6 +169,8 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
         }
         hashState(hashType, state, state, a);
     }
+
+    // Hash with password dependent addressing
     for(uint32_t i = memlen/(2*blocklen); i < memlen/blocklen; i++) {
         uint32_t a = state[0]; // For compatibility with TwoCats
         uint64_t fromAddr = (i - 1 - distanceCubed(i, state[0]))*blocklen;
@@ -167,13 +183,18 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
         }
         hashState(hashType, state, state, a);
     }
+
+    // Add result into original hash, and hash it one more time
     addIntoHash(hash32, state);
     encodeLittleEndian(hash, hash32, 32);
     H(hashType, hash, hash, 32);
-    H(hashType, hash, hash, 32); // One more for compatibility with TwoCat's server relief
+
+    // One final hash for compatibility with TwoCat's server relief
+    H(hashType, hash, hash, 32);
     return true;
 }
 
+#if defined(SKINNYCAT_TEST)
 int main(int argc, char **argv) {
     uint8_t memCost = 20;
     if(argc > 2) {
@@ -187,3 +208,4 @@ int main(int argc, char **argv) {
     printHex("result:", hash);
     return 0;
 }
+#endif
