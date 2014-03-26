@@ -151,7 +151,7 @@ static void hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint3
 }
 
 // Hash memory for one level of garlic.
-static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *mem,
+static void hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem,
         uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
         uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
 
@@ -160,11 +160,6 @@ static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
     uint32_t subBlocklen = subBlockSize/sizeof(uint32_t);
     uint32_t blocksPerThread = TWOCATS_SLICES*(memlen/(TWOCATS_SLICES * parallelism * blocklen));
     uint32_t repetitions = 1 << timeCost;
-
-    // Convert hash to 32-bit ints.
-    uint32_t hash32[H->len];
-    H->Extract(H, hash32, hash, hashSize);
-    secureZeroMemory(hash, hashSize);
 
     // Initialize thread states
     uint32_t states[H->len*parallelism];
@@ -184,12 +179,12 @@ static void hashMemory(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint32_t *
 
     // Apply a crypto-strength hash
     addIntoHash(H, hash32, parallelism, states);
-    H->Expand(H, hash, hashSize, hash32);
+    H->Hash(H, hash32);
 }
 
 // The TwoCats internal password hashing function.  Return false if there is a memory allocation error.
-bool TwoCats(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
-        uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
+bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+        uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
         uint32_t subBlockSize, uint8_t overwriteCost) {
 
     // Allocate memory
@@ -203,16 +198,16 @@ bool TwoCats(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint8_t startMemCost
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if((i >= startMemCost || i < overwriteCost) &&
-                (1024 << i)/(parallelism*blockSize) >= TWOCATS_SLICES) {
+                ((uint64_t)1024 << i)/(parallelism*blockSize) >= TWOCATS_SLICES) {
             uint32_t resistantSlices = TWOCATS_SLICES/2;
             if(i < startMemCost) {
                 resistantSlices = TWOCATS_SLICES;
             }
-            hashMemory(H, hash, hashSize, mem, i, timeCost, multiplies, lanes, parallelism, blockSize,
-                subBlockSize, resistantSlices);
+            hashMemory(H, hash32, mem, i, timeCost, multiplies, lanes, parallelism,
+                blockSize, subBlockSize, resistantSlices);
             if(i != stopMemCost) {
                 // Not doing the last hash is for server relief support
-                H->Hash(H, hash, hashSize);
+                H->Hash(H, hash32);
             }
         }
     }

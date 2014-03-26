@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     printf("Encrypting with memCost=%u timeCost=%u multiplies=%u lanes=%u\n", memCost, timeCost, multiplies, lanes);
 
     genSalt(salt);
-    if(!TwoCats_HashPasswordExtended(TWOCATS_HASHTYPE, key, KEY_SIZE, (uint8_t *)password, strlen(password),
+    if(!TwoCats_HashPasswordExtended(TWOCATS_HASHTYPE, key, (uint8_t *)password, strlen(password),
             salt, SALT_SIZE, NULL, 0, memCost, memCost, timeCost, multiplies, lanes, TWOCATS_PARALLELISM,
             TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Unable to hash password - memory allocation failed\n");

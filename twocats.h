@@ -59,6 +59,7 @@ typedef enum {
 
 char *TwoCats_GetHashTypeName(TwoCats_HashType hashType);
 TwoCats_HashType TwoCats_FindHashType(char *name);
+uint8_t TwoCats_GetHashTypeSize(TwoCats_HashType hashType);
 
 // The default password hashing interface.  On success, a hashSize byte password hash is
 // written, and true is returned.  Otherwise false is returned, and hash and password are
@@ -66,8 +67,7 @@ TwoCats_HashType TwoCats_FindHashType(char *name);
 // 2^memCost KiB.  If clearPassword is set, the password is set to 0's early during
 // the hashing.
 
-bool TwoCats_HashPassword( TwoCats_HashType hashType,
-                           uint8_t *hash,       uint8_t hashSize,
+bool TwoCats_HashPassword( TwoCats_HashType hashType, uint8_t *hash,
                            uint8_t *password,   uint32_t passwordSize,
                            const uint8_t *salt, uint32_t saltSize,
                            uint8_t memCost,     bool clearPassword);
@@ -79,8 +79,8 @@ bool TwoCats_HashPassword( TwoCats_HashType hashType,
 // simplify creation of compatible implementations.
 
 bool SkinnyCat_HashPassword( TwoCats_HashType hashType, uint8_t *hash,
-                           uint8_t *password,   uint32_t passwordSize,
-                           const uint8_t *salt, uint32_t saltSize,
+                           uint8_t *password,   uint8_t passwordSize,
+                           const uint8_t *salt, uint8_t saltSize,
                            uint8_t memCost,     bool clearPassword);
 
 // The full password hashing interface.  On success, true is returned, otherwise false.
@@ -88,8 +88,7 @@ bool SkinnyCat_HashPassword( TwoCats_HashType hashType, uint8_t *hash,
 // threads used = parallelism.  The password is set to 0's early during the
 // hashing if clearPassword is set.
 
-bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
-                               uint8_t *hash,       uint8_t hashSize,
+bool TwoCats_HashPasswordFull( TwoCats_HashType hashType, uint8_t *hash,
                                uint8_t *password,   uint32_t passwordSize,
                                const uint8_t *salt, uint32_t saltSize,
                                uint8_t memCost,     uint8_t timeCost,
@@ -157,8 +156,7 @@ bool TwoCats_HashPasswordFull( TwoCats_HashType hashType,
    clearData is set, the data input is set to 0's early in hashing.
 */
 
-bool TwoCats_HashPasswordExtended( TwoCats_HashType hashType,
-                                   uint8_t *hash,         uint8_t hashSize,
+bool TwoCats_HashPasswordExtended( TwoCats_HashType hashType, uint8_t *hash,
                                    uint8_t *password,     uint32_t passwordSize,
                                    const uint8_t *salt,   uint32_t saltSize,
                                    uint8_t *data,         uint32_t dataSize,
@@ -170,19 +168,19 @@ bool TwoCats_HashPasswordExtended( TwoCats_HashType hashType,
                                    bool clearData);
 
 // Update an existing password hash to a more difficult level of memCost.
-bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize,
-    uint8_t oldMemCost, uint8_t newMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes,
-    uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize);
+bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t oldMemCost,
+    uint8_t newMemCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
+    uint32_t blockSize, uint32_t subBlockSize);
 
 // Client-side portion of work for server-relief mode.
-bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize,
-    uint8_t *password, uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize,
-    uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
-    uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
-    uint8_t overwriteCost, bool clearPassword, bool clearData);
+bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t *password,
+    uint32_t passwordSize, const uint8_t *salt, uint32_t saltSize, uint8_t *data, uint32_t dataSize,
+    uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost, uint8_t multiplies,
+    uint8_t lanes, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize, uint8_t overwriteCost,
+    bool clearPassword, bool clearData);
 
 // Server portion of work for server-relief mode.
-bool TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t hashSize);
+bool TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash);
 
 // Find parameter settings on this machine for a given desired runtime and maximum memory
 // usage.  maxMem is in KiB.  Runtime with be typically +/- 50% and memory will be <= maxMem.

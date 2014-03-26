@@ -41,10 +41,8 @@ struct TwoCats_HashStruct {
     bool (*Final)(TwoCats_H *H, uint8_t *hash);
     // These are common to all of them
     bool (*UpdateUint32)(TwoCats_H *H, uint32_t value);
-    bool (*Hash)(TwoCats_H *H, uint8_t *hash, uint8_t hashSize);
+    bool (*Hash)(TwoCats_H *H, uint32_t *hash32);
     bool (*HashState)(TwoCats_H *H, uint32_t *state, uint32_t value);
-    bool (*Extract)(TwoCats_H *H, uint32_t *hash32, const uint8_t *hash, uint8_t hashSize);
-    bool (*Expand)(TwoCats_H *H, uint8_t *hash, uint32_t hashSize, const uint32_t *hash32);
     bool (*ExpandUint32)(TwoCats_H *H, uint32_t *out, uint32_t outlen, const uint32_t *hash32);
     bool (*FinalUint32)(TwoCats_H *H, uint32_t *hash32);
     char *name;
@@ -93,7 +91,7 @@ static inline void secureZeroMemory(void *v, uint32_t n) {
 }
 
 // The TwoCats Internal password hashing function.  Return false if there is a memory allocation error.
-bool TwoCats(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint8_t startMemCost, uint8_t stopMemCost,
+bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopMemCost,
     uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
     uint32_t subBlockSize, uint8_t overwriteCost);
 void TwoCats_PrintState(char *message, uint32_t *state, uint32_t length);

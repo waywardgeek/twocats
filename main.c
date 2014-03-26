@@ -27,7 +27,6 @@ static void usage(char *format, ...) {
     va_end(ap);
     fprintf(stderr, "\nUsage: twocats [OPTIONS] [hashType]\n"
         "    -a algorithm     -- twocats, twocats-full, twocats-extended (default), skinnycat, or phs\n"
-        "    -h hashSize      -- The output derived key length in bytes, must be from 1 to 8160\n"
         "    -p password      -- Set the password to hash\n"
         "    -s salt          -- Set the salt.  Salt must be in hexidecimal\n"
         "    -m memCost       -- The amount of memory to use = 2^memCost KiB\n"
@@ -100,7 +99,6 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 }
 
 int main(int argc, char **argv) {
-    uint32_t derivedKeySize = TWOCATS_KEYSIZE;
     uint8_t parallelism = TWOCATS_PARALLELISM;
     uint8_t memCost = TWOCATS_MEMCOST;
     uint8_t *salt = (uint8_t *)"salt";
@@ -118,13 +116,10 @@ int main(int argc, char **argv) {
     char *algorithm = "twocats-extended";
 
     char c;
-    while((c = getopt(argc, argv, "a:h:p:s:m:M:o:t:l:P:b:B:")) != -1) {
+    while((c = getopt(argc, argv, "a:p:s:m:M:o:t:l:P:b:B:")) != -1) {
         switch (c) {
         case 'a':
             algorithm = optarg;
-            break;
-        case 'h':
-            derivedKeySize = readuint32_t(c, optarg);
             break;
         case 'p':
             password = (uint8_t *)optarg;
@@ -176,25 +171,23 @@ int main(int argc, char **argv) {
         hashName, memCost, timeCost, multiplies, lanes, parallelism);
     printf("algorithm:%s password:%s salt:%s blockSize:%u subBlockSize:%u\n",
         algorithm, password, salt, blockSize, subBlockSize);
-    if(!strcmp(algorithm, "skinnycat")) {
-        derivedKeySize = 32;
-    }
-    uint8_t *derivedKey = (uint8_t *)calloc(derivedKeySize, sizeof(uint8_t));
+    uint8_t derivedKeySize = TwoCats_GetHashTypeSize(hashType);
+    uint8_t derivedKey[derivedKeySize];
     if(!strcmp(algorithm, "twocats-extended")) {
-        if(!TwoCats_HashPasswordExtended(hashType, derivedKey, derivedKeySize, password, passwordSize,
+        if(!TwoCats_HashPasswordExtended(hashType, derivedKey, password, passwordSize,
                 salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, lanes, parallelism,
                 blockSize, subBlockSize, overwriteCost, false, false)) {
             fprintf(stderr, "Key stretching failed.\n");
             return 1;
         }
     } else if(!strcmp(algorithm, "twocats-full")) {
-        if(!TwoCats_HashPasswordFull(hashType, derivedKey, derivedKeySize, password, passwordSize,
+        if(!TwoCats_HashPasswordFull(hashType, derivedKey, password, passwordSize,
                 salt, saltSize, memCost, timeCost, parallelism, false)) {
             fprintf(stderr, "Key stretching failed.\n");
             return 1;
         }
     } else if(!strcmp(algorithm, "twocats")) {
-        if(!TwoCats_HashPassword(hashType, derivedKey, derivedKeySize, password, passwordSize,
+        if(!TwoCats_HashPassword(hashType, derivedKey, password, passwordSize,
                 salt, saltSize, memCost, false)) {
             fprintf(stderr, "Key stretching failed.\n");
             return 1;

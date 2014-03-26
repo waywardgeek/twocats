@@ -1,6 +1,6 @@
 # Makefile for twocats
 
-DEPS = Makefile obj
+DEPS = Makefile
 
 CC=gcc
 
@@ -36,7 +36,7 @@ TEST_OBJS=$(patsubst %.c,obj/%.o,$(TEST_SOURCE))
 ENC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
 DEC_OBJS=$(patsubst %.c,obj/%.o,$(DEC_SOURCE))
 
-all: twocats-ref twocats twocats-test twocats-enc twocats-dec
+all: obj twocats-ref twocats twocats-test twocats-enc twocats-dec
 
 -include $(OBJS:.o=.d) $(REF_OBJS:.o=.d) $(TWOCATS_OBJS:.o=.d) $(ENC_OBJS:.o=.d) $(DEC_OBJS:.o=.d)
 

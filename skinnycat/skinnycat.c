@@ -112,21 +112,21 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
     
     // Derive pseudorandom key from password and salt
     uint32_t state[8], hash32[8];
-    uint32_t tweakSize = 6*sizeof(uint32_t) + 6 + saltSize + passwordSize;
-    uint32_t data32[6] = {32, passwordSize, saltSize, 0, BLOCKLEN*4, BLOCKLEN*4};
+    uint32_t tweakSize = 5*sizeof(uint32_t) + 6 + saltSize + passwordSize;
+    uint32_t data32[5] = {passwordSize, saltSize, 0, BLOCKLEN*4, BLOCKLEN*4};
     uint8_t data8[6] = {memCost, 0, 0, 8, 1, 0};
     uint8_t tweak[tweakSize];
-    encodeLittleEndian(tweak, data32, 24);
-    memcpy(tweak + 24, data8, 6);
-    memcpy(tweak + 30, password, passwordSize);
-    memcpy(tweak + 30 + passwordSize, salt, saltSize);
+    encodeLittleEndian(tweak, data32, 20);
+    memcpy(tweak + 20, data8, 6);
+    memcpy(tweak + 26, password, passwordSize);
+    memcpy(tweak + 26 + passwordSize, salt, saltSize);
     uint8_t buf[32];
-    H(hashType, buf, tweak, tweakSize);
-printHex("initial key", buf);
-
-    H(hashType, buf, buf, 32); // One more for compatibility with TwoCats
+    H(hashType, buf, tweak, tweakSize); // Same as Twocat's extract
+    H(hashType, buf, buf, 32); // One more for TwoCats's expand
+    H(hashType, buf, buf, 32); // One more for TwoCats's extract
     decodeLittleEndian(hash32, buf, 32);
     memcpy(state, hash32, 32);
+printHex("initial key", buf);
 
     if(clearPassword) {
         memset(password, 0, passwordSize);
