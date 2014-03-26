@@ -202,7 +202,8 @@ bool TwoCats(TwoCats_H *H, uint8_t *hash, uint8_t hashSize, uint8_t startMemCost
     // Iterate through the levels of garlic.  Throw away some early memory to reduce the
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
-        if(i >= startMemCost || i < overwriteCost) {
+        if((i >= startMemCost || i < overwriteCost) &&
+                (1024 << i)/(parallelism*blockSize) <= TWOCATS_SLICES) {
             uint32_t resistantSlices = TWOCATS_SLICES/2;
             if(i < startMemCost) {
                 resistantSlices = TWOCATS_SLICES;

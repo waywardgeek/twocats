@@ -329,19 +329,18 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
         uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
         uint32_t subBlockSize, uint8_t overwriteCost, bool clearPassword, bool clearData) {
 
-    // Adjust blockSize and subBlockSize to be sane for small memory
-    if(blockSize > 16 << startMemCost) {
-        blockSize = 16 << startMemCost;
-    }
-    if(subBlockSize > blockSize) {
-        subBlockSize = blockSize;
-    }
-
     TwoCats_H H;
     TwoCats_InitHash(&H, hashType);
     if(!verifyParameters(&H, hashSize, startMemCost, stopMemCost, timeCost, multiplies, lanes,
             parallelism, blockSize, subBlockSize)) {
         return false;
+    }
+
+    // Convert overwiteCost from relative to startMemCost to absolute
+    if(overwriteCost >= startMemCost) {
+        overwriteCost = 0;
+    } else if(overwriteCost != 0) {
+        overwriteCost = startMemCost - overwriteCost;
     }
 
     // Add all the inputs, other than stopMemCost
@@ -365,12 +364,7 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
         return false;
     }
 
-    // Convert overwiteCost from relative to startMemCost to absolute
-    if(overwriteCost >= startMemCost) {
-        overwriteCost = 0;
-    } else if(overwriteCost != 0) {
-        overwriteCost = startMemCost - overwriteCost;
-    }
+TwoCats_PrintHex("key", buf, 32);
 
     // Now clear the password and data if allowed
     if(clearPassword && passwordSize != 0) {

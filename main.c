@@ -174,8 +174,8 @@ int main(int argc, char **argv) {
 
     printf("hash:%s memCost:%u timeCost:%u multiplies:%u lanes:%u parallelism:%u\n",
         hashName, memCost, timeCost, multiplies, lanes, parallelism);
-    printf("password:%s salt:%s blockSize:%u subBlockSize:%u\n",
-        password, salt, blockSize, subBlockSize);
+    printf("algorithm:%s password:%s salt:%s blockSize:%u subBlockSize:%u\n",
+        algorithm, password, salt, blockSize, subBlockSize);
     if(!strcmp(algorithm, "skinnycat")) {
         derivedKeySize = 32;
     }
