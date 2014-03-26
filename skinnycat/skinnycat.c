@@ -142,7 +142,7 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
         uint8_t passwordSize, const uint8_t *salt, uint8_t saltSize, uint8_t memCost,
         bool clearPassword) {
 
-    // Adjust blocklen for small memCost
+    // Choose smaller blocklen for smaller memCost values
     uint64_t memlen = ((uint64_t)1024 << memCost)/sizeof(uint32_t);
     uint32_t blocklen = BLOCKLEN;
     while(blocklen > 8 && memlen/blocklen < 256) {
@@ -150,8 +150,8 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
     }
     
     // Derive the initial pseudorandom key
-    uint32_t hash32[8];
-    deriveKey(hashType, hash32, password, passwordSize, salt, saltSize, memCost, blocklen);
+    uint32_t PRK[8];
+    deriveKey(hashType, PRK, password, passwordSize, salt, saltSize, memCost, blocklen);
 
     if(clearPassword) {
         secureZeroMemory(password, passwordSize);
@@ -164,7 +164,7 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
 
     // Initialize state
     uint32_t state[8];
-    hashState(hashType, state, hash32, 0);
+    hashState(hashType, state, PRK, 0);
 
     // Initialize first block of memory
     expand(hashType, mem, blocklen, state);
@@ -200,8 +200,8 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
     }
 
     // Add result into original hash, and hash it one more time
-    addIntoHash(hash32, state);
-    encodeLittleEndian(hash, hash32, 32);
+    addIntoHash(PRK, state);
+    encodeLittleEndian(hash, PRK, 32);
     H(hashType, hash, hash, 32);
 
     // One final hash for compatibility with TwoCat's server relief
@@ -273,6 +273,7 @@ int main(int argc, char **argv) {
         memCost = atoi(argv[1]);
         SkinnyCat_HashPassword(SKINNYCAT_BLAKE2S, hash, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, memCost, false);
         printHex("result:", hash, 32);
+        printf("\n");
     } else {
         printTestVectors(SKINNYCAT_BLAKE2S);
         printTestVectors(SKINNYCAT_SHA256);

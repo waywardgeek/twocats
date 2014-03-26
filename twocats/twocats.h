@@ -22,7 +22,7 @@
 
     For all of these functions, these are the restrictions on sizes:
 
-    1 <= hashSize <= 255
+    hash is 32 or 64 bytes, depending on the selelected hashType
     memCost <= 30
     timeCost <= 30
     multiplies <= 8
@@ -30,7 +30,7 @@
     startMemCost <= stopMemCost <= 30
     oldMemCost < newMemCost <= 30
     32 <= subBlockSize <= blockSize <= 2^20 -- both must be powers of 2
-    1 <= lanes <= hashType size/4 (for example, 8 for SHA256)
+    1 <= lanes <= hash size/4 (for example, 8 for SHA256)
 
     NULL values and 0 lengths are legal for all variable sized inputs.  Lengths for NULL
     values must be 0.
