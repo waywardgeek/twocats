@@ -127,6 +127,7 @@ static void deriveKey(SkinnyCat_HashType hashType, uint32_t *hash32, uint8_t *pa
     decodeLittleEndian(hash32, hash, 32);
 }
 
+// The SkinnyCat main API.
 bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t *password,
         uint8_t passwordSize, const uint8_t *salt, uint8_t saltSize, uint8_t memCost,
         bool clearPassword) {
@@ -211,25 +212,57 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
 #if defined(SKINNYCAT_TEST)
 
 // Print the hash value in hex.
-static void printHex(char *message, uint8_t hash[32]) {
+static void printHex(char *message, uint8_t *data, uint8_t len) {
     printf("%s", message);
-    for(uint32_t i = 0; i < 32; i++) {
-        printf(" %02x", hash[i]);
+    for(uint32_t i = 0; i < len; i++) {
+        printf("%02x", data[i]);
     }
+}
+
+// Print a test vector.
+static void printTest(uint8_t *password, uint8_t passwordSize, uint8_t *salt, uint8_t saltSize,
+        uint8_t memCost) {
+    printHex("password:", password, passwordSize);
+    printHex(" salt:", salt, saltSize);
+    printf(" memCost:%u ", memCost);
+    uint8_t hash[32];
+    SkinnyCat_HashPassword(SKINNYCAT_BLAKE2S, hash, password, passwordSize, salt, saltSize, memCost, false);
+    printHex("-> ", hash, 32);
     printf("\n");
+}
+
+// Print test vectors.
+static void printTestVectors(void) {
+    // Verify we can run without password or salt
+    printTest(NULL, 0, NULL, 0, 0);
+    // Verify password and salt from 0 to 255 for memCost 0 .. 9
+    for(uint32_t i = 0; i < 256; i++) {
+        uint8_t v = i;
+        for(uint32_t j = 0; j < 10; j++) {
+            printTest(&v, 1, NULL, 0, j);
+        }
+        for(uint32_t j = 0; j < 10; j++) {
+            printTest(NULL, 0, &v, 1, j);
+        }
+        for(uint32_t j = 0; j < 10; j++) {
+            printTest(&v, 1, &v, 1, j);
+        }
+    }
 }
 
 int main(int argc, char **argv) {
     uint8_t memCost = 20;
+    uint8_t hash[32];
     if(argc > 2) {
         fprintf(stderr, "Usage: skinnycat [memCost]\n");
         return 1;
     } else if(argc == 2) {
         memCost = atoi(argv[1]);
+        SkinnyCat_HashPassword(SKINNYCAT_BLAKE2S, hash, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, memCost, false);
+        printHex("result:", hash, 32);
+    } else {
+        printTestVectors();
     }
-    uint8_t hash[32];
-    SkinnyCat_HashPassword(SKINNYCAT_BLAKE2S, hash, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, memCost, false);
-    printHex("result:", hash);
     return 0;
 }
 
