@@ -243,8 +243,8 @@ bool TwoCats_HashPasswordFull(TwoCats_HashType hashType, uint8_t *hash, uint8_t 
     while(blockSize >= 64 && memSize/(parallelism*blockSize) < TWOCATS_MINBLOCKS) {
         blockSize >>= 1;
     }
-    if(subBlockSize >= blockSize) {
-        subBlockSize = 32;
+    if(subBlockSize > blockSize) {
+        subBlockSize = blockSize;
     }
     while(parallelism > 1 && memSize/(parallelism*blockSize) < TWOCATS_MINBLOCKS) {
         parallelism--;
@@ -354,9 +354,13 @@ bool TwoCats_ServerHashPassword(TwoCats_HashType hashType, uint8_t *hash) {
 bool SkinnyCat_HashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t *password,
         uint8_t passwordSize, const uint8_t *salt, uint8_t saltSize, uint8_t memCost,
         bool clearPassword) {
-    return TwoCats_HashPasswordExtended(hashType, hash, password, passwordSize, salt, saltSize,
-        NULL, 0, memCost, memCost, 0, 0, TWOCATS_LANES, 1, TWOCATS_BLOCKSIZE,
-        TWOCATS_BLOCKSIZE, 0, clearPassword, false);
+    uint32_t blockSize = TWOCATS_BLOCKSIZE;
+    while(blockSize > 32 && ((uint64_t)1024 << memCost)/blockSize < TWOCATS_MINBLOCKS) {
+        blockSize >>= 1;
+    }
+    printf("blockSize:%u\n", blockSize);
+    return TwoCats_HashPasswordExtended(hashType, hash, password, passwordSize, salt, saltSize, NULL, 0,
+        memCost, memCost, 0, 0, TWOCATS_LANES, 1, blockSize, blockSize, 0, clearPassword, false);
 }
 
 // This is the prototype required for the password hashing competition.
