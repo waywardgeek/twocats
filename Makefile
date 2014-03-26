@@ -24,8 +24,8 @@ twocats-sha512.c
 
 REF_SOURCE=main.c twocats-ref.c
 TWOCATS_SOURCE=main.c twocats.c
-#TEST_SOURCE=twocats-test.c twocats-ref.c
-TEST_SOURCE=twocats-test.c twocats.c
+TEST_SOURCE=twocats-test.c twocats-ref.c
+#TEST_SOURCE=twocats-test.c twocats.c
 ENC_SOURCE=twocats-enc.c twocats.c
 DEC_SOURCE=twocats-dec.c twocats.c
 
@@ -48,8 +48,8 @@ twocats: $(DEPS) $(OBJS) $(TWOCATS_OBJS)
 	$(CC) $(CFLAGS) -pthread $(OBJS) $(TWOCATS_OBJS) -o twocats $(LIBS)
 
 twocats-test: $(DEPS) $(OBJS) $(TEST_OBJS)
-	@#$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -o twocats-test $(LIBS)
-	$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -pthread -o twocats-test $(LIBS)
+	$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -o twocats-test $(LIBS)
+	@#$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -pthread -o twocats-test $(LIBS)
 
 twocats-enc: $(DEPS) $(OBJS) $(ENC_OBJS)
 	$(CC) $(CFLAGS) -pthread $(OBJS) $(ENC_OBJS) -o twocats-enc -lssl -lcrypto

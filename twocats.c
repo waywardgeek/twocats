@@ -640,20 +640,21 @@ bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopM
     // Iterate through the levels of garlic.  Throw away some early memory to reduce the
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
-        if((i >= startMemCost || i < overwriteCost) &&
-                ((uint64_t)1024 << i)/(parallelism*blockSize) >= TWOCATS_SLICES) {
-            uint32_t resistantSlices = TWOCATS_SLICES/2;
-            if(i < startMemCost) {
-                resistantSlices = TWOCATS_SLICES;
+        if(i >= startMemCost || i < overwriteCost) {
+            if(((uint64_t)1024 << i)/(parallelism*blockSize) >= TWOCATS_SLICES) {
+                uint32_t resistantSlices = TWOCATS_SLICES/2;
+                if(i < startMemCost) {
+                    resistantSlices = TWOCATS_SLICES;
+                }
+                if(!hashMemory(H, hash32, mem, i, timeCost, multiplies, lanes, parallelism,
+                        blockSize, subBlockSize, resistantSlices)) {
+                    free(mem);
+                    return false;
+                }
             }
-            if(!hashMemory(H, hash32, mem, i, timeCost, multiplies, lanes, parallelism,
-                    blockSize, subBlockSize, resistantSlices)) {
-                free(mem);
+            // Not doing the last hash is for server relief support
+            if(i != stopMemCost && !H->Hash(H, hash32)) {
                 return false;
-            }
-            if(i != stopMemCost) {
-                // Not doing the last hash is for server relief support
-                H->Hash(H, hash32);
             }
         }
     }

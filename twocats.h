@@ -98,7 +98,6 @@ bool TwoCats_HashPasswordFull( TwoCats_HashType hashType, uint8_t *hash,
 /* These values make reasonable defaults when using the extended interface */
 
 #define TWOCATS_MEMCOST 20 // 1 GiB
-#define TWOCATS_KEYSIZE 32
 #define TWOCATS_PARALLELISM 2
 #define TWOCATS_BLOCKSIZE 16384
 #define TWOCATS_SUBBLOCKSIZE 64

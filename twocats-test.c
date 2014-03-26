@@ -21,7 +21,7 @@ void test_output(TwoCats_HashType hashType,
                  uint8_t multiplies, uint8_t lanes,
                  uint8_t parallelism)
 {
-    uint32_t hashlen = 4*TwoCats_GetHashTypeSize(hashType);
+    uint32_t hashlen = TwoCats_GetHashTypeSize(hashType);
     uint8_t hash[hashlen];
 
     TwoCats_PrintHex("Password: ",pwd, pwdlen);
@@ -125,7 +125,8 @@ void verifyPasswordUpdate(TwoCats_HashType hashType) {
 
 void verifyClientServer(TwoCats_HashType hashType) {
 
-    uint8_t hash1[TWOCATS_KEYSIZE];
+    uint32_t keySize = TwoCats_GetHashTypeSize(hashType);
+    uint8_t hash1[keySize];
     if(!TwoCats_ClientHashPassword(hashType, hash1, (uint8_t *)"password", 8,
             (uint8_t *)"salt", 4, (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST,
             TWOCATS_TIMECOST, TWOCATS_MULTIPLIES, TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
@@ -134,7 +135,6 @@ void verifyClientServer(TwoCats_HashType hashType) {
         exit(1);
     }
     TwoCats_ServerHashPassword(hashType, hash1);
-    uint32_t keySize = TwoCats_GetHashTypeSize(hashType);
     uint8_t hash2[keySize];
     if(!TwoCats_HashPasswordExtended(hashType, hash2, (uint8_t *)"password", 8,
             (uint8_t *)"salt", 4, (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST,

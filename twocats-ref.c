@@ -36,7 +36,7 @@ static uint32_t reverse(uint32_t v, uint32_t numBits) {
 }
 
 // Hash three blocks together with fast SSE friendly hash function optimized for high memory bandwidth.
-static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t blocklen,
+static bool hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t blocklen,
         uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
         uint32_t multiplies, uint32_t repetitions, uint8_t lanes) {
 
@@ -72,12 +72,12 @@ static void hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
             }
         }
     }
-    H->HashState(H, state, a);
+    return H->HashState(H, state, a);
 }
 
 // Hash memory without doing any password dependent memory addressing to thwart cache-timing-attacks.
 // Use Solar Designer's sliding-power-of-two window, with Catena's bit-reversal.
-static void hashWithoutPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t p,
+static bool hashWithoutPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t p,
         uint64_t blocklen, uint32_t blocksPerThread, uint32_t multiplies, uint32_t repetitions,
         uint8_t lanes, uint32_t parallelism, uint32_t completedBlocks) {
 
@@ -85,7 +85,9 @@ static void hashWithoutPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, ui
     uint32_t firstBlock = completedBlocks;
     if(completedBlocks == 0) {
         // Initialize the first block of memory
-        H->ExpandUint32(H, mem + start, blocklen, state);
+        if(!H->ExpandUint32(H, mem + start, blocklen, state)) {
+            return false;
+        }
         firstBlock = 1;
     }
 
@@ -112,13 +114,16 @@ static void hashWithoutPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, ui
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(H, state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr,
-            multiplies, repetitions, lanes);
+        if(!hashBlocks(H, state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr,
+                multiplies, repetitions, lanes)) {
+            return false;
+        }
     }
+    return true;
 }
 
 // Hash memory with password dependent addressing.
-static void hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t p,
+static bool hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t p,
         uint64_t blocklen, uint32_t subBlocklen, uint32_t blocksPerThread, uint32_t multiplies,
         uint32_t repetitions, uint8_t lanes, uint32_t parallelism, uint32_t completedBlocks) {
 
@@ -145,13 +150,16 @@ static void hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint3
 
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr,
-            multiplies, repetitions, lanes);
+        if(!hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr,
+                multiplies, repetitions, lanes)) {
+            return false;
+        }
     }
+    return true;
 }
 
 // Hash memory for one level of garlic.
-static void hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem,
+static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem,
         uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
         uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
 
@@ -163,23 +171,29 @@ static void hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem,
 
     // Initialize thread states
     uint32_t states[H->len*parallelism];
-    H->ExpandUint32(H, states, H->len*parallelism, hash32);
+    if(!H->ExpandUint32(H, states, H->len*parallelism, hash32)) {
+        return false;
+    }
 
     for(uint32_t slice = 0; slice < TWOCATS_SLICES; slice++) {
         for(uint32_t p = 0; p < parallelism; p++) {
             if(slice < resistantSlices) {
-                hashWithoutPassword(H, states + p*H->len, mem, p, blocklen, blocksPerThread, multiplies,
-                    repetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
+                if(!hashWithoutPassword(H, states + p*H->len, mem, p, blocklen, blocksPerThread, multiplies,
+                        repetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES)) {
+                    return false;
+                }
             } else {
-                hashWithPassword(H, states + p*H->len, mem, p, blocklen, subBlocklen, blocksPerThread,
-                    multiplies, repetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES);
+                if(!hashWithPassword(H, states + p*H->len, mem, p, blocklen, subBlocklen, blocksPerThread,
+                    multiplies, repetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES)) {
+                    return false;
+                }
             }
         }
     }
 
     // Apply a crypto-strength hash
     addIntoHash(H, hash32, parallelism, states);
-    H->Hash(H, hash32);
+    return H->Hash(H, hash32);
 }
 
 // The TwoCats internal password hashing function.  Return false if there is a memory allocation error.
@@ -197,17 +211,20 @@ bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopM
     // Iterate through the levels of garlic.  Throw away some early memory to reduce the
     // danger from leaking memory to an attacker.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
-        if((i >= startMemCost || i < overwriteCost) &&
-                ((uint64_t)1024 << i)/(parallelism*blockSize) >= TWOCATS_SLICES) {
-            uint32_t resistantSlices = TWOCATS_SLICES/2;
-            if(i < startMemCost) {
-                resistantSlices = TWOCATS_SLICES;
+        if(i >= startMemCost || i < overwriteCost) {
+            if(((uint64_t)1024 << i)/(parallelism*blockSize) >= TWOCATS_SLICES) {
+                uint32_t resistantSlices = TWOCATS_SLICES/2;
+                if(i < startMemCost) {
+                    resistantSlices = TWOCATS_SLICES;
+                }
+                if(!hashMemory(H, hash32, mem, i, timeCost, multiplies, lanes, parallelism,
+                        blockSize, subBlockSize, resistantSlices)) {
+                    return false;
+                }
             }
-            hashMemory(H, hash32, mem, i, timeCost, multiplies, lanes, parallelism,
-                blockSize, subBlockSize, resistantSlices);
-            if(i != stopMemCost) {
-                // Not doing the last hash is for server relief support
-                H->Hash(H, hash32);
+            // Not doing the last hash is for server relief support
+            if(i != stopMemCost && !H->Hash(H, hash32)) {
+                return false;
             }
         }
     }

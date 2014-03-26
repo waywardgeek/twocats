@@ -363,7 +363,8 @@ int PHS(void *out, size_t outlen, const void *in, size_t inlen, const void *salt
 // Just measure the time for a given memCost and timeCost.  Return -1 if memory allocation fails.
 static clock_t findRuntime(TwoCats_HashType hashType, uint8_t memCost, uint8_t timeCost,
         uint8_t multiplies, uint8_t lanes) {
-    uint8_t buf[TWOCATS_KEYSIZE];
+    uint32_t keySize = TwoCats_GetHashTypeSize(hashType);
+    uint8_t buf[keySize];
     clock_t start = clock();
     if(!TwoCats_HashPasswordExtended(hashType, buf, NULL, 0, NULL, 0, NULL, 0, memCost,
             memCost, timeCost, multiplies, lanes, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
