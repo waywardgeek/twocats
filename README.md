@@ -9,6 +9,10 @@ While they may not want credit for this work, it belongs to them more than me.
 SkinnyCat is a compatible stripped-down version of TwoCats supporting only a memory cost.
 It is meant to be simple to implement, yet provide fast memory-hard password security.
 
+Pebble is a tool for estimating decent upper bounds on pebbling difficulty for various DAG
+architectures.  It was useful in selecting the sliding-reverse pattern for cache-timing
+attack resistance.
+
 Please read TwoCats.odt for a description of the algorithm and credits for ideas.
 
 License
