@@ -237,6 +237,18 @@ bool TwoCats_HashPasswordFull(TwoCats_HashType hashType, uint8_t *hash, uint8_t 
     } else if(memCost < 10) {
         multiplies = 2; // Assume it fits in L2 or L3 cache
     }
+    uint32_t blockSize = TWOCATS_BLOCKSIZE;
+    uint32_t subBlockSize = TWOCATS_SUBBLOCKSIZE;
+    uint64_t memSize = (uint64_t)1024 << memCost;
+    while(blockSize >= 64 && memSize/(parallelism*blockSize) < TWOCATS_MINBLOCKS) {
+        blockSize >>= 1;
+    }
+    if(subBlockSize >= blockSize) {
+        subBlockSize = 32;
+    }
+    while(parallelism > 1 && memSize/(parallelism*blockSize) < TWOCATS_MINBLOCKS) {
+        parallelism--;
+    }
     return TwoCats_HashPasswordExtended(hashType, hash, password, passwordSize, salt,
         saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, TWOCATS_LANES,
         parallelism, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST,
