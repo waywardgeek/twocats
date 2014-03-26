@@ -364,8 +364,6 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
         return false;
     }
 
-TwoCats_PrintHex("key", buf, 32);
-
     // Now clear the password and data if allowed
     if(clearPassword && passwordSize != 0) {
         secureZeroMemory(password, passwordSize);
