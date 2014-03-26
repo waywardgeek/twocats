@@ -17,7 +17,7 @@
 /*
     This is the SkinnyCat password hashing scheme, which is a simple subset of SkinnyCat.
     More advanced users who want control over both runtime and memory hashing size should
-    use SkinnyCat.
+    use TwoCats.
 */
 
 // These are the primitive hash functions that can be plugged into SkinnyCat.
