@@ -20,6 +20,14 @@
 
 #define BLOCKLEN 4096
 
+// Prevents compiler optimizing out memset() -- from blake2-impl.h
+static inline void secureZeroMemory(void *v, uint32_t n) {
+    volatile uint8_t *p = (volatile uint8_t *)v;
+    while(n--) {
+        *p++ = 0;
+    }
+}
+
 // Encode a length len/4 vector of (uint32_t) into a length len vector of
 // (unsigned char) in little-endian form.  Assumes len is a multiple of 4.
 static inline void encodeLittleEndian(uint8_t *dst, const uint32_t *src, uint32_t len) {
@@ -125,6 +133,8 @@ static void deriveKey(SkinnyCat_HashType hashType, uint32_t *hash32, uint8_t *pa
     memcpy(tweak + 26 + passwordSize, salt, saltSize);
     H(hashType, hash, tweak, tweakSize); // Same as Twocat's extract
     decodeLittleEndian(hash32, hash, 32);
+    secureZeroMemory(tweak, tweakSize);
+    secureZeroMemory(hash, 32);
 }
 
 // The SkinnyCat main API.
@@ -144,7 +154,7 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
     deriveKey(hashType, hash32, password, passwordSize, salt, saltSize, memCost, blocklen);
 
     if(clearPassword) {
-        memset(password, 0, passwordSize);
+        secureZeroMemory(password, passwordSize);
     }
 
     uint32_t *mem = malloc(memlen*sizeof(uint32_t));
@@ -219,9 +229,12 @@ static void printHex(char *message, uint8_t *data, uint8_t len) {
     }
 }
 
+static char *hashNames[2] = {"blake2s", "SHA256"};
+
 // Print a test vector.
-static void printTest(uint8_t *password, uint8_t passwordSize, uint8_t *salt, uint8_t saltSize,
-        uint8_t memCost) {
+static void printTest(SkinnyCat_HashType hashType, uint8_t *password, uint8_t passwordSize,
+        uint8_t *salt, uint8_t saltSize, uint8_t memCost) {
+    printf("%s ", hashNames[hashType]);
     printHex("password:", password, passwordSize);
     printHex(" salt:", salt, saltSize);
     printf(" memCost:%u ", memCost);
@@ -232,20 +245,20 @@ static void printTest(uint8_t *password, uint8_t passwordSize, uint8_t *salt, ui
 }
 
 // Print test vectors.
-static void printTestVectors(void) {
+static void printTestVectors(SkinnyCat_HashType hashType) {
     // Verify we can run without password or salt
-    printTest(NULL, 0, NULL, 0, 0);
+    printTest(hashType, NULL, 0, NULL, 0, 0);
     // Verify password and salt from 0 to 255 for memCost 0 .. 9
     for(uint32_t i = 0; i < 256; i++) {
         uint8_t v = i;
         for(uint32_t j = 0; j < 10; j++) {
-            printTest(&v, 1, NULL, 0, j);
+            printTest(hashType, &v, 1, NULL, 0, j);
         }
         for(uint32_t j = 0; j < 10; j++) {
-            printTest(NULL, 0, &v, 1, j);
+            printTest(hashType, NULL, 0, &v, 1, j);
         }
         for(uint32_t j = 0; j < 10; j++) {
-            printTest(&v, 1, &v, 1, j);
+            printTest(hashType, &v, 1, &v, 1, j);
         }
     }
 }
@@ -261,7 +274,8 @@ int main(int argc, char **argv) {
         SkinnyCat_HashPassword(SKINNYCAT_BLAKE2S, hash, (uint8_t *)"password", 8, (uint8_t *)"salt", 4, memCost, false);
         printHex("result:", hash, 32);
     } else {
-        printTestVectors();
+        printTestVectors(SKINNYCAT_BLAKE2S);
+        printTestVectors(SKINNYCAT_SHA256);
     }
     return 0;
 }
