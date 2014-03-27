@@ -159,8 +159,8 @@ static bool hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint3
 }
 
 // Hash memory for one level of garlic.
-static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem,
-        uint8_t memCost, uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
+static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint8_t memCost,
+        uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
         uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
 
     uint64_t memlen = (1024/sizeof(uint32_t)) << memCost;
