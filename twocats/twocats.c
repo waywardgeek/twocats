@@ -19,8 +19,9 @@
 #include "twocats-internal.h"
 
 // This include code copied from blake2s.c
-#ifdef __SSE2__
-
+#ifdef __AVX2__
+#define HAVE_AVX2
+#endif
 #include "../blake2-sse/blake2-config.h"
 
 #include <emmintrin.h>
@@ -38,31 +39,25 @@
 #endif
 
 // This rotate code is motivated from blake2s-round.h
-#ifdef __AVX2__
-#define DECLARE_ROTATE_CONSTS \
+#ifdef HAVE_AVX2
+#define DECLARE_ROTATE256_CONSTS \
     __m256i shuffleVal = _mm256_set_epi8(30, 29, 28, 31, 26, 25, 24, 27, 22, 21, 20, 23, 18, 17, 16, 19, \
         14, 13, 12, 15, 10, 9, 8, 11, 6, 5, 4, 7, 2, 1, 0, 3);
-#define ROTATE_LEFT8(s) _mm256_shuffle_epi8(s, shuffleVal)
-#else
+#define ROTATE_LEFT8_256(s) _mm256_shuffle_epi8(s, shuffleVal)
+#endif
+
 #ifndef HAVE_XOP
 #ifdef HAVE_SSSE3
-#define DECLARE_ROTATE_CONSTS \
+#define DECLARE_ROTATE128_CONSTS \
     __m128i shuffleVal = _mm_set_epi8(14, 13, 12, 15, 10, 9, 8, 11, 6, 5, 4, 7, 2, 1, 0, 3);
-#define ROTATE_LEFT8(s) _mm_shuffle_epi8(s, shuffleVal)
+#define ROTATE_LEFT8_128(s) _mm_shuffle_epi8(s, shuffleVal)
 #else
-#define DECLARE_ROTATE_CONSTS \
+#define DECLARE_ROTATE128_CONSTS \
     __m128i shiftRightVal = _mm_set_epi32(24, 24, 24, 24); \
     __m128i shiftLeftVal = _mm_set_epi32(8, 8, 8, 8);
-#define ROTATE_LEFT8(s) _mm_or_si128(_mm_srl_epi32(s, shiftRightVal), _mm_sll_epi32(s, shiftLeftVal))
-#endif
-#else
-#define DECLARE_ROTATE_CONSTS
-#define ROTATE_LEFT8(s) _mm_roti_epi32(r, 8)
+#define ROTATE_LEFT8_128(s) _mm_or_si128(_mm_srl_epi32(s, shiftRightVal), _mm_sll_epi32(s, shiftLeftVal))
 #endif
 #endif
-
-#endif
-
 
 // This structure is shared among all threads.
 struct TwoCatsCommonDataStruct {
@@ -95,7 +90,7 @@ static void addIntoHash(TwoCats_H *H, uint32_t *hash32, uint32_t parallelism, ui
     }
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 static void convStateFromUint32ToM256i(uint32_t state[8], __m256i *v) {
     *v = _mm256_set_epi32(state[7], state[6], state[5], state[4], state[3], state[2], state[1], state[0]);
 }
@@ -108,7 +103,8 @@ static void convStateFromM256iToUint32(__m256i *v, uint32_t state[8]) {
         state[i] = p[i];
     }
 }
-#elif defined(__SSE2__)
+#endif
+#if defined(HAVE_SSE2)
 // Convert a uint32_t[8] to two __m128i values. len must be 4 or 8.
 static void convStateFromUint32ToM128i(uint32_t state[8], __m128i *v1, __m128i *v2, uint8_t len) {
     *v1 = _mm_set_epi32(state[3], state[2], state[1], state[0]);
@@ -159,7 +155,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         __m256i s;
         convStateFromUint32ToM256i(state, &s);
         __m256i *m = (__m256i *)mem;
-        DECLARE_ROTATE_CONSTS
+        DECLARE_ROTATE256_CONSTS
         __m256i *f;
         __m256i *t;
         __m256i *p;
@@ -181,7 +177,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                     // Hash 32 bytes of memory
                     s = _mm256_add_epi32(s, *p++);
                     s = _mm256_xor_si256(s, *f++);
-                    s = ROTATE_LEFT8(s);
+                    s = ROTATE_LEFT8_256(s);
                 }
             }
         }
@@ -203,7 +199,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                 // Hash 32 bytes of memory
                 s = _mm256_add_epi32(s, *p++);
                 s = _mm256_xor_si256(s, *f++);
-                s = ROTATE_LEFT8(s);
+                s = ROTATE_LEFT8_256(s);
                 *t++ = s;
             }
         }
@@ -214,7 +210,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         __m128i s2;
         convStateFromUint32ToM128i(state, &s1, &s2, 8);
         __m128i *m = (__m128i *)mem;
-        DECLARE_ROTATE_CONSTS
+        DECLARE_ROTATE128_CONSTS
         __m128i *f;
         __m128i *t;
         __m128i *p;
@@ -241,7 +237,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                     s2 = _mm_add_epi32(s2, *p++);
                     s2 = _mm_xor_si128(s2, *f++);
                     // Rotate left 8
-                    s2 = ROTATE_LEFT8(s2);
+                    s2 = ROTATE_LEFT8_128(s2);
                 }
             }
         }
@@ -264,7 +260,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                 s1 = _mm_add_epi32(s1, *p++);
                 s1 = _mm_xor_si128(s1, *f++);
                 // Rotate left 8
-                s1 = ROTATE_LEFT8(s1);
+                s1 = ROTATE_LEFT8_128(s1);
                 *t++ = s1;
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
@@ -281,7 +277,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         __m128i s;
         convStateFromUint32ToM128i(state, &s, &s, 4);
         __m128i *m = (__m128i *)mem;
-        DECLARE_ROTATE_CONSTS
+        DECLARE_ROTATE128_CONSTS
         __m128i *f;
         __m128i *t;
         __m128i *p;
@@ -304,7 +300,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                     s = _mm_add_epi32(s, *p++);
                     s = _mm_xor_si128(s, *f++);
                     // Rotate left 8
-                    s = ROTATE_LEFT8(s);
+                    s = ROTATE_LEFT8_128(s);
                 }
             }
         }
@@ -327,7 +323,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                 s = _mm_add_epi32(s, *p++);
                 s = _mm_xor_si128(s, *f++);
                 // Rotate left 8
-                s = ROTATE_LEFT8(s);
+                s = ROTATE_LEFT8_128(s);
                 *t++ = s;
             }
         }
