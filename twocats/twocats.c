@@ -233,7 +233,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                     s1 = _mm_add_epi32(s1, *p++);
                     s1 = _mm_xor_si128(s1, *f++);
                     // Rotate left 8
-                    s1 = ROTATE_LEFT8(s1);
+                    s1 = ROTATE_LEFT8_128(s1);
                     s2 = _mm_add_epi32(s2, *p++);
                     s2 = _mm_xor_si128(s2, *f++);
                     // Rotate left 8
@@ -265,7 +265,7 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
                 s2 = _mm_add_epi32(s2, *p++);
                 s2 = _mm_xor_si128(s2, *f++);
                 // Rotate left 8
-                s2 = ROTATE_LEFT8(s2);
+                s2 = ROTATE_LEFT8_128(s2);
                 *t++ = s2;
             }
         }
