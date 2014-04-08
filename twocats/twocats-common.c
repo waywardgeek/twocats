@@ -28,7 +28,7 @@ void TwoCats_PrintState(char *message, uint32_t *state, uint32_t length) {
 }
 
 // Print a value out in hex - from Catena.
-void TwoCats_PrintHex(char *message, uint8_t *x, int len) {
+void TwoCats_PrintHex(char *message, uint8_t *x, uint32_t len) {
     puts(message);
     for(uint32_t i = 0; i < len; i++) {
         if(i != 0 && i % 8 == 0) {
