@@ -251,7 +251,7 @@ bool TwoCats_HashPasswordFull(TwoCats_HashType hashType, uint8_t *hash, uint8_t 
     }
     return TwoCats_HashPasswordExtended(hashType, hash, password, passwordSize, salt,
         saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, TWOCATS_LANES,
-        parallelism, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST,
+        parallelism, blockSize, subBlockSize, TWOCATS_OVERWRITECOST,
         clearPassword, false);
 }
 
@@ -358,7 +358,6 @@ bool SkinnyCat_HashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t *p
     while(blockSize > 32 && ((uint64_t)1024 << memCost)/blockSize < TWOCATS_MINBLOCKS) {
         blockSize >>= 1;
     }
-    printf("blockSize:%u\n", blockSize);
     return TwoCats_HashPasswordExtended(hashType, hash, password, passwordSize, salt, saltSize, NULL, 0,
         memCost, memCost, 0, 0, TWOCATS_LANES, 1, blockSize, blockSize, 0, clearPassword, false);
 }

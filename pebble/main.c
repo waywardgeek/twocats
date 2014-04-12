@@ -8,6 +8,7 @@ uint32 peSpacingStart = UINT32_MAX;
 uint32 peSpacing = 12;
 uint32 peMinEdgeLength = 0; // Fix pebbles all nodes with edge length < peMinEdgeLength
 uint32 peMaxInDegree = UINT32_MAX; // Fix pebbles all nodes with in-degree >= peMaxInDegree
+uint32 peStep = 5;
 
 peRoot peTheRoot;
 peLocationArray peVisitedLocations;
@@ -26,7 +27,8 @@ typedef enum {
     CATENA,
     SLIDING_REVERSE,
     SLIDING_CATENA,
-    REVERSE
+    REVERSE,
+    GAMBIT
 } peGraphType;
 
 peGraphType peCurrentType;
@@ -41,6 +43,7 @@ char *getTypeName(peGraphType type) {
     case SLIDING_REVERSE: return "sliding_reverse";
     case SLIDING_CATENA: return "sliding_catena";
     case REVERSE: return "reverse";
+    case GAMBIT: return "gambit";
     default:
         utExit("Unknown graph type");
     }
@@ -72,6 +75,9 @@ static peGraphType parseType(char *name) {
     }
     if(!strcasecmp(name, "reverse")) {
         return REVERSE;
+    }
+    if(!strcasecmp(name, "gambit")) {
+        return GAMBIT;
     }
     utExit("Unknown graph type %s", name);
     return RAND_CUBED;
@@ -208,6 +214,21 @@ static uint32 findReversePos(uint32 pos) {
     return prevPos;
 }
 
+// Find the previous position using a Gambkit-like pattern.  This is an aproximation that
+// assumes we overwite memory rather than XOR, and so pebbling results may be highly optimistic.
+static uint32 findGambitPos(uint32 pos) {
+    uint32 rowLength = peMemLength/(peCatenaLambda + 1);
+    uint32 row = pos/rowLength;
+    uint32 rowPos = pos - row*rowLength;
+    uint32 rowDest = rowLength - (rowPos*peStep % rowLength) - 1;
+    if(rowDest + 1 < rowPos) {
+        return row*rowLength + rowDest;
+    } else if(row == 0 || rowDest + 1 == pos) {
+        return UINT32_MAX;
+    }
+    return (row-1)*rowLength + rowDest;
+}
+
 // Find the previous position to point to.
 static void setPrevLocation(uint32 pos, peGraphType type) {
     if(pos == 0) {
@@ -223,6 +244,7 @@ static void setPrevLocation(uint32 pos, peGraphType type) {
     case SLIDING_REVERSE: prevPos = findSlidingReversePos(pos); break;
     case SLIDING_CATENA: prevPos = findSlidingCatenaPos(pos); break;
     case REVERSE: prevPos = findReversePos(pos); break;
+    case GAMBIT: prevPos = findGambitPos(pos); break;
     default:
         utExit("Unknown graph type\n");
     }
@@ -643,6 +665,7 @@ static void usage(void) {
         "    -c                -- compute average recomputation penalty\n"
         "    -d minDegree      -- fix pebbles on nodes with in degree >= minDegree\n"
         "    -g                -- dump graph\n"
+        "    -G step           -- Gambit step size\n"
         "    -m memLength      -- size of DAG size to use (defaults to 512)\n"
         "    -l maxLength      -- fix pebbles pointed to by edge <= maxLength\n"
         "    -L lambda         -- set Catena lambda\n"
@@ -668,12 +691,15 @@ int main(int argc, char **argv) {
     bool computePenalty = false;
 
     char c;
-    while((c = getopt(argc, argv, "cd:gm:l:L:p:rs:t:v")) != -1) {
+    while((c = getopt(argc, argv, "cd:gG:m:l:L:p:rs:t:v")) != -1) {
         switch (c) {
         case 'c':
             computePenalty = true;
         case 'g':
             peDumpGraphs = true;
+            break;
+        case 'G':
+            peStep = atoi(optarg);
             break;
         case 'v':
             peDumpGraphs = true;
