@@ -198,7 +198,7 @@ static bool verifyParameters(TwoCats_H *H, uint8_t startMemCost, uint8_t stopMem
         return false;
     }
     if(subBlockSize < 4*lanes || subBlockSize > blockSize) {
-        fprintf(stderr, "subBlockSize must be a power of 2 from 32 to blockSize.\n");
+        fprintf(stderr, "subBlockSize must be a power of 2 from 4*lanes to blockSize.\n");
         return false;
     }
     while(!(blockSize & 1)) {
