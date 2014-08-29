@@ -28,7 +28,8 @@ typedef enum {
     SLIDING_REVERSE,
     SLIDING_CATENA,
     REVERSE,
-    GAMBIT
+    GAMBIT,
+    LYRA2
 } peGraphType;
 
 peGraphType peCurrentType;
@@ -44,6 +45,7 @@ char *getTypeName(peGraphType type) {
     case SLIDING_CATENA: return "sliding_catena";
     case REVERSE: return "reverse";
     case GAMBIT: return "gambit";
+    case LYRA2: return "lyra2";
     default:
         utExit("Unknown graph type");
     }
@@ -78,6 +80,9 @@ static peGraphType parseType(char *name) {
     }
     if(!strcasecmp(name, "gambit")) {
         return GAMBIT;
+    }
+    if(!strcasecmp(name, "lyra2")) {
+        return LYRA2;
     }
     utExit("Unknown graph type %s", name);
     return RAND_CUBED;
@@ -229,6 +234,24 @@ static uint32 findGambitPos(uint32 pos) {
     return (row-1)*rowLength + rowDest;
 }
 
+// Find the previous position using a Lyra2-like pattern.  I could be wrong about this
+// pattern, but it seems to be a simple degree-2 DAG like the others.
+static uint32 findLyra2Pos(uint32 pos) {
+    if(pos < 2) {
+        return UINT32_MAX;
+    }
+    uint32 mask = 1;
+    while(mask <= pos) {
+        mask <<= 1;
+    }
+    mask = mask >> 1; // Mask is greatest power of 2 <= pos
+    uint32 dest = mask - (pos - mask) - 1;
+    if(dest+1 == pos) {
+        return UINT32_MAX;
+    }
+    return dest;
+}
+
 // Find the previous position to point to.
 static void setPrevLocation(uint32 pos, peGraphType type) {
     if(pos == 0) {
@@ -245,6 +268,7 @@ static void setPrevLocation(uint32 pos, peGraphType type) {
     case SLIDING_CATENA: prevPos = findSlidingCatenaPos(pos); break;
     case REVERSE: prevPos = findReversePos(pos); break;
     case GAMBIT: prevPos = findGambitPos(pos); break;
+    case LYRA2: prevPos = findLyra2Pos(pos); break;
     default:
         utExit("Unknown graph type\n");
     }
