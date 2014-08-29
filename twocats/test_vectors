@@ -14038,10 +14038,10 @@ Associated data:
 memCost:10 timeCost:1 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-10 ae c3 57 00 66 a6 cb 
-0b 6e 23 8d d1 a6 60 fe 
-7a 1b 42 21 eb 34 c6 63 
-38 40 f6 54 e2 43 e7 da      32 (octets)
+bf cf 4f d7 f8 0f 6c dc 
+11 00 99 b3 ab 98 13 e4 
+f0 d6 fc 51 16 dc 63 e5 
+0a 57 b8 6c 07 f3 96 80      32 (octets)
 
 
 Password: 
@@ -14056,10 +14056,10 @@ Associated data:
 memCost:10 timeCost:2 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-85 2b df 04 50 04 5c 3d 
-50 42 7c 52 92 ad 91 ba 
-24 90 6d bf fc e9 06 b0 
-3d 2b df 43 72 48 49 90      32 (octets)
+3e 54 0a 61 fa bf b2 7c 
+f8 a8 9f 25 47 c9 93 c5 
+01 b4 69 03 2a 51 1c aa 
+28 d0 cb 9b 3e ab 67 b4      32 (octets)
 
 
 Password: 
@@ -14074,10 +14074,10 @@ Associated data:
 memCost:10 timeCost:3 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-1f ab aa 9b d2 68 31 96 
-37 3e a3 16 3c 41 f6 fb 
-c5 fc 1e b1 79 5c 84 de 
-6b 62 3e c8 04 8a 89 0f      32 (octets)
+6d a0 4a da 44 60 03 2b 
+0a 04 8a 0d eb 50 11 01 
+7f 46 29 47 1d 6f c7 9a 
+bf ff 4b a2 77 72 5a 64      32 (octets)
 
 
 Password: 
@@ -14092,10 +14092,10 @@ Associated data:
 memCost:10 timeCost:4 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-3b 3a 77 52 e2 3d b4 70 
-09 2d 38 3c 30 64 45 93 
-c7 d4 cb cb 9d fe e9 de 
-77 67 ef 10 24 54 5b 8b      32 (octets)
+25 f2 b4 8f 2b 7c ff cd 
+d8 2a d2 97 3f 1e 88 8a 
+49 f6 88 6f 08 8d ed e9 
+a4 ed 4d b5 86 3c 3a 97      32 (octets)
 
 
 Password: 
@@ -14110,10 +14110,10 @@ Associated data:
 memCost:10 timeCost:5 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-19 d1 9a 8d 0e 61 4f ce 
-05 9a 39 a5 06 ab 1f c2 
-92 ca 0c 08 4c 39 65 b5 
-24 5f 63 6f 4b 22 ed 86      32 (octets)
+8d 3b a5 ff e3 78 de db 
+56 f6 65 cd 44 83 be 2f 
+a5 84 53 8c 34 68 18 7b 
+09 7c 99 2b 12 13 8b cf      32 (octets)
 
 
 Password: 
@@ -14128,10 +14128,10 @@ Associated data:
 memCost:10 timeCost:6 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-76 5a 9c 41 3a 26 c0 71 
-af 76 e5 57 97 9e 1c 50 
-2c 20 70 cd d1 7e 69 ec 
-c7 f3 98 89 8f 0b 1c 2a      32 (octets)
+f2 ea 9d 2b 8b 9e ef 39 
+f2 dc 12 01 79 2c 81 eb 
+90 71 7d ad 13 5b 3f 02 
+d2 1b 4f f4 e3 cf fd 35      32 (octets)
 
 
 Password: 
@@ -14146,10 +14146,10 @@ Associated data:
 memCost:10 timeCost:7 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-36 58 0c bb d6 0d b8 b0 
-9a a0 11 43 43 ce 09 21 
-dd 67 d7 3b 37 9b 2b e6 
-65 dc d8 ba 23 b8 fd 73      32 (octets)
+b4 8d 7f c7 31 25 0a fe 
+20 5d 37 d7 a1 b1 4e 21 
+56 5f fd 29 86 53 03 b3 
+b6 e9 0b 70 33 a0 2b f9      32 (octets)
 
 
 Password: 
@@ -14164,10 +14164,10 @@ Associated data:
 memCost:10 timeCost:8 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-c7 3f 1f ed a9 81 08 d7 
-8c 08 61 45 ac ab bd ef 
-f9 7d 2d 71 f5 76 4d 48 
-03 80 bf b3 30 e1 81 b1      32 (octets)
+d4 09 5f f9 dd 00 14 16 
+b1 ff f8 73 73 3c f9 c1 
+d6 07 92 3c 4d 1d 54 62 
+f7 b6 5e 24 9a 97 94 e9      32 (octets)
 
 
 Password: 
@@ -14182,10 +14182,10 @@ Associated data:
 memCost:10 timeCost:9 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-f5 fe db 8e e2 ac f0 64 
-33 24 29 aa 56 4a 18 62 
-4c 31 3b 68 8f 9f 42 7f 
-77 4d 78 e3 e0 4f 73 2b      32 (octets)
+f1 01 af f3 b8 ca 06 ae 
+cb dc 8a b8 f7 6e e2 b0 
+ac 74 50 72 c6 e7 49 f4 
+e9 f8 08 59 a6 78 8e 50      32 (octets)
 
 
 Password: 
@@ -14200,10 +14200,10 @@ Associated data:
 memCost:10 timeCost:10 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-d5 0f f4 69 c0 f0 b3 2e 
-ea fe bf 72 39 7c 03 39 
-57 77 ec fb 46 d5 93 37 
-92 c8 12 ce 81 9d 0f e2      32 (octets)
+2d 18 1c ff 90 d4 35 a0 
+27 09 b0 ec 8d 8e a9 a0 
+d4 c7 a0 87 80 cd ca b5 
+65 43 75 96 2d 78 18 f1      32 (octets)
 
 
 Password: 
@@ -14218,10 +14218,10 @@ Associated data:
 memCost:10 timeCost:11 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-7c 91 43 b7 ac c8 83 1e 
-ca 92 f8 52 26 b4 b0 3e 
-8b 16 62 e2 80 6d 81 9d 
-2f a5 84 b2 77 0d e1 c3      32 (octets)
+f6 14 0a 9e 4f 9e 70 4f 
+36 2d 2d 0d 7e e3 08 8e 
+05 61 cf a5 70 54 52 69 
+e1 de 47 e1 6f e9 9b 09      32 (octets)
 
 
 ****************************************** Test multiplies
@@ -31779,14 +31779,14 @@ Associated data:
 memCost:10 timeCost:1 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-61 c0 35 54 f1 39 76 3d 
-5d 60 d6 cf 2e 16 68 2a 
-7e 70 a3 29 b4 15 5e 28 
-93 a0 9a 96 de 6e 24 b5 
-f2 b2 cb 43 bf 5f 16 c5 
-3a 0b ba d0 f8 ce 2f e7 
-1e fc ab 0b c9 f0 0d b8 
-e5 06 e7 c0 7c 24 87 d2      64 (octets)
+e3 f8 14 5e 03 2e ce 15 
+3e 2a ac 1b 72 90 86 f5 
+23 61 87 ce 6b f7 96 47 
+d3 9c 52 b7 86 26 e6 81 
+3d 09 44 63 06 8a 3d 3e 
+77 f6 89 30 98 d1 10 b9 
+7e 8f 64 44 6f ab d5 b9 
+65 9a 44 37 76 a6 c8 2a      64 (octets)
 
 
 Password: 
@@ -31801,14 +31801,14 @@ Associated data:
 memCost:10 timeCost:2 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-12 7e fa 32 e9 70 4f 40 
-fa 57 52 c3 ab c7 2c a6 
-f1 52 3e 35 47 be f6 00 
-b1 f7 ce 93 74 61 0c a7 
-c4 a9 1b c2 8e 15 e1 9f 
-9b d1 8b cf ff 04 9e 68 
-88 14 af 01 33 8d 22 44 
-3a 45 63 c6 d5 e0 24 b4      64 (octets)
+dc 4b 3f cd 39 a5 ee 0b 
+2f 5a 36 e4 38 03 ea f9 
+55 87 e1 32 bc bc a8 55 
+bc 0b 43 ef 96 16 6d ec 
+52 13 12 54 c1 14 d5 a9 
+56 82 d8 ae 25 5e 1e 07 
+d1 b6 e6 47 6d d3 6f 9b 
+d1 4c e5 2a 77 d9 b5 b6      64 (octets)
 
 
 Password: 
@@ -31823,14 +31823,14 @@ Associated data:
 memCost:10 timeCost:3 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-59 1e a2 f7 52 bb 10 fb 
-9d 72 19 03 8a 8e 9d 98 
-fa da 36 c5 81 fb bd ad 
-ff d9 2b 49 06 58 fb 74 
-dd 39 49 c2 87 f2 94 2d 
-d2 26 1c 0b a2 83 1f bf 
-b9 17 ab b7 16 7a e3 2c 
-db 2f e8 65 97 10 06 a6      64 (octets)
+7f cc 0e f2 08 9c ed 65 
+ba 16 d6 ce 56 6f 04 42 
+72 92 a1 22 cc 65 15 2a 
+e2 7e f2 d3 a5 7d d0 22 
+17 53 88 ac f7 2a 17 44 
+d3 c4 bf b8 0f ee 47 4b 
+92 60 8f c4 23 e9 90 41 
+ec 13 99 ab 67 79 d0 1e      64 (octets)
 
 
 Password: 
@@ -31845,14 +31845,14 @@ Associated data:
 memCost:10 timeCost:4 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-f4 a3 6b 28 d4 2a ce d1 
-95 6b d1 77 f4 9d e2 56 
-16 20 f6 90 24 6d f0 d0 
-cf 3c 27 fa 3c b4 e6 76 
-cb e6 bb f3 10 75 25 dc 
-26 4c 4e 7f d8 35 d7 d8 
-86 4a 55 c2 9f ed ee 94 
-54 09 b5 87 bf 30 1b 28      64 (octets)
+3b 05 c3 bd a3 4b ae 40 
+d4 2c 3f a9 59 e3 34 44 
+58 a0 73 62 a9 f7 fa ff 
+1b 3d be ec d8 55 f1 e4 
+17 ac 85 28 05 11 21 e1 
+17 ba 37 61 d3 d8 17 bb 
+57 39 5f 1f 99 09 f0 ff 
+37 90 e3 dc 35 d0 e4 6c      64 (octets)
 
 
 Password: 
@@ -31867,14 +31867,14 @@ Associated data:
 memCost:10 timeCost:5 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-c6 de 45 1d 62 e5 9c 63 
-38 d6 3f 7e 56 61 f7 23 
-74 c7 64 45 03 26 ed f0 
-fa b8 47 b7 2a 09 46 52 
-47 3b 9e 35 3c 1d 13 61 
-1b e6 51 74 ec 7e 1b db 
-55 79 09 86 cf 9c c4 38 
-4f 50 df 21 fe 55 53 d2      64 (octets)
+ec e0 93 1e 9a 51 d8 37 
+45 e9 90 50 00 06 df 0c 
+2a c1 1b 65 30 a8 27 44 
+d7 1e 48 52 1f 68 0b 84 
+80 ca 6b 69 0a 70 ba e8 
+4d fc 5f 8f a4 76 96 5d 
+ce 1b 18 a0 a5 a9 4e 74 
+c1 c8 66 74 cf 6a 08 19      64 (octets)
 
 
 Password: 
@@ -31889,14 +31889,14 @@ Associated data:
 memCost:10 timeCost:6 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-57 23 c9 e6 9b 88 a5 a8 
-73 38 21 00 52 d2 f2 18 
-6d 04 93 e7 a1 16 41 0b 
-93 6f 00 fb 80 25 47 ed 
-29 6f 6c b4 11 53 10 3b 
-76 45 59 a6 cb 6b d0 66 
-0d 35 84 80 65 c6 60 9c 
-11 70 3c ea 86 14 ec cb      64 (octets)
+20 c3 72 89 05 60 1c 94 
+84 62 b6 bc e8 19 9a b4 
+e1 0b 5e 45 8d 6d 4a 1b 
+f0 b2 a4 eb 6f b6 96 53 
+6d 2e 63 34 c4 e9 55 7a 
+72 1a 71 4b 39 2a ca 6a 
+20 12 27 87 c4 cd 9a 2b 
+86 7d ba 5d db d8 8d f1      64 (octets)
 
 
 Password: 
@@ -31911,14 +31911,14 @@ Associated data:
 memCost:10 timeCost:7 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-04 f6 dd de 1c c4 db f8 
-f5 2c 91 1a 63 67 a5 29 
-58 76 7a b3 3c 19 81 b3 
-cf 2a 12 e9 c3 1d 7e 2f 
-07 0c aa 8b d2 13 29 c6 
-4a ac 8f 61 91 f9 84 74 
-ef 6d 3a 35 6e 65 df 0a 
-de 8e 52 a7 4f ab 2a b4      64 (octets)
+c4 89 01 b9 26 f6 52 f0 
+e7 f9 5f 68 bb de d6 1b 
+ec 29 20 29 48 f0 e8 ff 
+f2 41 31 c8 24 e4 7a 8b 
+69 8e 85 ff 11 55 48 2d 
+9a d8 0e 62 dd d2 0a f7 
+52 96 a0 b5 d1 49 c8 37 
+5e 97 a4 1d 19 df c5 87      64 (octets)
 
 
 Password: 
@@ -31933,14 +31933,14 @@ Associated data:
 memCost:10 timeCost:8 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-03 9a 21 99 06 e9 1a 88 
-82 42 a3 6d f3 1c 12 65 
-16 5c 88 58 39 a1 49 39 
-bb 0e 45 bf f4 0c 8f b9 
-6d 58 c2 fb b1 c8 42 72 
-78 2d 13 ad 70 52 42 ec 
-55 6a 9c 43 48 fc 08 4d 
-91 5e f0 93 1c 1d 01 70      64 (octets)
+c8 2c 11 4a be 94 ff 61 
+95 16 c6 0c 5c 08 59 0f 
+a7 1a 08 2b c0 d5 9c a7 
+9c cf b9 c3 64 73 3c 7f 
+b3 9f e2 bb a8 1c 69 4f 
+f4 d8 76 34 20 e1 fa d1 
+c3 ac da d8 8a fc a7 a3 
+8f 68 06 e0 82 a4 f6 a3      64 (octets)
 
 
 Password: 
@@ -31955,14 +31955,14 @@ Associated data:
 memCost:10 timeCost:9 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-1d ee ae 5a 92 a5 0b f4 
-2a 93 09 9a ee 15 f4 8a 
-eb b7 d0 f7 1d 95 51 f8 
-c0 15 50 09 84 0e ff a8 
-19 b1 15 f3 9b 4e 75 f6 
-f1 8c 8a 8b 14 6b 35 5f 
-71 c1 31 9c 23 dd c4 ba 
-d0 10 f3 4e 51 37 3d 17      64 (octets)
+29 fe 65 70 fd d8 49 b1 
+ef 27 64 c3 e6 17 47 87 
+41 11 ce 73 ab a0 78 8c 
+2d 67 5b 7d 4e 87 f2 72 
+e7 c2 b9 26 e4 dd bf 29 
+07 d6 85 0f b7 55 a2 f2 
+77 02 be e6 b9 64 ee bb 
+42 06 2f 2d 92 f9 13 63      64 (octets)
 
 
 Password: 
@@ -31977,14 +31977,14 @@ Associated data:
 memCost:10 timeCost:10 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-3f 83 94 49 51 9b b5 12 
-dc 58 00 79 d6 c1 14 88 
-90 cc 96 4d 0a 73 fb ee 
-16 f2 47 e1 6e 89 39 76 
-b6 5d ca c4 63 46 81 78 
-83 f1 c4 84 b9 88 b6 49 
-ae 78 33 0f 46 e4 b6 52 
-75 c9 89 05 d4 a7 f3 cf      64 (octets)
+f7 f9 90 31 4b 6d 19 9e 
+7c c7 81 44 56 8d 8a 45 
+f7 c5 65 1c f5 21 e0 ca 
+56 92 32 f8 6d 11 fa 35 
+fe d4 1d 04 b6 42 70 64 
+2d c8 d3 e7 e9 11 51 66 
+0a ff 41 7b 7b f7 e5 4e 
+6d 98 66 9b d1 67 21 33      64 (octets)
 
 
 Password: 
@@ -31999,14 +31999,14 @@ Associated data:
 memCost:10 timeCost:11 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-15 d1 a4 f2 60 1f 9c 26 
-13 ea 4e 6e 1e 41 51 7c 
-39 5b b3 3e ea 3b 28 e5 
-03 75 0a 36 46 72 3b 0c 
-5a 4c 6e 26 1d 41 a0 9c 
-03 41 cd 48 30 fc 25 df 
-8e d8 e8 50 15 76 5a dd 
-c1 f9 16 fd 07 b9 29 12      64 (octets)
+9b 8e 83 8b 69 39 4f cb 
+cf bd e3 ab d7 35 d4 89 
+a7 0d c0 18 f8 e8 0b 18 
+c7 74 6e 56 77 20 ee f7 
+96 83 e0 8b a9 92 20 54 
+e2 50 a8 e7 c6 36 f3 f3 
+47 93 09 fa cd c1 ea 22 
+c5 fd 64 e1 5f f5 b0 46      64 (octets)
 
 
 ****************************************** Test multiplies
@@ -46558,10 +46558,10 @@ Associated data:
 memCost:10 timeCost:1 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-84 68 2a cb 93 11 78 c2 
-44 e3 e3 d5 ee b9 7c 9b 
-4e 41 06 aa 32 57 29 5a 
-83 e5 e5 51 89 da 62 93      32 (octets)
+04 ec 20 01 7d 6f 99 3d 
+2e 6d 4f 8d 41 5b 5c a3 
+40 7f 06 2e d9 1d dc 7f 
+29 73 2f 34 98 0d 45 5c      32 (octets)
 
 
 Password: 
@@ -46576,10 +46576,10 @@ Associated data:
 memCost:10 timeCost:2 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-44 0f c3 6a ec f3 88 57 
-cc b6 8a 93 87 4b 46 d5 
-96 b9 f2 3f 25 37 74 d3 
-8d ae bc 62 db 63 76 e2      32 (octets)
+93 47 70 dc c8 8d f1 79 
+75 1d df b8 15 2c f4 3c 
+aa 93 9f 85 be 53 01 8f 
+0d f4 f2 e0 58 71 b2 0d      32 (octets)
 
 
 Password: 
@@ -46594,10 +46594,10 @@ Associated data:
 memCost:10 timeCost:3 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-b6 14 34 b0 60 af 03 0c 
-9f f3 b7 ed a6 3e a3 dc 
-f3 02 77 d3 f7 eb 3a f8 
-da 59 86 01 c5 4d d2 37      32 (octets)
+44 b3 67 75 c9 54 41 96 
+d0 7b 5d 0a 1b d3 89 58 
+45 6b 15 2f 4c 1c 7e 5b 
+a0 8e 05 ec b9 81 d8 53      32 (octets)
 
 
 Password: 
@@ -46612,10 +46612,10 @@ Associated data:
 memCost:10 timeCost:4 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-bf a1 9b e0 78 ba 60 bf 
-85 6e a1 d5 43 2b 69 e0 
-85 93 2f 0d 52 2e 6b 3d 
-c2 40 28 a6 9a e3 23 d7      32 (octets)
+b1 17 ba bb d1 94 a9 f5 
+b4 a3 cb 98 bf cb 48 7a 
+12 f3 8c c6 cc cd 1f 40 
+f2 65 9d f8 03 c5 53 c1      32 (octets)
 
 
 Password: 
@@ -46630,10 +46630,10 @@ Associated data:
 memCost:10 timeCost:5 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-48 61 f6 92 6e cd e1 19 
-15 93 69 b3 de 46 85 ee 
-f2 0f 36 f3 2a 1b 0e b8 
-a6 3a a8 a5 e0 8d 7c f7      32 (octets)
+33 25 77 25 32 57 26 c0 
+d4 66 15 97 53 d0 43 6a 
+4e 6a ba 54 fd 74 8b ea 
+0f 99 1e 22 c7 4b ea 6e      32 (octets)
 
 
 Password: 
@@ -46648,10 +46648,10 @@ Associated data:
 memCost:10 timeCost:6 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-c3 48 b5 2b 2b fb 6e 14 
-bb 7d 59 b3 cb 08 0f 84 
-0b f8 f1 1f 5a 82 4e a6 
-55 f3 dc bf 31 61 bc 2d      32 (octets)
+93 c2 55 cb d0 d8 91 92 
+a7 17 e6 69 48 a5 4f af 
+35 2e de 26 08 bc 60 13 
+a5 19 70 fc ee 4d 01 70      32 (octets)
 
 
 Password: 
@@ -46666,10 +46666,10 @@ Associated data:
 memCost:10 timeCost:7 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-d8 56 3a 04 cb 62 63 78 
-59 9f 28 b6 d2 ea ad 56 
-dd 87 29 28 d3 ef 87 24 
-a3 9c 73 14 92 df 9b 5d      32 (octets)
+69 38 26 01 8f ff 12 6f 
+70 b3 78 92 d6 7c 9a ac 
+12 dd e4 c1 d6 44 27 ff 
+87 3e 11 36 c4 f7 cc 26      32 (octets)
 
 
 Password: 
@@ -46684,10 +46684,10 @@ Associated data:
 memCost:10 timeCost:8 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-fe 7c 45 ed 33 47 7d 1d 
-a3 ed 1d 06 f7 cf 11 e8 
-3c 05 96 f7 ee 20 4c 7e 
-51 bd 0a ee f5 ea 62 c3      32 (octets)
+db f1 0c 46 52 d0 dd 1d 
+1f 32 c1 d3 2a 80 22 a0 
+b9 00 df 98 6e 07 1a 2a 
+d5 e7 57 09 4c 31 14 11      32 (octets)
 
 
 Password: 
@@ -46702,10 +46702,10 @@ Associated data:
 memCost:10 timeCost:9 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-57 34 06 f7 bf 5d 17 28 
-0f 92 94 aa e0 ff ae ba 
-f8 75 66 5b ca a3 74 e8 
-6f 0e 9b fe 71 08 a6 94      32 (octets)
+79 e0 0d 88 a0 b1 1d 53 
+ea 5f 9a c2 b0 22 ae 3c 
+26 c5 d3 f1 09 a1 b5 7a 
+8b f5 62 c8 4d 64 1a 73      32 (octets)
 
 
 Password: 
@@ -46720,10 +46720,10 @@ Associated data:
 memCost:10 timeCost:10 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-d2 cf 2f 61 1a 69 32 94 
-bb 58 76 b2 86 a9 df d7 
-30 11 06 27 34 e7 ea d8 
-8d 16 46 26 83 44 34 7d      32 (octets)
+49 ee fd 96 5e 20 54 fa 
+e6 8c 05 55 0f 79 1d 70 
+51 e7 c2 1f f6 c4 d0 b8 
+d0 10 2c 81 82 2a b7 de      32 (octets)
 
 
 Password: 
@@ -46738,10 +46738,10 @@ Associated data:
 memCost:10 timeCost:11 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-27 ac 4c 7d 07 54 35 d2 
-fc be 64 b7 b6 7f 51 7c 
-81 ff db 2b ee 87 3c 4b 
-28 56 01 ad 9c 50 42 45      32 (octets)
+ce 8c 5e ca 50 85 9f de 
+cd d7 10 b5 13 ea 4b 56 
+36 77 8d b5 5f 3c dd 0e 
+6b d3 d9 50 e2 2f 75 85      32 (octets)
 
 
 ****************************************** Test multiplies
@@ -64299,14 +64299,14 @@ Associated data:
 memCost:10 timeCost:1 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-8a 4f 6a 36 95 8c 75 d2 
-0f b9 e7 67 a1 a9 b3 ed 
-f3 a1 00 3d b3 38 b0 e2 
-5a 05 60 d6 66 ac a5 f4 
-09 55 ea f0 82 30 ac 6a 
-8e 44 9e c6 bc 08 31 ce 
-de 1c 66 2e a9 b1 0a 42 
-2b 80 48 71 d1 03 c2 d2      64 (octets)
+f0 c6 46 01 69 3a 3d d3 
+86 ec 40 ed 69 81 4d b9 
+9b aa 75 46 2d a1 51 66 
+c8 45 e9 f7 0b a8 aa 39 
+05 4a 90 06 2d 1a 56 3f 
+17 0f 56 37 0b 3f b7 80 
+38 4d 97 9d d8 50 93 1a 
+c7 19 a9 97 a0 f0 b0 fe      64 (octets)
 
 
 Password: 
@@ -64321,14 +64321,14 @@ Associated data:
 memCost:10 timeCost:2 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-95 ca ba 7e 8b 45 ab 63 
-10 a8 44 79 49 62 d6 3b 
-72 9e fa 9b 28 ec 27 6e 
-5f ad bb d5 99 72 18 72 
-5e 35 b2 36 49 1b b2 f3 
-85 6d 22 df 98 98 80 72 
-31 a4 88 da 78 bd 34 58 
-86 87 b0 64 da 27 4d a7      64 (octets)
+9e 86 44 1e 33 36 73 04 
+c5 71 c2 7e a9 c5 55 5b 
+a4 dd db fe 4d 2d fd d4 
+6f ae 9a ea 2d aa 0d 4d 
+ab e9 71 18 9b c3 da 97 
+48 d4 00 e4 69 dc 5d 13 
+d7 2c 9b 20 bf d6 6f 89 
+a3 c1 fa 18 86 88 7c 6a      64 (octets)
 
 
 Password: 
@@ -64343,14 +64343,14 @@ Associated data:
 memCost:10 timeCost:3 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-e9 4f fc 3c f1 00 9e 4a 
-46 58 97 a6 80 a5 b6 35 
-77 89 6c 47 bb ea 26 53 
-55 d1 cf 61 45 85 52 01 
-0f 9b 97 cd 91 0a 36 be 
-35 a1 b5 4a f3 77 16 14 
-7c 4c f5 0c e7 4b e4 1c 
-e1 2f c4 d3 bc 8f 27 2b      64 (octets)
+a3 04 64 62 87 d6 a9 92 
+46 e6 bd 16 dc e5 6c 9f 
+2c 05 f6 0e 85 5c ea 61 
+de 4c 00 50 51 e6 9e 6f 
+6f fd 59 f1 fb 16 a6 a5 
+4c ee 11 65 d7 60 a1 36 
+08 df f0 c2 da 63 1b 65 
+01 8f 1b 86 44 25 6d 32      64 (octets)
 
 
 Password: 
@@ -64365,14 +64365,14 @@ Associated data:
 memCost:10 timeCost:4 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-82 71 ff 89 12 f5 b3 8f 
-43 81 e8 10 d8 bb b6 2b 
-9b 11 8f 33 84 73 93 e4 
-43 1a 1f 26 f3 5d d1 18 
-85 8a 93 2e 0b e9 07 58 
-a8 93 ae 3b c4 79 da d9 
-d2 c3 5d be e7 8b b8 b4 
-fc 59 48 e6 84 10 f1 0e      64 (octets)
+4f 4d 23 2f 33 a2 e1 9a 
+9c e9 11 1e c3 5e 78 6e 
+cb 51 0c a3 c9 85 08 5f 
+dd fe c6 da 96 a7 8d 96 
+49 2e 90 1d ee 09 31 46 
+ef ab c0 3f d7 a4 12 f1 
+21 dd a5 97 4e 6c be cb 
+f0 a8 5a 3a 55 45 1f 1b      64 (octets)
 
 
 Password: 
@@ -64387,14 +64387,14 @@ Associated data:
 memCost:10 timeCost:5 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-83 5c 7f e8 4b f1 bb 88 
-cf f4 70 c4 88 f1 14 19 
-27 ac c0 7c bd 81 f1 04 
-2d 12 73 95 da c3 af d2 
-29 b8 d1 b7 4d 72 e2 a5 
-a3 a9 2b dc f6 a9 9a 7d 
-df fb ee 99 b3 83 f2 67 
-84 bb dd 19 8e d5 c9 2b      64 (octets)
+c2 b3 57 2b c1 29 ef 70 
+70 74 81 a8 7d 32 36 14 
+d7 b0 36 0c d1 99 8e 19 
+53 3b d1 5b d8 47 0e 46 
+eb f5 89 4a cc 36 b1 57 
+50 a5 2e a6 ae a0 3b 42 
+4f 55 f4 2f 76 1b 23 9e 
+c0 6b c5 e5 ab 0e 95 a5      64 (octets)
 
 
 Password: 
@@ -64409,14 +64409,14 @@ Associated data:
 memCost:10 timeCost:6 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-90 ab 4b 3c eb a2 70 43 
-3f 76 e4 bf 74 5e 4c 4a 
-bc ab 99 bc ba 76 ee e6 
-af 6d d3 09 a8 92 02 90 
-fd 8e ff 75 71 bb 2e 0d 
-90 f8 13 d2 11 3b 31 7d 
-6d 1f aa 17 c6 53 d2 9e 
-05 63 e3 da 6e a3 6c cb      64 (octets)
+49 c0 84 88 c4 bd a8 5a 
+5d 7a fb 8d 2d 10 5c ca 
+44 76 ca 3b 13 ec 28 a7 
+41 1d 4d ea 43 1d 99 16 
+d5 1c 7a 70 9b 8a 89 02 
+8e e9 f7 69 6d 2d 66 8f 
+2d 90 20 c4 2e c8 0f 60 
+94 2b c1 9e 8f ff 44 e6      64 (octets)
 
 
 Password: 
@@ -64431,14 +64431,14 @@ Associated data:
 memCost:10 timeCost:7 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-78 08 13 d8 24 47 e5 17 
-08 a9 3a 54 ee 31 f5 d8 
-d4 80 73 63 0c 1b 12 1c 
-9a ca 7d d2 9c 95 d3 70 
-5c 57 04 7e d8 7d 2f 8c 
-51 89 87 ab be 99 2a 9c 
-a3 14 ec 2b ef 1e f9 dd 
-54 6e d2 c7 89 e6 e1 ea      64 (octets)
+35 62 0c 73 82 2d 7c 70 
+ed 0a 95 c2 05 ec 9c 7f 
+eb b0 44 34 14 34 2d ff 
+8a f5 7a f7 62 8b 08 5f 
+cf 3f d7 e1 01 cf 5e 60 
+4e 3a 0d 3a 3e 0c a0 ae 
+34 b9 86 cf 31 be 23 6a 
+79 a5 fc 25 30 42 15 bd      64 (octets)
 
 
 Password: 
@@ -64453,14 +64453,14 @@ Associated data:
 memCost:10 timeCost:8 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-60 e4 82 71 f0 a8 37 f4 
-1a 1a 1a 2a da cd a0 f1 
-0d 10 73 52 f5 6c ff d6 
-56 14 9b ea c0 03 2c 0d 
-ee 53 c2 bb d3 81 26 cc 
-39 d1 fa 28 df 20 ac 98 
-1e 68 c7 8c 90 71 9e a0 
-2c be 57 d0 c6 db 16 c1      64 (octets)
+33 5e 50 14 9e 05 f4 e2 
+47 e9 77 ef ac 41 de 8b 
+55 cf d4 3a 16 29 30 c0 
+aa 44 cf 41 48 6d 0d 51 
+b2 c3 a7 fe ba 10 ef ea 
+f8 6b 1a ad 21 01 8e 62 
+b5 95 b8 60 dc b5 54 93 
+16 18 2b a4 be fa 0a ef      64 (octets)
 
 
 Password: 
@@ -64475,14 +64475,14 @@ Associated data:
 memCost:10 timeCost:9 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-bc e8 22 bd 10 de a1 e8 
-8a 60 4b b2 c7 37 98 fe 
-53 c0 ef 67 ff d4 9c 33 
-db 3e ac 58 e9 c2 2a ec 
-f6 48 7e 58 56 48 7e f0 
-72 ff 7a df 9a 37 a9 98 
-7a 76 f9 7b 1f da a6 ce 
-e6 15 dc ec b7 c8 a6 e4      64 (octets)
+99 84 54 9b ec 7a b4 cd 
+c5 27 81 b6 c0 9e 02 c6 
+85 92 a4 6c 86 c1 52 c9 
+fb 8b 52 e1 70 df e7 35 
+99 72 52 45 ba 7b a8 38 
+80 d5 59 63 17 e5 62 64 
+a4 b7 86 e9 d7 94 1e 17 
+a5 ef 4f 19 c2 54 9c ae      64 (octets)
 
 
 Password: 
@@ -64497,14 +64497,14 @@ Associated data:
 memCost:10 timeCost:10 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-0f cd e7 62 0d 0c 97 94 
-a1 3d a3 98 08 8e 90 a4 
-3a 70 3c 18 9b a1 8a 06 
-62 09 80 bd ac a6 ed 8c 
-e5 e4 c1 bf cb d8 15 89 
-6f 62 ee 42 0b b1 08 48 
-e9 a1 c5 9f 01 9e cf eb 
-c2 30 2e 5c eb f2 52 ad      64 (octets)
+eb 4d c5 f3 57 48 8f 34 
+38 54 a8 7e 73 4c f7 c9 
+39 71 79 70 0d 0b 45 9d 
+b9 72 ba ae 2d a6 c4 c4 
+4a b2 e9 f7 52 bd 46 47 
+2d 65 f1 33 89 43 6e 2b 
+26 59 ee b4 38 4d fb 78 
+d6 9c d1 91 0b 08 71 46      64 (octets)
 
 
 Password: 
@@ -64519,14 +64519,14 @@ Associated data:
 memCost:10 timeCost:11 multiplies:2 lanes:8 parallelism:2
 
 Output: 
-41 b2 75 b5 2d 53 70 5c 
-9f 06 3c 13 93 e7 84 9c 
-98 31 a1 75 2e f1 61 d3 
-d3 14 51 f1 fc cd da 1d 
-c9 60 1f 76 0a f6 2a 06 
-d2 71 01 fd 38 a8 8d 8e 
-d8 67 64 e2 66 b0 ed da 
-c0 4d bd 0d 2b 54 97 50      64 (octets)
+93 a1 db d3 bc 9a 5f a0 
+95 ec f6 40 24 12 cd 15 
+c6 c9 b8 c5 d0 ea 97 a0 
+2e f3 02 ed b2 b9 81 92 
+9b 8d bc bb f8 d0 02 97 
+12 e8 6c 99 3a c3 16 9b 
+f5 27 42 c6 f1 69 04 79 
+a3 0f ba cc b4 8c 6f 42      64 (octets)
 
 
 ****************************************** Test multiplies

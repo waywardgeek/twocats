@@ -139,7 +139,7 @@ static void convStateFromM128iToUint32(__m128i *v1, __m128i *v2, uint32_t *state
        
 static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         uint32_t blocklen, uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr,
-        uint64_t toAddr, uint8_t multiplies, uint32_t repetitions, uint8_t lanes) {
+        uint64_t toAddr, uint8_t multiplies, uint8_t lanes) {
 
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
@@ -159,28 +159,6 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         __m256i *f;
         __m256i *t;
         __m256i *p;
-        for(uint32_t r = 0; r < repetitions-1; r++) {
-            f = m + fromAddr/8;
-            for(uint32_t i = 0; i < numSubBlocks; i++) {
-                uint32_t randVal = *(uint32_t *)f;
-                p = m + prevAddr/8 + (subBlocklen/8)*(randVal & (numSubBlocks - 1));
-                for(uint32_t j = 0; j < subBlocklen/8; j++) {
-
-                    // Compute the multiplication chain
-                    for(uint8_t k = 0; k < multiplies; k++) {
-                        a ^= (uint64_t)b*c >> 32;
-                        b += c;
-                        c ^= (uint64_t)a*d >> 32;
-                        d += a;
-                    }
-
-                    // Hash 32 bytes of memory
-                    s = _mm256_add_epi32(s, *p++);
-                    s = _mm256_xor_si256(s, *f++);
-                    s = ROTATE_LEFT8_256(s);
-                }
-            }
-        }
         f = m + fromAddr/8;
         t = m + toAddr/8;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
@@ -214,33 +192,6 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         __m128i *f;
         __m128i *t;
         __m128i *p;
-        for(uint32_t r = 0; r < repetitions-1; r++) {
-            f = m + fromAddr/4;
-            for(uint32_t i = 0; i < numSubBlocks; i++) {
-                uint32_t randVal = *(uint32_t *)f;
-                p = m + prevAddr/4 + (subBlocklen/4)*(randVal & (numSubBlocks - 1));
-                for(uint32_t j = 0; j < subBlocklen/8; j++) {
-
-                    // Compute the multiplication chain
-                    for(uint8_t k = 0; k < multiplies; k++) {
-                        a ^= (uint64_t)b*c >> 32;
-                        b += c;
-                        c ^= (uint64_t)a*d >> 32;
-                        d += a;
-                    }
-
-                    // Hash 32 bytes of memory
-                    s1 = _mm_add_epi32(s1, *p++);
-                    s1 = _mm_xor_si128(s1, *f++);
-                    // Rotate left 8
-                    s1 = ROTATE_LEFT8_128(s1);
-                    s2 = _mm_add_epi32(s2, *p++);
-                    s2 = _mm_xor_si128(s2, *f++);
-                    // Rotate left 8
-                    s2 = ROTATE_LEFT8_128(s2);
-                }
-            }
-        }
         f = m + fromAddr/4;
         t = m + toAddr/4;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
@@ -281,29 +232,6 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         __m128i *f;
         __m128i *t;
         __m128i *p;
-        for(uint32_t r = 0; r < repetitions-1; r++) {
-            f = m + fromAddr/4;
-            for(uint32_t i = 0; i < numSubBlocks; i++) {
-                uint32_t randVal = *(uint32_t *)f;
-                p = m + prevAddr/4 + (subBlocklen/4)*(randVal & (numSubBlocks - 1));
-                for(uint32_t j = 0; j < subBlocklen/4; j++) {
-
-                    // Compute the multiplication chain
-                    for(uint8_t k = 0; k < multiplies; k++) {
-                        a ^= (uint64_t)b*c >> 32;
-                        b += c;
-                        c ^= (uint64_t)a*d >> 32;
-                        d += a;
-                    }
-
-                    // Hash 16 bytes of memory
-                    s = _mm_add_epi32(s, *p++);
-                    s = _mm_xor_si128(s, *f++);
-                    // Rotate left 8
-                    s = ROTATE_LEFT8_128(s);
-                }
-            }
-        }
         f = m + fromAddr/4;
         t = m + toAddr/4;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
@@ -333,29 +261,6 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
         // TODO: write 2-lane code here using MMX
     }
     if(!haveFastCode) {
-        for(uint32_t r = 0; r < repetitions-1; r++) {
-            uint32_t *f = mem + fromAddr;
-            for(uint32_t i = 0; i < numSubBlocks; i++) {
-                uint32_t randVal = *f;
-                uint32_t *p = mem + prevAddr + subBlocklen*(randVal & (numSubBlocks - 1));
-                for(uint32_t j = 0; j < subBlocklen/lanes; j++) {
-
-                    // Compute the multiplication chain
-                    for(uint32_t k = 0; k < multiplies; k++) {
-                        a ^= (uint64_t)b*c >> 32;
-                        b += c;
-                        c ^= (uint64_t)a*d >> 32;
-                        d += a;
-                    }
-
-                    // Hash lanes of memory
-                    for(uint32_t k = 0; k < lanes; k++) {
-                        state[k] = (state[k] + *p++) ^ *f++;
-                        state[k] = (state[k] >> 24) | (state[k] << 8);
-                    }
-                }
-            }
-        }
         uint32_t *f = mem + fromAddr;
         uint32_t *t = mem + toAddr;
         for(uint32_t i = 0; i < numSubBlocks; i++) {
@@ -386,59 +291,59 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
 // This crazy wrapper is simply to force to optimizer to unroll the lanes loop.
 static inline void hashBlocksLanes(TwoCats_H *H, uint32_t state[8], uint32_t *mem, uint32_t blocklen,
         uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
-        uint8_t multiplies, uint32_t repetitions, uint8_t lanes) {
+        uint8_t multiplies, uint8_t lanes) {
     switch(lanes) {
     case 1:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions, 1);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 1);
         break;
     case 2:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions, 2);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 2);
         break;
     case 4:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions, 4);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 4);
         break;
     case 8:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions, 8);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 8);
         break;
     case 16:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions, 16);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 16);
         break;
     default:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, repetitions, lanes);
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, lanes);
     }
 }
 
 // This crazy wrapper is simply to force to optimizer to unroll the multiplication loop.
 static inline void hashBlocks(TwoCats_H *H, uint32_t state[8], uint32_t *mem, uint32_t blocklen,
         uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
-        uint8_t multiplies, uint32_t repetitions, uint8_t lanes) {
+        uint8_t multiplies, uint8_t lanes) {
     switch(multiplies) {
     case 0:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 0, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 0, lanes);
         break;
     case 1:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 1, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 1, lanes);
         break;
     case 2:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 2, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 2, lanes);
         break;
     case 3:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 3, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 3, lanes);
         break;
     case 4:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 4, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 4, lanes);
         break;
     case 5:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 5, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 5, lanes);
         break;
     case 6:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 6, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 6, lanes);
         break;
     case 7:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 7, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 7, lanes);
         break;
     case 8:
-        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 8, repetitions, lanes);
+        hashBlocksLanes(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, 8, lanes);
         break;
     }
 }
@@ -469,7 +374,6 @@ static void *hashWithoutPassword(void *contextPtr) {
     uint32_t blocklen = c->blocklen;
     uint32_t blocksPerThread = c->blocksPerThread;
     uint8_t multiplies = c->multiplies;
-    uint32_t repetitions = c->repetitions;
     uint32_t lanes = c->lanes;
     uint32_t parallelism = c->parallelism;
     uint32_t completedBlocks = c->completedBlocks;
@@ -508,7 +412,7 @@ static void *hashWithoutPassword(void *contextPtr) {
         uint64_t toAddr = start + i*blocklen;
         uint64_t prevAddr = toAddr - blocklen;
         hashBlocks(H, state, mem, blocklen, blocklen, fromAddr, prevAddr, toAddr,
-            multiplies, repetitions, lanes);
+            multiplies, lanes);
     }
     pthread_exit(NULL);
 }
@@ -530,32 +434,33 @@ static void *hashWithPassword(void *contextPtr) {
     uint8_t lanes = c->lanes;
     uint32_t parallelism = c->parallelism;
     uint32_t completedBlocks = c->completedBlocks;
-
     uint64_t start = blocklen*blocksPerThread*p;
 
-    // Hash one "slice" worth of memory hashing
-    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TWOCATS_SLICES; i++) {
+    // Hash one "slice" worth of memory hashing repetitions times
+    for(uint32_t r = 0; r < repetitions; r++) {
+        for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TWOCATS_SLICES; i++) {
 
-        // Compute rand()^3 distance distribution
-        uint64_t v = state[0];
-        uint64_t v2 = v*v >> 32;
-        uint64_t v3 = v*v2 >> 32;
-        uint32_t distance = (i-1)*v3 >> 32;
+            // Compute rand()^3 distance distribution
+            uint64_t v = state[0];
+            uint64_t v2 = v*v >> 32;
+            uint64_t v3 = v*v2 >> 32;
+            uint32_t distance = (i-1)*v3 >> 32;
 
-        // Hash the prior block and the block at 'distance' blocks in the past
-        uint64_t fromAddr = (i - 1 - distance)*blocklen;
+            // Hash the prior block and the block at 'distance' blocks in the past
+            uint64_t fromAddr = (i - 1 - distance)*blocklen;
 
-        // Compute which thread's memory to read from
-        if(fromAddr < completedBlocks*blocklen) {
-            fromAddr += blocklen*(state[1] % parallelism)*blocksPerThread;
-        } else {
-            fromAddr += start;
+            // Compute which thread's memory to read from
+            if(fromAddr < completedBlocks*blocklen) {
+                fromAddr += blocklen*(state[1] % parallelism)*blocksPerThread;
+            } else {
+                fromAddr += start;
+            }
+
+            uint64_t toAddr = start + i*blocklen;
+            uint64_t prevAddr = toAddr - blocklen;
+            hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr,
+                multiplies, lanes);
         }
-
-        uint64_t toAddr = start + i*blocklen;
-        uint64_t prevAddr = toAddr - blocklen;
-        hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr,
-            multiplies, repetitions, lanes);
     }
     pthread_exit(NULL);
 }
@@ -584,7 +489,7 @@ static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint8_t me
     common.subBlocklen = subBlocklen;
     common.blocksPerThread = blocksPerThread;
     common.parallelism = parallelism;
-    common.repetitions = repetitions;
+    common.repetitions = 1;
 
     // Initialize thread states
     uint32_t states[H->len*parallelism];
@@ -603,6 +508,11 @@ static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint8_t me
             if(slice < resistantSlices) {
                 rc = pthread_create(&memThreads[p], NULL, hashWithoutPassword, (void *)(c + p));
             } else {
+                // We burn extra CPU time improving TMTOs, but only in the last slice.
+                if(slice + 1 == TWOCATS_SLICES) {
+                    common.repetitions = repetitions;
+                }
+
                 rc = pthread_create(&memThreads[p], NULL, hashWithPassword, (void *)(c + p));
             }
             if(rc) {
@@ -639,10 +549,12 @@ bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopM
         if(i >= startMemCost || i < overwriteCost) {
             if(((uint64_t)1024 << i)/(parallelism*blockSize) >= TWOCATS_SLICES) {
                 uint32_t resistantSlices = TWOCATS_SLICES/2;
+                uint32_t loopTimeCost = timeCost;
                 if(i < startMemCost) {
                     resistantSlices = TWOCATS_SLICES;
+                    loopTimeCost = 0;
                 }
-                if(!hashMemory(H, hash32, mem, i, timeCost, multiplies, lanes, parallelism,
+                if(!hashMemory(H, hash32, mem, i, loopTimeCost, multiplies, lanes, parallelism,
                         blockSize, subBlockSize, resistantSlices)) {
                     free(mem);
                     return false;
