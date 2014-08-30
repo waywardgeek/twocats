@@ -190,7 +190,7 @@ static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint8_t me
                 }
 
                 if(!hashWithPassword(H, states + p*H->len, mem, p, blocklen, subBlocklen, blocksPerThread,
-                    multiplies, loopRepetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES)) {
+                        multiplies, loopRepetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES)) {
                     return false;
                 }
             }
