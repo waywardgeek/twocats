@@ -288,28 +288,53 @@ static inline void hashBlocksInner(TwoCats_H *H, uint32_t *state, uint32_t *mem,
     H->HashState(H, state, a);
 }
 
+// This crazy wrapper is simply to force to optimizer to unroll the subBlocklen inner loop.
+static inline void hashBlocksSubBlocklen(TwoCats_H *H, uint32_t state[8], uint32_t *mem, uint32_t blocklen,
+        uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
+        uint8_t multiplies, uint8_t lanes) {
+    switch(subBlocklen) {
+    case 1:
+        hashBlocksInner(H, state, mem, blocklen, 1, fromAddr, prevAddr, toAddr, multiplies, lanes);
+        break;
+    case 2:
+        hashBlocksInner(H, state, mem, blocklen, 2, fromAddr, prevAddr, toAddr, multiplies, lanes);
+        break;
+    case 4:
+        hashBlocksInner(H, state, mem, blocklen, 4, fromAddr, prevAddr, toAddr, multiplies, lanes);
+        break;
+    case 8:
+        hashBlocksInner(H, state, mem, blocklen, 8, fromAddr, prevAddr, toAddr, multiplies, lanes);
+        break;
+    case 16:
+        hashBlocksInner(H, state, mem, blocklen, 16, fromAddr, prevAddr, toAddr, multiplies, lanes);
+        break;
+    default:
+        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, lanes);
+    }
+}
+
 // This crazy wrapper is simply to force to optimizer to unroll the lanes loop.
 static inline void hashBlocksLanes(TwoCats_H *H, uint32_t state[8], uint32_t *mem, uint32_t blocklen,
         uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
         uint8_t multiplies, uint8_t lanes) {
     switch(lanes) {
     case 1:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 1);
+        hashBlocksSubBlocklen(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 1);
         break;
     case 2:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 2);
+        hashBlocksSubBlocklen(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 2);
         break;
     case 4:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 4);
+        hashBlocksSubBlocklen(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 4);
         break;
     case 8:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 8);
+        hashBlocksSubBlocklen(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 8);
         break;
     case 16:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 16);
+        hashBlocksSubBlocklen(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, 16);
         break;
     default:
-        hashBlocksInner(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, lanes);
+        hashBlocksSubBlocklen(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr, multiplies, lanes);
     }
 }
 
