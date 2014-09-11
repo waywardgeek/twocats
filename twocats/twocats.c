@@ -587,6 +587,7 @@ bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopM
             }
             // Not doing the last hash is for server relief support
             if(i != stopMemCost && !H->Hash(H, hash32)) {
+                free(mem);
                 return false;
             }
         }

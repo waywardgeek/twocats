@@ -206,6 +206,7 @@ bool SkinnyCat_HashPassword(SkinnyCat_HashType hashType, uint8_t *hash, uint8_t 
 
     // One final hash for compatibility with TwoCat's server relief
     H(hashType, hash, hash, 32);
+    free(mem);
     return true;
 }
 
