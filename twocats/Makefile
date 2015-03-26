@@ -28,6 +28,7 @@ TEST_SOURCE=twocats-test.c twocats-ref.c
 #TEST_SOURCE=twocats-test.c twocats.c
 ENC_SOURCE=twocats-enc.c twocats.c
 DEC_SOURCE=twocats-dec.c twocats.c
+TESTWORK_SOURCE=testwork.c twocats.c
 
 OBJS=$(patsubst %.c,obj/%.o,$(SOURCE))
 REF_OBJS=$(patsubst %.c,obj/%.o,$(REF_SOURCE))
@@ -35,8 +36,9 @@ TWOCATS_OBJS=$(patsubst %.c,obj/%.o,$(TWOCATS_SOURCE))
 TEST_OBJS=$(patsubst %.c,obj/%.o,$(TEST_SOURCE))
 ENC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
 DEC_OBJS=$(patsubst %.c,obj/%.o,$(DEC_SOURCE))
+TESTWORK_OBJS=$(patsubst %.c,obj/%.o,$(TESTWORK_SOURCE))
 
-all: obj twocats-ref twocats twocats-test twocats-enc twocats-dec
+all: obj twocats-ref twocats twocats-test twocats-enc twocats-dec testwork
 
 -include $(OBJS:.o=.d) $(REF_OBJS:.o=.d) $(TWOCATS_OBJS:.o=.d) $(ENC_OBJS:.o=.d) $(DEC_OBJS:.o=.d)
 
@@ -46,6 +48,9 @@ twocats-ref: $(DEPS) $(OBJS) $(REF_OBJS)
 twocats: $(DEPS) $(OBJS) $(TWOCATS_OBJS)
 	@#$(CC) $(CFLAGS) -pthread -S twocats.c
 	$(CC) $(CFLAGS) -pthread $(OBJS) $(TWOCATS_OBJS) -o twocats $(LIBS)
+
+testwork: $(DEPS) $(OBJS) $(TESTWORK_OBJS)
+	$(CC) $(CFLAGS) -pthread $(OBJS) $(TESTWORK_OBJS) -o testwork $(LIBS)
 
 twocats-test: $(DEPS) $(OBJS) $(TEST_OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -o twocats-test $(LIBS)
