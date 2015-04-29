@@ -21,7 +21,7 @@ static void *doWork(void *workerIDPtr) {
     uint32_t *mem = calloc(len, sizeof(uint32_t));
     while(true) {
         for(uint32_t i = 0; i < len; i++) {
-	    mem[i] ^= (mem[(i*i*i*i) % len] + i) * (i | 1);
+	    mem[i] ^= (mem[(i*i*i*i) & (len-1)] + i) * (i | 1);
         }
         counts[workerID]++;
     }
@@ -79,6 +79,6 @@ int main(int argc, char **argv) {
         // among worker threads, I need to divide by the number of worker threads.
         totalWork /= numWorkers; // The total work is how many times worker threads hash memory
     }
-    printf("Total work: %u, total hashes: %u\n", totalWork, hashes);
+    printf("Total work: %0u, total hashes: %u\n", totalWork, hashes);
     return 0;
 }
