@@ -40,6 +40,7 @@ static bool hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
         uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
         uint32_t multiplies, uint8_t lanes) {
 
+    printf("%lu\n", fromAddr/blocklen);
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
     uint32_t a = state[0];
@@ -123,36 +124,33 @@ static bool hashWithoutPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, ui
 // Hash memory with password dependent addressing.
 static bool hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t p,
         uint64_t blocklen, uint32_t subBlocklen, uint32_t blocksPerThread, uint32_t multiplies,
-        uint32_t repetitions, uint8_t lanes, uint32_t parallelism, uint32_t completedBlocks) {
+        uint8_t lanes, uint32_t parallelism, uint32_t completedBlocks) {
 
     uint64_t start = blocklen*blocksPerThread*p;
 
-    // Hash one "slice" worth of memory hashing repetitions times
-    for(uint32_t r = 0; r < repetitions; r++) {
-        for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TWOCATS_SLICES; i++) {
+    for(uint32_t i = completedBlocks; i < completedBlocks + blocksPerThread/TWOCATS_SLICES; i++) {
 
-            // Compute rand()^3 distance distribution
-            uint64_t v = state[0];
-            uint64_t v2 = v*v >> 32;
-            uint64_t v3 = v*v2 >> 32;
-            uint32_t distance = (i-1)*v3 >> 32;
+        // Compute rand()^3 distance distribution
+        uint64_t v = state[0];
+        uint64_t v2 = v*v >> 32;
+        uint64_t v3 = v*v2 >> 32;
+        uint32_t distance = (i-1)*v3 >> 32;
 
-            // Hash the prior block and the block at 'distance' blocks in the past
-            uint64_t fromAddr = (i - 1 - distance)*blocklen;
+        // Hash the prior block and the block at 'distance' blocks in the past
+        uint64_t fromAddr = (i - 1 - distance)*blocklen;
 
-            // Compute which thread's memory to read from
-            if(fromAddr < completedBlocks*blocklen) {
-                fromAddr += blocklen*(state[1] % parallelism)*blocksPerThread;
-            } else {
-                fromAddr += start;
-            }
+        // Compute which thread's memory to read from
+        if(fromAddr < completedBlocks*blocklen) {
+            fromAddr += blocklen*(state[1] % parallelism)*blocksPerThread;
+        } else {
+            fromAddr += start;
+        }
 
-            uint64_t toAddr = start + i*blocklen;
-            uint64_t prevAddr = toAddr - blocklen;
-            if(!hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr,
-                    multiplies, lanes)) {
-                return false;
-            }
+        uint64_t toAddr = start + i*blocklen;
+        uint64_t prevAddr = toAddr - blocklen;
+        if(!hashBlocks(H, state, mem, blocklen, subBlocklen, fromAddr, prevAddr, toAddr,
+                multiplies, lanes)) {
+            return false;
         }
     }
     return true;
@@ -160,14 +158,13 @@ static bool hashWithPassword(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint3
 
 // Hash memory for one level of garlic.
 static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint8_t memCost,
-        uint8_t timeCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
-        uint32_t blockSize, uint32_t subBlockSize, uint32_t resistantSlices) {
+        uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
+        uint32_t subBlockSize, uint32_t resistantSlices) {
 
     uint64_t memlen = (1024/sizeof(uint32_t)) << memCost;
     uint32_t blocklen = blockSize/sizeof(uint32_t);
     uint32_t subBlocklen = subBlockSize/sizeof(uint32_t);
     uint32_t blocksPerThread = TWOCATS_SLICES*(memlen/(TWOCATS_SLICES * parallelism * blocklen));
-    uint32_t repetitions = 1 << timeCost;
 
     // Initialize thread states
     uint32_t states[H->len*parallelism];
@@ -183,14 +180,8 @@ static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint8_t me
                     return false;
                 }
             } else {
-                // We burn extra CPU time improving TMTOs, but only in the last slice.
-                uint32_t loopRepetitions = 1;
-                if(slice + 1 == TWOCATS_SLICES) {
-                    loopRepetitions = repetitions;
-                }
-
                 if(!hashWithPassword(H, states + p*H->len, mem, p, blocklen, subBlocklen, blocksPerThread,
-                        multiplies, loopRepetitions, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES)) {
+                        multiplies, lanes, parallelism, slice*blocksPerThread/TWOCATS_SLICES)) {
                     return false;
                 }
             }
@@ -202,9 +193,9 @@ static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint8_t me
 }
 
 // The TwoCats internal password hashing function.  Return false if there is a memory allocation error.
-bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopMemCost, uint8_t timeCost,
+bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopMemCost,
         uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
-        uint32_t subBlockSize, uint8_t overwriteCost) {
+        uint32_t subBlockSize, uint8_t overwriteCost, bool sideChannelResistant) {
 
     // Allocate memory
     uint32_t *mem = malloc((uint64_t)1024 << stopMemCost);
@@ -214,17 +205,15 @@ bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopM
     }
 
     // Iterate through the levels of garlic.  Throw away some early memory to reduce the
-    // danger from leaking memory to an attacker.
+    // danger from a garbage-collector attack.
     for(uint8_t i = 0; i <= stopMemCost; i++) {
         if(i >= startMemCost || i < overwriteCost) {
             if(((uint64_t)1024 << i)/(parallelism*blockSize) >= TWOCATS_SLICES) {
                 uint32_t resistantSlices = TWOCATS_SLICES/2;
-                uint32_t loopTimeCost = timeCost;
-                if(i < startMemCost) {
+                if(i < startMemCost || sideChannelResistant) {
                     resistantSlices = TWOCATS_SLICES;
-                    loopTimeCost = 0;
                 }
-                if(!hashMemory(H, hash32, mem, i, loopTimeCost, multiplies, lanes, parallelism,
+                if(!hashMemory(H, hash32, mem, i, multiplies, lanes, parallelism,
                         blockSize, subBlockSize, resistantSlices)) {
                     return false;
                 }

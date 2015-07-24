@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <pthread.h>
 #include "twocats.h"
@@ -39,12 +40,15 @@ static void startWorkers(pthread_t *workerThreads, uint32_t numWorkers) {
 
 // Run TwoCats over and over.
 static void *runTwocats(void *ptr) {
+    uint8_t password[8];
+    memcpy(password, "password", 8);
+    uint8_t salt[4];
+    memcpy(salt, "salt", 4);
     uint8_t hash[64];
     while(true) {
 	TwoCats_HashPasswordExtended(TWOCATS_BLAKE2B, hash,
-	    (uint8_t *)"password", 8, (uint8_t *)"salt", 4, NULL, 0, m_cost,
-	    m_cost, 0, 0, TWOCATS_LANES, parallelism, TWOCATS_BLOCKSIZE,
-            TWOCATS_BLOCKSIZE, 0, false, false);
+            password, 8, salt, 4, NULL, 0, m_cost, m_cost, 0, TWOCATS_LANES,
+            parallelism, TWOCATS_BLOCKSIZE, TWOCATS_BLOCKSIZE, 0, false, false);
         hashes++;
     }
     return NULL;

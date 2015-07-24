@@ -26,17 +26,17 @@ static void usage(char *format, ...) {
     vfprintf(stderr, (char *)format, ap);
     va_end(ap);
     fprintf(stderr, "\nUsage: twocats [OPTIONS] [hashType]\n"
-        "    -a algorithm     -- twocats, twocats-full, twocats-extended (default), skinnycat, or phs\n"
+        "    -a algorithm     -- twocats, twocats-full, twocats-extended (default), or phs\n"
         "    -p password      -- Set the password to hash\n"
         "    -s salt          -- Set the salt.  Salt must be in hexidecimal\n"
         "    -m memCost       -- The amount of memory to use = 2^memCost KiB\n"
-        "    -t timeCost      -- Repetitions for each block hash, computed as 2^timeCost\n"
         "    -M multiplies    -- The number of multiplies per 32 bytes of hashing, from 0 to 8\n"
         "    -l lanes         -- The number of parallel data lanes to compute on a SIMD unit\n"
         "    -P parallelism   -- Parallelism parameter, typically the number of threads\n"
         "    -b blockSize     -- BlockSize, defaults to 16384\n"
         "    -B subBlockSize  -- SubBlockSize, defaults to 64\n"
         "    -o overwriteCost -- Overwrite memCost-overwriteCost memory (0 disables)\n"
+        "    -r               -- Enable side-channel-resistant mode\n"
         "Hash types are");
     
     for(uint32_t i = 0; i < TWOCATS_NONE; i++) {
@@ -101,11 +101,14 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 int main(int argc, char **argv) {
     uint8_t parallelism = TWOCATS_PARALLELISM;
     uint8_t memCost = TWOCATS_MEMCOST;
-    uint8_t *salt = (uint8_t *)"salt";
+    uint8_t saltBuf[4];
+    uint8_t *salt = saltBuf;
     uint32_t saltSize = 4;
-    uint8_t *password = (uint8_t *)"password";
+    memcpy(salt, "salt", 4);
+    uint8_t passwordBuf[8];
+    uint8_t *password = passwordBuf;
     uint32_t passwordSize = 8;
-    uint8_t timeCost = TWOCATS_TIMECOST;
+    memcpy(password, "password", 8);
     uint8_t multiplies = TWOCATS_MULTIPLIES;
     uint32_t blockSize = TWOCATS_BLOCKSIZE;
     uint32_t subBlockSize = TWOCATS_SUBBLOCKSIZE;
@@ -114,16 +117,18 @@ int main(int argc, char **argv) {
     TwoCats_HashType hashType = TWOCATS_BLAKE2S;
     char *hashName = "blake2s";
     char *algorithm = "twocats-extended";
+    bool sideChannelResistant = false;
 
     char c;
-    while((c = getopt(argc, argv, "a:p:s:m:M:o:t:l:P:b:B:")) != -1) {
+    while((c = getopt(argc, argv, "a:p:rs:m:M:o:l:P:b:B:")) != -1) {
         switch (c) {
         case 'a':
             algorithm = optarg;
             break;
         case 'p':
-            password = (uint8_t *)optarg;
             passwordSize = strlen(optarg);
+            password = malloc(passwordSize);
+            memcpy(password, optarg, passwordSize);
             break;
         case 's':
             salt = readHexSalt(optarg, &saltSize);
@@ -137,9 +142,6 @@ int main(int argc, char **argv) {
         case 'o':
             overwriteCost = readuint32_t(c, optarg);
             break;
-        case 't':
-            timeCost = readuint32_t(c, optarg);
-            break;
         case 'l':
             lanes = readuint32_t(c, optarg);
             break;
@@ -152,6 +154,8 @@ int main(int argc, char **argv) {
         case 'B':
             subBlockSize = readuint32_t(c, optarg);
             break;
+        case 'r':
+            sideChannelResistant = true;
         default:
             usage("Invalid argument");
         }
@@ -167,38 +171,32 @@ int main(int argc, char **argv) {
         usage("Too many arguments\n");
     }
 
-    printf("hash:%s memCost:%u timeCost:%u multiplies:%u lanes:%u parallelism:%u\n",
-        hashName, memCost, timeCost, multiplies, lanes, parallelism);
+    printf("hash:%s memCost:%u multiplies:%u lanes:%u parallelism:%u\n",
+        hashName, memCost, multiplies, lanes, parallelism);
     printf("algorithm:%s password:%s salt:%s blockSize:%u subBlockSize:%u\n",
         algorithm, password, salt, blockSize, subBlockSize);
     uint8_t derivedKeySize = TwoCats_GetHashTypeSize(hashType);
     uint8_t derivedKey[derivedKeySize];
     if(!strcmp(algorithm, "twocats-extended")) {
         if(!TwoCats_HashPasswordExtended(hashType, derivedKey, password, passwordSize,
-                salt, saltSize, NULL, 0, memCost, memCost, timeCost, multiplies, lanes, parallelism,
-                blockSize, subBlockSize, overwriteCost, false, false)) {
+                salt, saltSize, NULL, 0, memCost, memCost, multiplies, lanes, parallelism,
+                blockSize, subBlockSize, overwriteCost, false, sideChannelResistant)) {
             fprintf(stderr, "Key stretching failed.\n");
             return 1;
         }
     } else if(!strcmp(algorithm, "twocats-full")) {
         if(!TwoCats_HashPasswordFull(hashType, derivedKey, password, passwordSize,
-                salt, saltSize, memCost, timeCost, parallelism, false)) {
+                salt, saltSize, memCost, parallelism, sideChannelResistant)) {
             fprintf(stderr, "Key stretching failed.\n");
             return 1;
         }
     } else if(!strcmp(algorithm, "twocats")) {
-        if(!TwoCats_HashPassword(hashType, derivedKey, password, passwordSize,
-                salt, saltSize, memCost, false)) {
-            fprintf(stderr, "Key stretching failed.\n");
-            return 1;
-        }
-    } else if(!strcmp(algorithm, "skinnycat")) {
-        if(!SkinnyCat_HashPassword(hashType, derivedKey, password, passwordSize, salt, saltSize, memCost, false)) {
+        if(!TwoCats_HashPassword(derivedKey, password, passwordSize, salt, saltSize, memCost)) {
             fprintf(stderr, "Key stretching failed.\n");
             return 1;
         }
     } else if(!strcmp(algorithm, "phs")) {
-        if(PHS(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize, timeCost, memCost)) {
+        if(PHS(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize, memCost, parallelism)) {
             fprintf(stderr, "Key stretching failed.\n");
             return 1;
         }

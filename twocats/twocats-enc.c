@@ -57,22 +57,21 @@ int main(int argc, char **argv) {
 
     // Find out how much memory to use to have 0.5 second of hashing.  Max out at 2GiB.
     // 1000 means 1000 milliseconds, and 20 means 2^21 KiB max memory == 2 GiB.
-    uint8_t memCost, timeCost, multiplies, lanes;
-    TwoCats_FindCostParameters(TWOCATS_BLAKE2S, 1000, 2*1024*1024, &memCost, &timeCost, &multiplies, &lanes);
-    printf("Encrypting with memCost=%u timeCost=%u multiplies=%u lanes=%u\n", memCost, timeCost, multiplies, lanes);
+    uint8_t memCost, multiplies, lanes;
+    TwoCats_FindCostParameters(TWOCATS_BLAKE2S, 1000, 2*1024*1024, &memCost, &multiplies, &lanes);
+    printf("Encrypting with memCost=%u multiplies=%u lanes=%u\n", memCost, multiplies, lanes);
 
     genSalt(salt);
     if(!TwoCats_HashPasswordExtended(TWOCATS_HASHTYPE, key, (uint8_t *)password, strlen(password),
-            salt, SALT_SIZE, NULL, 0, memCost, memCost, timeCost, multiplies, lanes, TWOCATS_PARALLELISM,
+            salt, SALT_SIZE, NULL, 0, memCost, memCost, multiplies, lanes, TWOCATS_PARALLELISM,
             TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Unable to hash password - memory allocation failed\n");
         return 1;
     }
 
-    // Write header: salt, memCost, timeCost, lanes
+    // Write header: salt, memCost, lanes
     fwrite(salt, sizeof(uint8_t), SALT_SIZE, outFile);
     fwrite(&memCost, sizeof(uint8_t), 1, outFile);
-    fwrite(&timeCost, sizeof(uint8_t), 1, outFile);
     fwrite(&multiplies, sizeof(uint8_t), 1, outFile);
     fwrite(&lanes, sizeof(uint8_t), 1, outFile);
 
