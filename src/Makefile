@@ -5,10 +5,10 @@ DEPS = Makefile
 CC=gcc
 
 # Use this for the normal release, unless you must support older machines
-#CFLAGS=-std=c99 -Wall -pedantic -O3 -march=native -funroll-loops
+CFLAGS=-std=c99 -Wall -pedantic -O3 -march=native -funroll-loops
 
 # Use this for debugging
-CFLAGS=-std=c99 -Wall -pedantic -g -march=native
+#CFLAGS=-std=c99 -Wall -pedantic -g -march=native
 
 # Use this for older machines that don't support SSE
 #CFLAGS=-std=c99 -Wall -pedantic -O3 -march=i686 -m32 -funroll-loops
@@ -28,7 +28,6 @@ TEST_SOURCE=twocats-test.c twocats-ref.c
 #TEST_SOURCE=twocats-test.c twocats-opt.c
 ENC_SOURCE=twocats-enc.c twocats-opt.c
 DEC_SOURCE=twocats-dec.c twocats-opt.c
-TESTWORK_SOURCE=testwork.c twocats-opt.c
 
 OBJS=$(patsubst %.c,obj/%.o,$(SOURCE))
 REF_OBJS=$(patsubst %.c,obj/%.o,$(REF_SOURCE))
@@ -36,9 +35,8 @@ TWOCATS_OBJS=$(patsubst %.c,obj/%.o,$(TWOCATS_SOURCE))
 TEST_OBJS=$(patsubst %.c,obj/%.o,$(TEST_SOURCE))
 ENC_OBJS=$(patsubst %.c,obj/%.o,$(ENC_SOURCE))
 DEC_OBJS=$(patsubst %.c,obj/%.o,$(DEC_SOURCE))
-TESTWORK_OBJS=$(patsubst %.c,obj/%.o,$(TESTWORK_SOURCE))
 
-all: obj twocats-ref twocats twocats-test twocats-enc twocats-dec testwork
+all: obj twocats-ref twocats twocats-test twocats-enc twocats-dec
 
 -include $(OBJS:.o=.d) $(REF_OBJS:.o=.d) $(TWOCATS_OBJS:.o=.d) $(ENC_OBJS:.o=.d) $(DEC_OBJS:.o=.d)
 
@@ -48,9 +46,6 @@ twocats-ref: $(DEPS) $(OBJS) $(REF_OBJS)
 twocats: $(DEPS) $(OBJS) $(TWOCATS_OBJS)
 	@#$(CC) $(CFLAGS) -pthread -S twocats-opt.c
 	$(CC) $(CFLAGS) -pthread $(OBJS) $(TWOCATS_OBJS) -o twocats $(LIBS)
-
-testwork: $(DEPS) $(OBJS) $(TESTWORK_OBJS)
-	$(CC) $(CFLAGS) -pthread $(OBJS) $(TESTWORK_OBJS) -o testwork $(LIBS)
 
 twocats-test: $(DEPS) $(OBJS) $(TEST_OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(TEST_OBJS) -o twocats-test $(LIBS)
