@@ -23,12 +23,12 @@ twocats-sha256.c \
 twocats-sha512.c
 
 REF_SOURCE=main.c twocats-ref.c
-TWOCATS_SOURCE=main.c twocats.c
+TWOCATS_SOURCE=main.c twocats-opt.c
 TEST_SOURCE=twocats-test.c twocats-ref.c
-#TEST_SOURCE=twocats-test.c twocats.c
-ENC_SOURCE=twocats-enc.c twocats.c
-DEC_SOURCE=twocats-dec.c twocats.c
-TESTWORK_SOURCE=testwork.c twocats.c
+#TEST_SOURCE=twocats-test.c twocats-opt.c
+ENC_SOURCE=twocats-enc.c twocats-opt.c
+DEC_SOURCE=twocats-dec.c twocats-opt.c
+TESTWORK_SOURCE=testwork.c twocats-opt.c
 
 OBJS=$(patsubst %.c,obj/%.o,$(SOURCE))
 REF_OBJS=$(patsubst %.c,obj/%.o,$(REF_SOURCE))
@@ -46,7 +46,7 @@ twocats-ref: $(DEPS) $(OBJS) $(REF_OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(REF_OBJS) -o twocats-ref $(LIBS)
 
 twocats: $(DEPS) $(OBJS) $(TWOCATS_OBJS)
-	@#$(CC) $(CFLAGS) -pthread -S twocats.c
+	@#$(CC) $(CFLAGS) -pthread -S twocats-opt.c
 	$(CC) $(CFLAGS) -pthread $(OBJS) $(TWOCATS_OBJS) -o twocats $(LIBS)
 
 testwork: $(DEPS) $(OBJS) $(TESTWORK_OBJS)

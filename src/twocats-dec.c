@@ -23,7 +23,9 @@ int main(int argc, char **argv) {
     if(argc != 3) {
         usage("Invalid number of arguments");
     }
-    char *password = argv[1];
+    uint32_t passwordSize = strlen(argv[1]);
+    char *password = malloc(passwordSize);
+    memcpy(password, argv[1], passwordSize);
     char *inFileName = argv[2];
     uint8_t salt[SALT_SIZE];
     uint8_t key[KEY_SIZE];

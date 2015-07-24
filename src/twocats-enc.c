@@ -36,7 +36,9 @@ int main(int argc, char **argv) {
     if(argc != 3) {
         usage("Invalid number of arguments");
     }
-    char *password = argv[1];
+    uint32_t passwordSize = strlen(argv[1]);
+    char *password = malloc(passwordSize);
+    memcpy(password, argv[1], passwordSize);
     char *inFileName = argv[2];
     uint8_t salt[SALT_SIZE];
     uint8_t key[KEY_SIZE];
@@ -62,18 +64,19 @@ int main(int argc, char **argv) {
     printf("Encrypting with memCost=%u multiplies=%u lanes=%u\n", memCost, multiplies, lanes);
 
     genSalt(salt);
-    if(!TwoCats_HashPasswordExtended(TWOCATS_HASHTYPE, key, (uint8_t *)password, strlen(password),
-            salt, SALT_SIZE, NULL, 0, memCost, memCost, multiplies, lanes, TWOCATS_PARALLELISM,
-            TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
-        fprintf(stderr, "Unable to hash password - memory allocation failed\n");
-        return 1;
-    }
 
     // Write header: salt, memCost, lanes
     fwrite(salt, sizeof(uint8_t), SALT_SIZE, outFile);
     fwrite(&memCost, sizeof(uint8_t), 1, outFile);
     fwrite(&multiplies, sizeof(uint8_t), 1, outFile);
     fwrite(&lanes, sizeof(uint8_t), 1, outFile);
+
+    if(!TwoCats_HashPasswordExtended(TWOCATS_HASHTYPE, key, (uint8_t *)password, strlen(password),
+            salt, SALT_SIZE, NULL, 0, memCost, memCost, multiplies, lanes, TWOCATS_PARALLELISM,
+            TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
+        fprintf(stderr, "Unable to hash password - memory allocation failed\n");
+        return 1;
+    }
 
     // Initialize encrpytion
     EVP_CIPHER_CTX ctx;
