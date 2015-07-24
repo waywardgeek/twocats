@@ -101,14 +101,12 @@ static uint8_t *readHexSalt(char *p, uint32_t *saltLength) {
 int main(int argc, char **argv) {
     uint8_t parallelism = TWOCATS_PARALLELISM;
     uint8_t memCost = TWOCATS_MEMCOST;
-    uint8_t saltBuf[4];
-    uint8_t *salt = saltBuf;
-    uint32_t saltSize = 4;
-    memcpy(salt, "salt", 4);
-    uint8_t passwordBuf[8];
-    uint8_t *password = passwordBuf;
+    uint8_t *password = malloc(8);
     uint32_t passwordSize = 8;
     memcpy(password, "password", 8);
+    uint8_t *salt = malloc(4);
+    uint32_t saltSize = 4;
+    memcpy(salt, "salt", 4);
     uint8_t multiplies = TWOCATS_MULTIPLIES;
     uint32_t blockSize = TWOCATS_BLOCKSIZE;
     uint32_t subBlockSize = TWOCATS_SUBBLOCKSIZE;
@@ -127,10 +125,11 @@ int main(int argc, char **argv) {
             break;
         case 'p':
             passwordSize = strlen(optarg);
-            password = malloc(passwordSize);
+            password = realloc(password, passwordSize);
             memcpy(password, optarg, passwordSize);
             break;
         case 's':
+            free(salt);
             salt = readHexSalt(optarg, &saltSize);
             break;
         case 'm':

@@ -40,7 +40,6 @@ static bool hashBlocks(TwoCats_H *H, uint32_t *state, uint32_t *mem, uint32_t bl
         uint32_t subBlocklen, uint64_t fromAddr, uint64_t prevAddr, uint64_t toAddr,
         uint32_t multiplies, uint8_t lanes) {
 
-    printf("%lu\n", fromAddr/blocklen);
     // Do SIMD friendly memory hashing and a scalar CPU friendly parallel multiplication chain
     uint32_t numSubBlocks = blocklen/subBlocklen;
     uint32_t a = state[0];

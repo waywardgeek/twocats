@@ -23,8 +23,8 @@ void test_output(TwoCats_HashType hashType,
     uint32_t hashlen = TwoCats_GetHashTypeSize(hashType);
     uint8_t hash[hashlen];
 
-    TwoCats_PrintHex("Password: ",pwd, pwdlen);
-    TwoCats_PrintHex("Salt: ",salt, saltlen);
+    TwoCats_PrintHex("Password: ", pwd, pwdlen);
+    TwoCats_PrintHex("Salt: ", salt, saltlen);
     TwoCats_PrintHex("Associated data:", data, datalen);
     printf("memCost:%u multiplies:%u lanes:%u parallelism:%u\n", memCost,
         multiplies, lanes, parallelism);
@@ -50,12 +50,14 @@ void PHC_test(TwoCats_HashType hashType) {
 
     printf("****************************************** Test passwords\n");
     for(i=0; i < 256; i++) {
-        test_output(hashType, (uint8_t *) &i, 1, NULL, 0, NULL, 0, TEST_MEMCOST,
+        uint8_t password = i;
+        test_output(hashType, &password, 1, NULL, 0, NULL, 0, TEST_MEMCOST,
             TWOCATS_MULTIPLIES, TWOCATS_LANES, TWOCATS_PARALLELISM);
     }
     printf("****************************************** Test salt\n");
     for(i=0; i < 256; i++) {
-        test_output(hashType, NULL, 0, (uint8_t *)&i, 1, NULL, 0, TEST_MEMCOST,
+        uint8_t salt = i;
+        test_output(hashType, NULL, 0, &salt, 1, NULL, 0, TEST_MEMCOST,
             TWOCATS_MULTIPLIES, TWOCATS_LANES, TWOCATS_PARALLELISM);
     }
     printf("****************************************** Test data\n");
@@ -86,19 +88,25 @@ void PHC_test(TwoCats_HashType hashType) {
 }
 
 void verifyPasswordUpdate(TwoCats_HashType hashType) {
+    uint8_t password[8];
+    memcpy(password, "password", 8);
+    uint8_t salt[4];
+    memcpy(salt, "salt", 4);
 
     uint32_t keySize = TwoCats_GetHashTypeSize(hashType);
     uint8_t hash1[keySize], hash2[keySize];
-    if(!TwoCats_HashPasswordExtended(hashType, hash1, (uint8_t *)"password", 8,
-            (uint8_t *)"salt", 4, NULL, 0, 0, TEST_MEMCOST, TWOCATS_MULTIPLIES,
+    if(!TwoCats_HashPasswordExtended(hashType, hash1, password, 8,
+            salt, 4, NULL, 0, 0, TEST_MEMCOST, TWOCATS_MULTIPLIES,
             TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE,
             TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Password hashing failed!\n");
         exit(1);
     }
     for(uint8_t memCost = 0; memCost < TEST_MEMCOST; memCost++) {
-        if(!TwoCats_HashPasswordExtended(hashType, hash2, (uint8_t *)"password", 8,
-                (uint8_t *)"salt", 4, NULL, 0, 0, memCost, TWOCATS_MULTIPLIES,
+        memcpy(password, "password", 8);
+        memcpy(salt, "salt", 4);
+        if(!TwoCats_HashPasswordExtended(hashType, hash2, password, 8,
+                salt, 4, NULL, 0, 0, memCost, TWOCATS_MULTIPLIES,
                 TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
                 TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
             fprintf(stderr, "Password hashing failed!\n");
@@ -118,11 +126,15 @@ void verifyPasswordUpdate(TwoCats_HashType hashType) {
 }
 
 void verifyClientServer(TwoCats_HashType hashType) {
+    uint8_t password[8];
+    memcpy(password, "password", 8);
+    uint8_t salt[4];
+    memcpy(salt, "salt", 4);
 
     uint32_t keySize = TwoCats_GetHashTypeSize(hashType);
     uint8_t hash1[keySize];
-    if(!TwoCats_ClientHashPassword(hashType, hash1, (uint8_t *)"password", 8,
-            (uint8_t *)"salt", 4, (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST,
+    if(!TwoCats_ClientHashPassword(hashType, hash1, password, 8,
+            salt, 4, (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST,
             TWOCATS_MULTIPLIES, TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
             TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Password hashing failed!\n");
@@ -130,8 +142,10 @@ void verifyClientServer(TwoCats_HashType hashType) {
     }
     TwoCats_ServerHashPassword(hashType, hash1);
     uint8_t hash2[keySize];
-    if(!TwoCats_HashPasswordExtended(hashType, hash2, (uint8_t *)"password", 8,
-            (uint8_t *)"salt", 4, (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST,
+    memcpy(password, "password", 8);
+    memcpy(salt, "salt", 4);
+    if(!TwoCats_HashPasswordExtended(hashType, hash2, password, 8,
+            salt, 4, (uint8_t *)"data", 4, TEST_MEMCOST, TEST_MEMCOST,
             TWOCATS_MULTIPLIES, TWOCATS_LANES, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
             TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
         fprintf(stderr, "Password hashing failed!\n");

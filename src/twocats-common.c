@@ -299,9 +299,6 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
             blockSize, subBlockSize)) {
         return false;
     }
-    if(password == NULL || passwordSize == 0 || salt == NULL || saltSize == 0) {
-        return false;
-    }
 
     // Convert overwiteCost from relative to startMemCost to absolute
     if(overwriteCost >= startMemCost) {
