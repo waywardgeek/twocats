@@ -36,6 +36,7 @@ static void usage(char *format, ...) {
         "    -b blockSize     -- BlockSize, defaults to 16384\n"
         "    -B subBlockSize  -- SubBlockSize, defaults to 64\n"
         "    -o overwriteCost -- Overwrite memCost-overwriteCost memory (0 disables)\n"
+        "    -i iterations    -- Call the hash function this number of times\n"
         "    -r               -- Enable side-channel-resistant mode\n"
         "Hash types are");
     
@@ -116,9 +117,10 @@ int main(int argc, char **argv) {
     char *hashName = "blake2s";
     char *algorithm = "twocats-extended";
     bool sideChannelResistant = false;
+    uint32_t iterations = 1;
 
     char c;
-    while((c = getopt(argc, argv, "a:p:rs:m:M:o:l:P:b:B:")) != -1) {
+    while((c = getopt(argc, argv, "a:i:p:rs:m:M:o:l:P:b:B:")) != -1) {
         switch (c) {
         case 'a':
             algorithm = optarg;
@@ -155,6 +157,10 @@ int main(int argc, char **argv) {
             break;
         case 'r':
             sideChannelResistant = true;
+            break;
+        case 'i':
+            iterations = readuint32_t(c, optarg);
+            break;
         default:
             usage("Invalid argument");
         }
@@ -176,31 +182,33 @@ int main(int argc, char **argv) {
         algorithm, password, salt, blockSize, subBlockSize);
     uint8_t derivedKeySize = TwoCats_GetHashTypeSize(hashType);
     uint8_t derivedKey[derivedKeySize];
-    if(!strcmp(algorithm, "twocats-extended")) {
-        if(!TwoCats_HashPasswordExtended(hashType, derivedKey, password, passwordSize,
-                salt, saltSize, NULL, 0, memCost, memCost, multiplies, lanes, parallelism,
-                blockSize, subBlockSize, overwriteCost, false, sideChannelResistant)) {
-            fprintf(stderr, "Key stretching failed.\n");
-            return 1;
+    for(uint32_t i = 0; i < iterations; i++) {
+        if(!strcmp(algorithm, "twocats-extended")) {
+            if(!TwoCats_HashPasswordExtended(hashType, derivedKey, password, passwordSize,
+                    salt, saltSize, NULL, 0, memCost, memCost, multiplies, lanes, parallelism,
+                    blockSize, subBlockSize, overwriteCost, false, sideChannelResistant)) {
+                fprintf(stderr, "Key stretching failed.\n");
+                return 1;
+            }
+        } else if(!strcmp(algorithm, "twocats-full")) {
+            if(!TwoCats_HashPasswordFull(hashType, derivedKey, password, passwordSize,
+                    salt, saltSize, memCost, parallelism, sideChannelResistant)) {
+                fprintf(stderr, "Key stretching failed.\n");
+                return 1;
+            }
+        } else if(!strcmp(algorithm, "twocats")) {
+            if(!TwoCats_HashPassword(derivedKey, password, passwordSize, salt, saltSize, memCost)) {
+                fprintf(stderr, "Key stretching failed.\n");
+                return 1;
+            }
+        } else if(!strcmp(algorithm, "phs")) {
+            if(PHS(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize, memCost, parallelism)) {
+                fprintf(stderr, "Key stretching failed.\n");
+                return 1;
+            }
+        } else {
+            usage("Invalid algorithm: %s\n", algorithm);
         }
-    } else if(!strcmp(algorithm, "twocats-full")) {
-        if(!TwoCats_HashPasswordFull(hashType, derivedKey, password, passwordSize,
-                salt, saltSize, memCost, parallelism, sideChannelResistant)) {
-            fprintf(stderr, "Key stretching failed.\n");
-            return 1;
-        }
-    } else if(!strcmp(algorithm, "twocats")) {
-        if(!TwoCats_HashPassword(derivedKey, password, passwordSize, salt, saltSize, memCost)) {
-            fprintf(stderr, "Key stretching failed.\n");
-            return 1;
-        }
-    } else if(!strcmp(algorithm, "phs")) {
-        if(PHS(derivedKey, derivedKeySize, password, passwordSize, salt, saltSize, memCost, parallelism)) {
-            fprintf(stderr, "Key stretching failed.\n");
-            return 1;
-        }
-    } else {
-        usage("Invalid algorithm: %s\n", algorithm);
     }
     TwoCats_PrintHex("", derivedKey, derivedKeySize);
     return 0;
