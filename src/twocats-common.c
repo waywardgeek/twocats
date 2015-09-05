@@ -244,20 +244,20 @@ bool TwoCats_HashPasswordFull(TwoCats_HashType hashType, uint8_t *hash, uint8_t 
     while(parallelism > 1 && memSize/(parallelism*blockSize) < TWOCATS_MINBLOCKS) {
         parallelism--;
     }
-    return TwoCats_HashPasswordExtended(hashType, hash, password, passwordSize, salt,
-        saltSize, NULL, 0, memCost, memCost, multiplies, TWOCATS_LANES, parallelism,
+    return TwoCats_HashPasswordExtended(NULL, hashType, hash, password, passwordSize,
+        salt, saltSize, NULL, 0, memCost, memCost, multiplies, TWOCATS_LANES, parallelism,
         blockSize, subBlockSize, TWOCATS_OVERWRITECOST, false, sideChannelResistant);
 }
 
 // The extended password hashing interface.  
-bool TwoCats_HashPasswordExtended(TwoCats_HashType hashType, uint8_t *hash,
+bool TwoCats_HashPasswordExtended(void *memory, TwoCats_HashType hashType, uint8_t *hash,
         uint8_t *password, uint32_t passwordSize, uint8_t *salt, uint32_t saltSize,
         uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost,
-        uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize, uint32_t subBlocksize,
-        uint8_t overwriteCost, bool clearData, bool sideChannelResistant) {
+        uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
+        uint32_t subBlocksize, uint8_t overwriteCost, bool clearData, bool sideChannelResistant) {
 
-    if(!TwoCats_ClientHashPassword(hashType, hash, password, passwordSize, salt, saltSize,
-            data, dataSize, startMemCost, stopMemCost, multiplies, lanes, parallelism,
+    if(!TwoCats_ClientHashPassword(memory, hashType, hash, password, passwordSize, salt,
+           saltSize, data, dataSize, startMemCost, stopMemCost, multiplies, lanes, parallelism,
             blockSize, subBlocksize, overwriteCost, clearData, sideChannelResistant)) {
         return false;
     }
@@ -277,7 +277,7 @@ bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t ol
     }
     uint32_t hash32[H.len];
     decodeLittleEndian(hash32, hash, H.size);
-    if(!TwoCats(&H, hash32, oldMemCost, newMemCost, multiplies, lanes,
+    if(!TwoCats(NULL, &H, hash32, oldMemCost, newMemCost, multiplies, lanes,
             parallelism, blockSize, subBlockSize, 0, sideChannelResistant)) {
         return false;
     }
@@ -287,11 +287,11 @@ bool TwoCats_UpdatePassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t ol
 
 // Client-side portion of work for server-relief mode.  Return true if there are no memory
 // allocation errors.  The password and data are not cleared if there is an error.
-bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_t *password,
-        uint32_t passwordSize, uint8_t *salt, uint32_t saltSize, uint8_t *data,
-        uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost, uint8_t multiplies,
-        uint8_t lanes, uint8_t parallelism, uint32_t blockSize, uint32_t subBlockSize,
-        uint8_t overwriteCost, bool clearData, bool sideChannelResistant) {
+bool TwoCats_ClientHashPassword(void *memory, TwoCats_HashType hashType, uint8_t *hash,
+        uint8_t *password, uint32_t passwordSize, uint8_t *salt, uint32_t saltSize,
+        uint8_t *data, uint32_t dataSize, uint8_t startMemCost, uint8_t stopMemCost,
+        uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
+        uint32_t subBlockSize, uint8_t overwriteCost, bool clearData, bool sideChannelResistant) {
 
     TwoCats_H H;
     TwoCats_InitHash(&H, hashType);
@@ -328,7 +328,7 @@ bool TwoCats_ClientHashPassword(TwoCats_HashType hashType, uint8_t *hash, uint8_
         secureZeroMemory(data, dataSize);
     }
 
-    if(!TwoCats(&H, hash32, startMemCost, stopMemCost, multiplies, lanes, parallelism,
+    if(!TwoCats(memory, &H, hash32, startMemCost, stopMemCost, multiplies, lanes, parallelism,
             blockSize, subBlockSize, overwriteCost, sideChannelResistant)) {
         return false;
     }
@@ -371,7 +371,7 @@ static clock_t findRuntime(TwoCats_HashType hashType, uint8_t memCost, uint8_t m
     uint32_t keySize = TwoCats_GetHashTypeSize(hashType);
     uint8_t buf[keySize];
     clock_t start = clock();
-    if(!TwoCats_HashPasswordExtended(hashType, buf, NULL, 0, NULL, 0, NULL, 0, memCost,
+    if(!TwoCats_HashPasswordExtended(NULL, hashType, buf, NULL, 0, NULL, 0, NULL, 0, memCost,
             memCost, multiplies, lanes, TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE,
             TWOCATS_SUBBLOCKSIZE, 0, false, false)) {
         fprintf(stderr, "Memory hashing failed\n");

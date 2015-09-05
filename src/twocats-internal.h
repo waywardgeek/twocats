@@ -91,8 +91,8 @@ static inline void secureZeroMemory(void *v, uint32_t n) {
 }
 
 // The TwoCats Internal password hashing function.  Return false if there is a memory allocation error.
-bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopMemCost,
-    uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
-    uint32_t subBlockSize, uint8_t overwriteCost, bool sideChannelResistant);
+bool TwoCats(void *memory, TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost,
+    uint8_t stopMemCost, uint8_t multiplies, uint8_t lanes, uint8_t parallelism,
+    uint32_t blockSize, uint32_t subBlockSize, uint8_t overwriteCost, bool sideChannelResistant);
 void TwoCats_PrintState(char *message, uint32_t *state, uint32_t length);
 void TwoCats_DumpMemory(char *fileName, uint32_t *mem, uint64_t memlen);

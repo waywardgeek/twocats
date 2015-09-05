@@ -545,15 +545,23 @@ static bool hashMemory(TwoCats_H *H, uint32_t *hash32, uint32_t *mem, uint8_t me
 }
 
 // The TwoCats password hashing function.  Return false if there is a memory allocation error.
-bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopMemCost,
+bool TwoCats(void *memory, TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopMemCost,
         uint8_t multiplies, uint8_t lanes, uint8_t parallelism, uint32_t blockSize,
         uint32_t subBlockSize, uint8_t overwriteCost, bool sideChannelResistant) {
 
     // Allocate memory
     uint32_t *mem;
-    if(posix_memalign((void *)&mem,  64, (uint64_t)1024 << stopMemCost)) {
-        fprintf(stderr, "Unable to allocate memory\n");
-        return false;
+    if(memory != NULL) {
+        if((((uintptr_t)memory) & 0x3f) != 0) {
+            // Memory has to be alligned on 256-bit boundaries
+            return false;
+        }
+        mem = memory;
+    } else {
+        if(posix_memalign((void *)&mem,  64, (uint64_t)1024 << stopMemCost)) {
+            fprintf(stderr, "Unable to allocate memory\n");
+            return false;
+        }
     }
 
     // Iterate through the levels of garlic.  Throw away some early memory to reduce the
@@ -580,6 +588,8 @@ bool TwoCats(TwoCats_H *H, uint32_t *hash32, uint8_t startMemCost, uint8_t stopM
     }
 
     // The light is green, the trap is clean
-    free(mem);
+    if(memory == NULL) {
+        free(mem);
+    }
     return true;
 }

@@ -58,9 +58,10 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if(!TwoCats_HashPasswordExtended(TWOCATS_HASHTYPE, key, (uint8_t *)password, strlen(password),
-            salt, SALT_SIZE, NULL, 0, memCost, memCost, multiplies, lanes, TWOCATS_PARALLELISM,
-            TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST, false, false)) {
+    if(!TwoCats_HashPasswordExtended(NULL, TWOCATS_HASHTYPE, key, (uint8_t *)password,
+            strlen(password), salt, SALT_SIZE, NULL, 0, memCost, memCost, multiplies, lanes,
+            TWOCATS_PARALLELISM, TWOCATS_BLOCKSIZE, TWOCATS_SUBBLOCKSIZE, TWOCATS_OVERWRITECOST,
+            false, false)) {
         fprintf(stderr, "Unable to hash password - memory allocation failed\n");
         return 1;
     }

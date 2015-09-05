@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
     uint8_t derivedKey[derivedKeySize];
     for(uint32_t i = 0; i < iterations; i++) {
         if(!strcmp(algorithm, "twocats-extended")) {
-            if(!TwoCats_HashPasswordExtended(hashType, derivedKey, password, passwordSize,
+            if(!TwoCats_HashPasswordExtended(NULL, hashType, derivedKey, password, passwordSize,
                     salt, saltSize, NULL, 0, memCost, memCost, multiplies, lanes, parallelism,
                     blockSize, subBlockSize, overwriteCost, false, sideChannelResistant)) {
                 fprintf(stderr, "Key stretching failed.\n");
